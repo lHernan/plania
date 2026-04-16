@@ -1,7 +1,7 @@
 import { addDays, format } from "date-fns";
 import { TripPlan } from "@/lib/types";
 
-export const samplePlan: TripPlan = {
+export const samplePlan = {
   id: "trip-madrid-seoul-2026",
   name: "Madrid to Seoul: Hanok Experience",
   days: [
@@ -323,4 +323,4 @@ export const samplePlan: TripPlan = {
       price: 10,
     },
   ],
-};
+} as unknown as TripPlan;

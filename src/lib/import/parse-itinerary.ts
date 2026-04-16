@@ -58,6 +58,7 @@ export function parseItineraryText(input: string, fallbackDayId: string): {
         category: categoryFromTitle(title),
         priority: "medium",
         state: "pending",
+        sort_order: index,
       };
     })
     .filter((item): item is Activity => Boolean(item));

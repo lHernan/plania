@@ -512,6 +512,7 @@ export default function Home() {
 
   const today = format(new Date(), "yyyy-MM-dd");
   const jumpToToday = () => {
+    if (!trip) return;
     const todayDay = trip.days.find((day) => day.date === today);
     if (todayDay) {
       setActiveDay(todayDay.id);
@@ -531,7 +532,7 @@ export default function Home() {
       )
     : 0;
 
-  if (!isMounted || !trip) return null;
+  if (!isMounted || !trip || !activeDay) return null;
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
@@ -938,7 +939,6 @@ export default function Home() {
                   onClick={() => {
                     if (!newTitle.trim() || !activeDay) return;
                     addActivity({
-                      id: `activity-${Date.now()}`,
                       dayId: activeDayId,
                       city: activeDay.city,
                       title: newTitle,
@@ -949,6 +949,7 @@ export default function Home() {
                       state: "pending",
                       notes: newNotes,
                       location: newLocation,
+                      sort_order: 0,
                     });
                     setShowAdd(false);
                     setNewTitle("");
