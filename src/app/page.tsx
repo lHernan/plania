@@ -471,7 +471,7 @@ export default function Home() {
 
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || over.id === active.id) return;
+    if (!over || over.id === active.id || !activeDay) return;
 
     // 1. Reorder in store
     reorderActivities(activeDayId, String(active.id), String(over.id));
@@ -936,7 +936,7 @@ export default function Home() {
                 <button
                   className="flex-1 px-8 py-5 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
                   onClick={() => {
-                    if (!newTitle.trim()) return;
+                    if (!newTitle.trim() || !activeDay) return;
                     addActivity({
                       id: `activity-${Date.now()}`,
                       dayId: activeDayId,
