@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --glass-bg: color-mix(in srgb, var(--color-white) 80%, transparent);
+  --glass-border: color-mix(in srgb, var(--color-white) 30%, transparent);
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  
+  /* Premium Colors */
+  --brand-indigo: #4f46e5;
+  --brand-violet: #7c3aed;
+  --brand-rose: #f43f5e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass-bg: color-mix(in srgb, var(--color-slate-900) 80%, transparent);
+    --glass-border: color-mix(in srgb, var(--color-slate-800) 30%, transparent);
+    --background: #020617;
+    --foreground: #f1f5f9;
+  }
+}
+
+@theme {
+  --font-family-sans: var(--font-sans);
+  --color-brand-indigo: var(--brand-indigo);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-rose: var(--brand-rose);
+}
+
+@utility glass {
+  @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/20 dark:border-slate-800/30;
+  box-shadow: 
+    0 4px 6px -1px rgb(0 0 0 / 0.05), 
+    0 2px 4px -2px rgb(0 0 0 / 0.05),
+    inset 0 0 0 1px rgb(255 255 255 / 0.05);
+}
+
+@utility glass-dark {
+  @apply bg-slate-900/90 backdrop-blur-2xl border border-slate-800;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+}
+
+@utility premium-card {
+  @apply glass rounded-[2.5rem] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)];
+  &:hover {
+    @apply shadow-2xl shadow-indigo-500/10 -translate-y-2 scale-[1.01];
+    border-color: color-mix(in srgb, var(--brand-indigo) 30%, transparent);
+  }
+  &:active {
+    @apply scale-[0.98] duration-100;
+  }
+}
+
+@utility gradient-text {
+  @apply bg-clip-text text-transparent bg-linear-to-r from-indigo-600 to-violet-600 font-black;
+}
+
+@utility soft-shadow {
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+}
+
+@utility date-strip-shadow {
+  box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--brand-indigo) 15%, transparent);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  letter-spacing: -0.01em;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Plania Premium Travel Itinerary",
+  "short_name": "Plania",
+  "description": "Offline-first itinerary planner for complex international vacations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
