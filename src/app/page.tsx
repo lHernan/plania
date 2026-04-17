@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
-import { Activity, ActivityCategory } from "@/lib/types";
+import { Activity, ActivityCategory, CriticalReservation } from "@/lib/types";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
