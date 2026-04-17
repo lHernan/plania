@@ -156,9 +156,23 @@ function SortableActivityCard({
           
           <div className="flex items-center gap-1.5 mt-2">
             <MapPin size={12} className={completed ? "text-slate-300" : "text-slate-400 shrink-0"} />
-            <span className={`text-xs font-medium truncate ${completed ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
-              {activity.location || "Location pending"}
-            </span>
+            {activity.location ? (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const url = activity.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location as string)}`;
+                  window.open(url, "_blank");
+                }}
+                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-slate-300" : "text-indigo-500 dark:text-indigo-400 hover:text-indigo-600"}`}
+              >
+                {activity.location}
+                <ExternalLink size={10} className="shrink-0" />
+              </button>
+            ) : (
+              <span className={`text-xs font-medium truncate ${completed ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
+                Location pending
+              </span>
+            )}
           </div>
         </div>
 
@@ -364,6 +378,137 @@ function ActivityEditModal({
   );
 }
 
+function ReservationEditModal({
+  reservation,
+  onClose,
+  onSave,
+  onDelete,
+  isNew = false
+}: {
+  reservation: Partial<CriticalReservation>;
+  onClose: () => void;
+  onSave: (updates: Partial<CriticalReservation>) => void;
+  onDelete: () => void;
+  isNew?: boolean;
+}) {
+  const [localTitle, setLocalTitle] = useState(reservation.title || "");
+  const [localDate, setLocalDate] = useState(reservation.reservationDate || "");
+  const [localDeadline, setLocalDeadline] = useState(reservation.bookingDeadline || "");
+  const [localLink, setLocalLink] = useState(reservation.bookingLink || "");
+  const [localPrice, setLocalPrice] = useState(reservation.price || 0);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center md:p-6" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+      />
+      
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+      >
+        <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
+          <div className="flex justify-center mb-6 md:hidden">
+            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <input
+                value={localTitle}
+                onChange={(e) => setLocalTitle(e.target.value)}
+                className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
+                placeholder="Reservation Title..."
+                autoFocus
+              />
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> Reservation Date</label>
+              <input
+                type="date"
+                value={localDate}
+                onChange={(e) => setLocalDate(e.target.value)}
+                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> Booking Deadline</label>
+                <input
+                  type="date"
+                  value={localDeadline}
+                  onChange={(e) => setLocalDeadline(e.target.value)}
+                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> Price</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xl font-black text-slate-400">$</span>
+                  <input
+                    type="number"
+                    value={localPrice}
+                    onChange={(e) => setLocalPrice(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> Booking Link</label>
+              <input
+                type="url"
+                value={localLink}
+                onChange={(e) => setLocalLink(e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM ACTION BAR */}
+        <div className="p-4 md:px-10 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950 flex gap-3 pb-safe">
+           {!isNew && (
+             <button 
+               onClick={() => { onDelete(); onClose(); }}
+               className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
+             >
+               <Trash2 size={20} />
+             </button>
+           )}
+           <button 
+             onClick={() => {
+                onSave({
+                  title: localTitle,
+                  reservationDate: localDate,
+                  bookingDeadline: localDeadline,
+                  bookingLink: localLink,
+                  price: localPrice
+                });
+             }}
+             className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+           >
+             Save Reservation
+           </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+
 
 export default function Home() {
   const {
@@ -382,11 +527,16 @@ export default function Home() {
     error,
     fetchTrip,
     removeActivity,
-    duplicateActivity
+    duplicateActivity,
+    addReservation,
+    patchReservation,
+    removeReservation
   } = useItineraryStore();
 
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddReservation, setShowAddReservation] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [editingReservation, setEditingReservation] = useState<CriticalReservation | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -778,18 +928,30 @@ export default function Home() {
           <div className="premium-card bg-slate-900 dark:bg-white p-6 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 size-32 bg-indigo-500/10 blur-3xl rounded-full translate-x-12 -translate-y-12" />
             
-            <h3 className="text-lg font-black text-white dark:text-slate-900 mb-6 flex items-center gap-3">
-              <CreditCard className="text-indigo-400" size={24} />
-              Reservations
-            </h3>
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <h3 className="text-lg font-black text-white dark:text-slate-900 flex items-center gap-3">
+                <CreditCard className="text-indigo-400" size={24} />
+                Reservations
+              </h3>
+              <button
+                onClick={() => setShowAddReservation(true)}
+                className="size-8 rounded-xl bg-white/10 dark:bg-slate-900/10 text-white dark:text-slate-900 hover:bg-white/20 dark:hover:bg-slate-900/20 flex items-center justify-center transition-all"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
 
             <div className="space-y-4 relative z-10">
+              {trip.criticalReservations.length === 0 && (
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center py-4">No reservations yet.</p>
+              )}
               {trip.criticalReservations.map((booking) => {
                 const isBooked = booking.status === "booked";
                 return (
                   <div
                     key={booking.id}
-                    className={`rounded-2xl p-4 transition-all border ${
+                    onClick={() => setEditingReservation(booking)}
+                    className={`rounded-2xl p-4 transition-all border cursor-pointer ${
                       isBooked
                         ? "bg-slate-800/50 dark:bg-slate-50 border-transparent opacity-50 ring-1 ring-slate-700 dark:ring-slate-200"
                         : "bg-slate-800 dark:bg-slate-50 border-indigo-500/30 dark:border-indigo-200/50 shadow-lg hover:translate-y-[-2px]"
@@ -817,6 +979,7 @@ export default function Home() {
                       <input
                         type="checkbox"
                         checked={isBooked}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleBooking(booking.id)}
                         className="size-6 rounded-full border-2 border-slate-700 dark:border-slate-300 checked:bg-indigo-500 checked:border-indigo-500 transition-all cursor-pointer accent-indigo-500"
                       />
@@ -999,6 +1162,44 @@ export default function Home() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* 🎟️ ADD RESERVATION MODAL */}
+      <AnimatePresence>
+        {showAddReservation && (
+          <ReservationEditModal
+            isNew={true}
+            reservation={{
+              id: "new",
+              title: "",
+              bookingDeadline: format(new Date(), "yyyy-MM-dd"),
+              reservationDate: format(new Date(), "yyyy-MM-dd"),
+              bookingLink: "",
+              urgency: "safe",
+              status: "pending",
+              price: 0
+            }}
+            onClose={() => setShowAddReservation(false)}
+            onSave={(updates: any) => {
+              addReservation(updates);
+              setShowAddReservation(false);
+            }}
+            onDelete={() => {}}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 🎟️ EDIT RESERVATION MODAL */}
+      <AnimatePresence>
+        {editingReservation && (
+          <ReservationEditModal
+            isNew={false}
+            reservation={editingReservation}
+            onClose={() => setEditingReservation(null)}
+            onSave={(updates: any) => patchReservation(editingReservation.id, updates)}
+            onDelete={() => removeReservation(editingReservation.id)}
+          />
         )}
       </AnimatePresence>
 

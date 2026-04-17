@@ -60,6 +60,10 @@ type Store = {
   toggleBooking: (bookingId: string) => Promise<void>;
   duplicateActivity: (dayId: string, activityId: string) => Promise<void>;
   addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order">[]) => Promise<void>;
+  
+  addReservation: (reservation: Omit<CriticalReservation, "id">) => Promise<void>;
+  patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
+  removeReservation: (reservationId: string) => Promise<void>;
 };
 
 export const useItineraryStore = create<Store>((set, get) => ({
@@ -390,6 +394,100 @@ export const useItineraryStore = create<Store>((set, get) => ({
             ? { ...d, activities: [...d.activities, ...(newOnes || []).map(mapActivityFromDb)].sort((a,b) => a.time.localeCompare(b.time)) }
             : d
         )
+      }
+    }));
+  },
+
+  addReservation: async (reservation) => {
+    const { trip } = get();
+    if (!trip) return;
+
+    const dbPayload = {
+      trip_id: trip.id,
+      title: reservation.title,
+      booking_deadline: reservation.bookingDeadline,
+      reservation_date: reservation.reservationDate,
+      booking_link: reservation.bookingLink,
+      urgency: reservation.urgency,
+      status: reservation.status,
+      price: reservation.price,
+    };
+
+    const { data, error } = await supabase
+      .from("critical_reservations")
+      .insert(dbPayload)
+      .select()
+      .single();
+
+    if (error) {
+      set({ error: error.message });
+      return;
+    }
+
+    const newRes: CriticalReservation = {
+      id: data.id,
+      title: data.title,
+      bookingDeadline: data.booking_deadline,
+      reservationDate: data.reservation_date,
+      bookingLink: data.booking_link,
+      urgency: data.urgency,
+      status: data.status,
+      price: data.price,
+    };
+
+    set((state) => ({
+      trip: {
+        ...state.trip!,
+        criticalReservations: [...state.trip!.criticalReservations, newRes]
+      }
+    }));
+  },
+
+  patchReservation: async (reservationId, patch) => {
+    const dbPayload: any = {};
+    if (patch.title !== undefined) dbPayload.title = patch.title;
+    if (patch.bookingDeadline !== undefined) dbPayload.booking_deadline = patch.bookingDeadline;
+    if (patch.reservationDate !== undefined) dbPayload.reservation_date = patch.reservationDate;
+    if (patch.bookingLink !== undefined) dbPayload.booking_link = patch.bookingLink;
+    if (patch.urgency !== undefined) dbPayload.urgency = patch.urgency;
+    if (patch.status !== undefined) dbPayload.status = patch.status;
+    if (patch.price !== undefined) dbPayload.price = patch.price;
+
+    const { error } = await supabase
+      .from("critical_reservations")
+      .update(dbPayload)
+      .eq("id", reservationId);
+
+    if (error) {
+      set({ error: error.message });
+      return;
+    }
+
+    set((state) => ({
+      trip: {
+        ...state.trip!,
+        criticalReservations: state.trip!.criticalReservations.map((r) =>
+          r.id === reservationId ? { ...r, ...patch } : r
+        )
+      }
+    }));
+  },
+
+  removeReservation: async (reservationId) => {
+    const { error } = await supabase
+      .from("critical_reservations")
+      .delete()
+      .eq("id", reservationId);
+
+    if (error) {
+      set({ error: error.message });
+      return;
+    }
+
+    set((state) => ({
+      trip: {
+        ...state.trip!,
+        criticalReservations: state.trip!.criticalReservations.filter((r) => r.id !== reservationId)
       }
     }));
   }
