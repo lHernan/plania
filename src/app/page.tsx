@@ -50,21 +50,18 @@ function SortableActivityCard({
   dayId,
   activity,
   onCompleteSwipe,
+  onEdit,
 }: {
   dayId: string;
   activity: Activity;
   onCompleteSwipe: (activityId: string) => void;
+  onEdit: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
   });
   const updateState = useItineraryStore((s) => s.updateActivityState);
-  const duplicate = useItineraryStore((s) => s.duplicateActivity);
-  const patchActivity = useItineraryStore((s) => s.patchActivity);
-  const removeActivity = useItineraryStore((s) => s.removeActivity);
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [isEditingTime, setIsEditingTime] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -89,8 +86,9 @@ function SortableActivityCard({
       className={`group premium-card overflow-hidden transition-all duration-500 ease-in-out ${
         completed 
           ? "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200/40" 
-          : "border-white/20 shadow-lg hover:shadow-indigo-500/5"
+          : "border-white/20 shadow-lg hover:shadow-indigo-500/5 cursor-pointer"
       }`}
+      onClick={onEdit}
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touchStart && e.changedTouches[0].clientX - touchStart > 70 && !completed) {
@@ -99,22 +97,12 @@ function SortableActivityCard({
       }}
     >
       <div className="relative p-5 flex gap-4 items-center">
+        {/* DRAG HANDLE */}
         <div
           {...attributes}
           {...listeners}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
-        >
-          <div className="grid grid-cols-2 gap-1 px-1">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="size-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-            ))}
-          </div>
-        </div>
-
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-white dark:bg-slate-900"
         >
           <div className="grid grid-cols-2 gap-1 px-1">
             {[...Array(6)].map((_, i) => (
@@ -124,7 +112,7 @@ function SortableActivityCard({
         </div>
 
         {/* TIME & ICON GROUP */}
-        <div className="flex flex-col items-center gap-2 shrink-0 ml-2">
+        <div className="flex flex-col items-center gap-2 shrink-0 ml-4 md:ml-6 pointer-events-none">
           <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${
             completed 
               ? "bg-slate-200 dark:bg-slate-800 text-slate-400" 
@@ -136,41 +124,15 @@ function SortableActivityCard({
             })()}
           </div>
           
-          {isEditingTime ? (
-            <input
-              type="time"
-              autoFocus
-              defaultValue={activity.time}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => {
-                patchActivity(dayId, activity.id, { time: e.target.value });
-                setIsEditingTime(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  patchActivity(dayId, activity.id, { time: (e.target as HTMLInputElement).value });
-                  setIsEditingTime(false);
-                }
-              }}
-              className="w-16 text-[10px] font-black text-center bg-white dark:bg-slate-800 border-none rounded-lg p-1 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditingTime(true);
-              }}
-              className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
-                completed ? "text-slate-400" : "text-slate-900 dark:text-slate-100 hover:text-indigo-600"
-              }`}
-            >
-              {activity.time}
-            </button>
-          )}
+          <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
+            completed ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
+          }`}>
+            {activity.time}
+          </span>
         </div>
 
         {/* MAIN CONTENT */}
-        <div className="flex-1 min-w-0 py-1" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="flex-1 min-w-0 py-1">
           <div className="flex items-center gap-2 mb-1">
              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
                 completed 
@@ -193,165 +155,212 @@ function SortableActivityCard({
           </h4>
           
           <div className="flex items-center gap-1.5 mt-2">
-            <MapPin size={12} className={completed ? "text-slate-300" : "text-slate-400"} />
+            <MapPin size={12} className={completed ? "text-slate-300" : "text-slate-400 shrink-0"} />
             <span className={`text-xs font-medium truncate ${completed ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
               {activity.location || "Location pending"}
             </span>
           </div>
         </div>
 
-        {/* SATISFYING ACTION GROUP */}
+        {/* ACTION GROUP */}
         <div className="flex items-center gap-1">
-           <button
-             onPointerDown={(e) => e.stopPropagation()}
-             onClick={(e) => {
-               e.stopPropagation();
-               removeActivity(dayId, activity.id);
-             }}
-             className="size-8 flex items-center justify-center text-slate-300 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
-             title="Delete"
-           >
-             <Trash2 size={16} />
-           </button>
-
-           <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              duplicate(dayId, activity.id);
-            }}
-            className="size-8 flex items-center justify-center text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-            title="Duplicate"
-          >
-            <Plus size={18} />
-          </button>
-          
           <button
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               updateState(dayId, activity.id, completed ? "pending" : "completed");
             }}
-            className={`size-10 rounded-2xl flex items-center justify-center transition-all duration-500 border-2 ${
+            className={`size-12 md:size-10 rounded-[1.2rem] md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2 ${
               completed 
                 ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
-                : "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:scale-110"
+                : "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95"
             }`}
           >
-            <CheckCircle2 size={20} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-slate-200"} />
+            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-slate-300 md:text-slate-200"} />
           </button>
         </div>
       </div>
+    </motion.div>
+  );
+}
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/20 backdrop-blur-md"
-          >
-            <div className="p-6 space-y-8">
-              {/* STATS STRIP */}
-              <div className="grid grid-cols-2 gap-4 pb-4">
-                <div className="flex flex-col gap-1 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                    <Clock3 size={12} /> Duration
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      value={activity.durationMin}
-                      onChange={(e) => patchActivity(dayId, activity.id, { durationMin: parseInt(e.target.value) })}
-                      className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0"
-                    />
-                    <span className="text-[10px] font-black text-slate-300">MINS</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-1 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                    <CreditCard size={12} /> Est. Cost
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-300">$</span>
-                    <input
-                      type="number"
-                      value={activity.expectedCost || 0}
-                      onChange={(e) => patchActivity(dayId, activity.id, { expectedCost: parseFloat(e.target.value) })}
-                      className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0"
-                    />
-                  </div>
-                </div>
+function ActivityEditModal({
+  activity,
+  onClose,
+  onSave,
+  onDelete,
+  onDuplicate
+}: {
+  activity: Activity;
+  onClose: () => void;
+  onSave: (updates: Partial<Activity>) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+}) {
+  const [localTitle, setLocalTitle] = useState(activity.title);
+  const [localTime, setLocalTime] = useState(activity.time);
+  const [localDuration, setLocalDuration] = useState(activity.durationMin);
+  const [localCategory, setLocalCategory] = useState<ActivityCategory>(activity.category);
+  const [localCost, setLocalCost] = useState(activity.expectedCost || 0);
+  const [localLocation, setLocalLocation] = useState(activity.location || "");
+  const [localNotes, setLocalNotes] = useState(activity.notes || "");
+
+  const categories = Object.keys(CATEGORY_STYLES) as ActivityCategory[];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center md:p-6" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+      />
+      
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+      >
+        <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
+          <div className="flex justify-center mb-6 md:hidden">
+            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
+          </div>
+
+          <div className="space-y-8">
+            {/* Title & Category Row */}
+            <div>
+              <input
+                value={localTitle}
+                onChange={(e) => setLocalTitle(e.target.value)}
+                className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
+                placeholder="Adventure Title..."
+              />
+            </div>
+
+            {/* Editable Category Pills */}
+            <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x">
+              {categories.map((cat) => {
+                const isSel = localCategory === cat;
+                const conf = CATEGORY_STYLES[cat];
+                const Icon = conf.icon;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setLocalCategory(cat)}
+                    className={`snap-center flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border ${
+                      isSel 
+                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-white dark:ring-offset-slate-950` 
+                        : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon size={14} strokeWidth={isSel ? 3 : 2} />
+                    <span className="text-xs font-bold uppercase tracking-wider">{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Time & Duration */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> Time</label>
+                <input
+                  type="time"
+                  value={localTime}
+                  onChange={(e) => setLocalTime(e.target.value)}
+                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                />
               </div>
-
-              {/* LOCATION BLOCK */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <MapPin size={12} /> Adventure Spot
-                </label>
-                <div className="flex gap-3">
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Duration</label>
+                <div className="flex items-center gap-1">
                   <input
-                    type="text"
-                    value={activity.location || ""}
-                    placeholder="Where is the magic?..."
-                    onChange={(e) => patchActivity(dayId, activity.id, { location: e.target.value })}
-                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
+                    type="number"
+                    value={localDuration}
+                    onChange={(e) => setLocalDuration(parseInt(e.target.value) || 0)}
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
                   />
-                  {activity.mapsUrl && (
-                    <a
-                      href={activity.mapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="size-12 flex items-center justify-center bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 hover:scale-110 active:scale-95 transition-all"
-                    >
-                      <ExternalLink size={20} />
-                    </a>
-                  )}
+                  <span className="text-[10px] font-black text-slate-300">MINS</span>
                 </div>
-              </div>
-
-              {/* NOTES / CONTEXT */}
-              <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                      <FileText size={12} /> Traveler Notes
-                    </label>
-                    <Sparkles size={14} className="text-indigo-400" />
-                 </div>
-                 <div className="relative">
-                    <div className="absolute top-4 left-4 size-8 flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 rounded-xl pointer-events-none">
-                      <Bot size={16} className="text-indigo-600" />
-                    </div>
-                    <textarea
-                      value={activity.notes || ""}
-                      placeholder="Special instructions, what to eat, or a note for your future self..."
-                      onChange={(e) => patchActivity(dayId, activity.id, { notes: e.target.value })}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] pl-16 pr-6 py-6 text-sm font-medium min-h-[160px] focus:ring-2 focus:ring-indigo-500 transition-all resize-none shadow-sm leading-relaxed"
-                    />
-                 </div>
-              </div>
-
-              {/* DANGER ZONE - Clear Mobile Action */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    console.log("Plania: Internal Delete clicked", { dayId, activityId: activity.id });
-                    removeActivity(dayId, activity.id);
-                  }}
-                  className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100/50 active:scale-95"
-                >
-                  <Trash2 size={14} />
-                  Delete Activity
-                </button>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+
+            {/* Location & Cost */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><MapPin size={12}/> Location</label>
+                <input
+                  type="text"
+                  value={localLocation}
+                  onChange={(e) => setLocalLocation(e.target.value)}
+                  placeholder="Where is it?"
+                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> Est. Cost</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xl font-black text-slate-400">$</span>
+                  <input
+                    type="number"
+                    value={localCost}
+                    onChange={(e) => setLocalCost(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 relative">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1"><FileText size={12}/> Notes</label>
+              <textarea
+                value={localNotes}
+                onChange={(e) => setLocalNotes(e.target.value)}
+                placeholder="Special instructions, tickets needed..."
+                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-slate-900 dark:text-white leading-relaxed"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM ACTION BAR */}
+        <div className="p-4 md:px-10 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950 flex gap-3 pb-safe">
+           <button 
+             onClick={() => { onDelete(); onClose(); }}
+             className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
+           >
+             <Trash2 size={20} />
+           </button>
+           <button 
+             onClick={() => { onDuplicate(); onClose(); }}
+             className="size-14 shrink-0 rounded-[1.5rem] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 items-center justify-center hover:bg-indigo-100 transition-colors hidden md:flex"
+           >
+             <Plus size={24} />
+           </button>
+           <button 
+             onClick={() => {
+                onSave({
+                  title: localTitle,
+                  time: localTime,
+                  durationMin: localDuration,
+                  category: localCategory,
+                  expectedCost: localCost,
+                  location: localLocation,
+                  notes: localNotes
+                });
+                onClose();
+             }}
+             className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+           >
+             Save Changes
+           </button>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -372,10 +381,13 @@ export default function Home() {
     loading,
     error,
     fetchTrip,
-    removeActivity
+    removeActivity,
+    duplicateActivity
   } = useItineraryStore();
 
   const [showAdd, setShowAdd] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newTime, setNewTime] = useState("09:00");
@@ -473,33 +485,21 @@ export default function Home() {
     const { active, over } = event;
     if (!over || over.id === active.id || !activeDay) return;
 
-    // 1. Reorder in store
     reorderActivities(activeDayId, String(active.id), String(over.id));
 
-    // 2. Intelligent Auto-Time Calculation
     const movedId = String(active.id);
     const dayActivities = activeDay.activities;
     const oldIndex = dayActivities.findIndex((a) => a.id === movedId);
     
-    // We get the view order (sortedActivities) to see who the new neighbors are
     const currentOrder = sortedActivities;
-    const oldViewIndex = currentOrder.findIndex(a => a.id === movedId);
     const overViewIndex = currentOrder.findIndex(a => a.id === over.id);
 
-    // Calculate new neighbors in the view
-    // Since reorderActivities just moved it in the store, we need to find its new position.
-    // However, it's easier to calculate based on the "over" target.
-    
     let newTime = "";
     if (overViewIndex === 0) {
-      // Dropped at the top
       newTime = addMinutes(currentOrder[1].time, -30);
     } else if (overViewIndex === currentOrder.length - 1) {
-      // Dropped at the bottom
       newTime = addMinutes(currentOrder[currentOrder.length - 2].time, 30);
     } else {
-      // Dropped between two items or after/before another
-      // This is a bit tricky with dnd-kit's default behavior, but usually:
       const prev = currentOrder[overViewIndex - 1];
       const next = currentOrder[overViewIndex];
       newTime = getMidpointTime(prev.time, next.time);
@@ -508,6 +508,35 @@ export default function Home() {
     if (newTime) {
       patchActivity(activeDayId, movedId, { time: newTime });
     }
+  };
+
+  const handleSwipeEnd = (e: any, info: any) => {
+    if (!trip) return;
+    const swipeThreshold = 50;
+    if (info.offset.x < -swipeThreshold && activeIndex < trip.days.length - 1) {
+      setSlideDirection(1);
+      setActiveDay(trip.days[activeIndex + 1].id);
+    } else if (info.offset.x > swipeThreshold && activeIndex > 0) {
+      setSlideDirection(-1);
+      setActiveDay(trip.days[activeIndex - 1].id);
+    }
+  };
+
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 100 : -100,
+      opacity: 0,
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction: number) => ({
+      zIndex: 0,
+      x: direction < 0 ? 100 : -100,
+      opacity: 0,
+    }),
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -660,14 +689,20 @@ export default function Home() {
                 {/* Visual Timeline Line */}
                 <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-slate-100 dark:bg-slate-800 hidden md:block" />
 
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
                   <motion.div
                     key={activeDayId}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.4 }}
-                    className="space-y-6"
+                    custom={slideDirection}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.2}
+                    onDragEnd={handleSwipeEnd}
+                    className="space-y-6 cursor-grab active:cursor-grabbing md:cursor-auto"
                   >
                     {/* SCHEDULED SECTION */}
                     {sortedActivities.some(a => a.state !== "completed") && (
@@ -685,6 +720,7 @@ export default function Home() {
                                   dayId={activeDayId}
                                   activity={activity}
                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                  onEdit={() => setEditingActivity(activity)}
                                 />
                               </div>
                             ))}
@@ -708,6 +744,7 @@ export default function Home() {
                                   dayId={activeDayId}
                                   activity={activity}
                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                  onEdit={() => setEditingActivity(activity)}
                                 />
                               </div>
                             ))}
@@ -962,6 +999,18 @@ export default function Home() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingActivity && (
+          <ActivityEditModal
+            activity={editingActivity}
+            onClose={() => setEditingActivity(null)}
+            onSave={(updates) => patchActivity(activeDayId, editingActivity.id, updates)}
+            onDelete={() => removeActivity(activeDayId, editingActivity.id)}
+            onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}
+          />
         )}
       </AnimatePresence>
     </main>
