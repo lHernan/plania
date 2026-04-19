@@ -6,7 +6,8 @@ export type ActivityCategory =
   | "food"
   | "shopping"
   | "photos"
-  | "nightlife";
+  | "nightlife"
+  | "other";
 
 export type ActivityState = "pending" | "completed" | "skipped" | "delayed";
 export type Priority = "low" | "medium" | "high" | "critical";
