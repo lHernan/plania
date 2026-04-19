@@ -44,7 +44,12 @@ const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: 
   shopping: { icon: ShoppingBag, color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
   photos: { icon: Camera, color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-900/20" },
   nightlife: { icon: Music, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
+  other: { icon: Info, color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800" },
 };
+
+const getCategoryStyle = (category: string) =>
+  CATEGORY_STYLES[category as ActivityCategory] ??
+  CATEGORY_STYLES["other" as ActivityCategory];
 
 function SortableActivityCard({
   dayId,
@@ -116,10 +121,10 @@ function SortableActivityCard({
           <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${
             completed 
               ? "bg-slate-200 dark:bg-slate-800 text-slate-400" 
-              : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color} shadow-sm group-hover:scale-110`
+              : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color} shadow-sm group-hover:scale-110`
           }`}>
             {(() => {
-              const Icon = CATEGORY_STYLES[activity.category].icon;
+              const Icon = getCategoryStyle(activity.category).icon;
               return <Icon size={24} strokeWidth={2.5} />;
             })()}
           </div>
@@ -539,6 +544,7 @@ export default function Home() {
   const [editingReservation, setEditingReservation] = useState<CriticalReservation | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newTime, setNewTime] = useState("09:00");
   const [newNotes, setNewNotes] = useState("");
@@ -1006,14 +1012,59 @@ export default function Home() {
               <Bot className="absolute bottom-4 right-4 text-slate-200" size={24} />
             </div>
             <button
-              className="w-full rounded-[1.5rem] bg-slate-900 dark:bg-white px-5 py-4 text-xs font-black text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl tracking-widest uppercase"
-              onClick={() => {
-                const parsed = parseItineraryText(importText, activeDayId);
-                addImportedActivities(activeDayId, parsed.activities);
-                setImportText("");
+              className="w-full rounded-[1.5rem] bg-slate-900 dark:bg-white px-5 py-4 text-xs font-black text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 disabled:cursor-wait"
+              disabled={isImporting || !importText.trim()}
+              onClick={async () => {
+                try {
+                  setIsImporting(true);
+                  
+                  const res = await fetch("/api/import", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      text: importText,
+                      fallbackDate: activeDay?.date || new Date().toISOString()
+                    })
+                  });
+                  
+                  if (!res.ok) {
+                    const errBody = await res.json().catch(() => ({ error: "Unknown server error" }));
+                    throw new Error(errBody.error || `Server error ${res.status}`);
+                  }
+                  
+                  const data = await res.json();
+                  if (data.activities && Array.isArray(data.activities)) {
+                    // Map the AI output to DB structures
+                    const newOnes = data.activities.map((a: any, i: number) => ({
+                      id: `ai-${Date.now()}-${i}`,
+                      title: a.title,
+                      category: a.category || "other",
+                      location: a.location || "",
+                      time: a.time || "12:00",
+                      durationMin: a.duration_minutes || 60,
+                      notes: a.notes || "",
+                      priority: "medium",
+                      state: "pending",
+                      sort_order: 999,
+                      city: "AI Imported"
+                    }));
+
+                    // Reset button state BEFORE the async store update to avoid
+                    // Zustand re-render racing with the setTimeout
+                    setIsImporting(false);
+                    setImportText("");
+                    await addImportedActivities(activeDayId, newOnes);
+                  } else {
+                    setIsImporting(false);
+                  }
+                } catch (e) {
+                  console.error("Error with AI Import", e);
+                  alert("There was an error communicating with the AI. Please verify your API Key in .env.local");
+                  setIsImporting(false);
+                }
               }}
             >
-              Sync to Timeline
+              {isImporting ? "Processing Magic..." : "Sync to Timeline"}
             </button>
           </div>
 
