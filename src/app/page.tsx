@@ -1012,9 +1012,14 @@ export default function Home() {
               <Bot className="absolute bottom-4 right-4 text-slate-200" size={24} />
             </div>
             <button
-              className="w-full rounded-[1.5rem] bg-slate-900 dark:bg-white px-5 py-4 text-xs font-black text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 disabled:cursor-wait"
+              className={`w-full rounded-[1.5rem] px-5 py-4 text-xs font-black transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 ${
+                isImporting 
+                  ? "bg-slate-800 dark:bg-slate-200 text-white/50 dark:text-slate-900/50 cursor-wait" 
+                  : "bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
+              }`}
               disabled={isImporting || !importText.trim()}
               onClick={async () => {
+                if (!importText.trim() || isImporting) return;
                 try {
                   setIsImporting(true);
                   
@@ -1034,7 +1039,6 @@ export default function Home() {
                   
                   const data = await res.json();
                   if (data.activities && Array.isArray(data.activities)) {
-                    // Map the AI output to DB structures
                     const newOnes = data.activities.map((a: any, i: number) => ({
                       id: `ai-${Date.now()}-${i}`,
                       title: a.title,
@@ -1049,18 +1053,14 @@ export default function Home() {
                       city: "AI Imported"
                     }));
 
-                    // Reset button state BEFORE the async store update to avoid
-                    // Zustand re-render racing with the setTimeout
-                    setIsImporting(false);
-                    setImportText("");
                     await addImportedActivities(activeDayId, newOnes);
-                  } else {
-                    setIsImporting(false);
+                    setImportText(""); // This ensures the text area clears
                   }
                 } catch (e) {
                   console.error("Error with AI Import", e);
-                  alert("There was an error communicating with the AI. Please verify your API Key in .env.local");
-                  setIsImporting(false);
+                  alert("Hubo un error con la IA. Verifica tu API Key o conexión.");
+                } finally {
+                  setIsImporting(false); // Synchronous local state update batched by React
                 }
               }}
             >

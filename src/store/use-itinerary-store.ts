@@ -44,6 +44,7 @@ type Store = {
   activeDayId: string;
   dayScrollY: Record<string, number>;
   loading: boolean;
+  isImporting: boolean;
   error: string | null;
 
   // Actions
@@ -64,6 +65,7 @@ type Store = {
   addReservation: (reservation: Omit<CriticalReservation, "id">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
+  setIsImporting: (status: boolean) => void;
 };
 
 export const useItineraryStore = create<Store>((set, get) => ({
@@ -71,6 +73,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
   activeDayId: "",
   dayScrollY: {},
   loading: false,
+  isImporting: false,
   error: null,
 
   fetchTrip: async () => {
@@ -490,5 +493,6 @@ export const useItineraryStore = create<Store>((set, get) => ({
         criticalReservations: state.trip!.criticalReservations.filter((r) => r.id !== reservationId)
       }
     }));
-  }
+  },
+  setIsImporting: (status: boolean) => set({ isImporting: status })
 }));
