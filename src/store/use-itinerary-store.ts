@@ -45,6 +45,7 @@ type Store = {
   dayScrollY: Record<string, number>;
   loading: boolean;
   isImporting: boolean;
+  isOptimizing: boolean;
   error: string | null;
 
   // Actions
@@ -66,6 +67,7 @@ type Store = {
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
   setIsImporting: (status: boolean) => void;
+  optimizeDay: (dayId: string) => Promise<void>;
 };
 
 export const useItineraryStore = create<Store>((set, get) => ({
@@ -74,6 +76,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
   dayScrollY: {},
   loading: false,
   isImporting: false,
+  isOptimizing: false,
   error: null,
 
   fetchTrip: async () => {
@@ -494,5 +497,61 @@ export const useItineraryStore = create<Store>((set, get) => ({
       }
     }));
   },
-  setIsImporting: (status: boolean) => set({ isImporting: status })
+  setIsImporting: (status: boolean) => set({ isImporting: status }),
+
+  optimizeDay: async (dayId) => {
+    const { trip } = get();
+    if (!trip) return;
+    const day = trip.days.find(d => d.id === dayId);
+    if (!day) return;
+
+    set({ isOptimizing: true, error: null });
+    try {
+      const res = await fetch("/api/optimize-day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: day.date, activities: day.activities })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const optimizedActivities = data.optimizedActivities as Activity[];
+
+      const oldIds = day.activities.map(a => a.id);
+      if (oldIds.length) {
+        await supabase.from("activities").delete().in("id", oldIds);
+      }
+
+      const dbActivities = optimizedActivities.map((a, idx) => {
+        const dbA: any = {
+          ...mapActivityToDb(a),
+          day_id: dayId,
+          sort_order: idx
+        };
+        // Let Supabase generate new IDs for all to avoid conflict after delete
+        return dbA;
+      });
+
+      const { data: newDbActivities, error: insertError } = await supabase
+        .from("activities")
+        .insert(dbActivities)
+        .select();
+
+      if (insertError) throw insertError;
+
+      set(state => ({
+        trip: {
+          ...state.trip!,
+          days: state.trip!.days.map(d => 
+            d.id === dayId 
+              ? { ...d, activities: (newDbActivities || []).map(mapActivityFromDb).sort((a,b) => a.time.localeCompare(b.time)) }
+              : d
+          )
+        },
+        isOptimizing: false
+      }));
+
+    } catch (e: any) {
+      set({ error: e.message || "Failed to optimize day", isOptimizing: false });
+    }
+  }
 }));

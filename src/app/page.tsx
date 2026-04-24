@@ -535,7 +535,9 @@ export default function Home() {
     duplicateActivity,
     addReservation,
     patchReservation,
-    removeReservation
+    removeReservation,
+    isOptimizing,
+    optimizeDay: runOptimizeDay
   } = useItineraryStore();
 
   const [showAdd, setShowAdd] = useState(false);
@@ -800,12 +802,22 @@ export default function Home() {
                 </div>
              </div>
              
-             <button 
-                onClick={jumpToToday}
-                className="px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100/50"
-             >
-                Today
-             </button>
+             <div className="flex items-center gap-2">
+               <button 
+                  onClick={() => runOptimizeDay(activeDayId)}
+                  disabled={isOptimizing}
+                  className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
+               >
+                  {isOptimizing ? <div className="size-3 border-2 border-fuchsia-600/20 border-t-fuchsia-600 rounded-full animate-spin" /> : <Sparkles size={12} />}
+                  Day Genius
+               </button>
+               <button 
+                  onClick={jumpToToday}
+                  className="px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100/50"
+               >
+                  Today
+               </button>
+             </div>
           </div>
 
           {/* PROGRESS CARDS GRID */}
