@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
+import { enUS, es } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -32,8 +33,10 @@ import {
   MicOff,
   Edit2,
   X,
-  Loader2
+  Loader2,
+  Globe
 } from "lucide-react";
+import { useI18n } from "@/components/I18nProvider";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import { Activity, ActivityCategory, CriticalReservation } from "@/lib/types";
@@ -67,6 +70,7 @@ function SortableActivityCard({
   onCompleteSwipe: (activityId: string) => void;
   onEdit: () => void;
 }) {
+  const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
   });
@@ -149,10 +153,10 @@ function SortableActivityCard({
                   ? "bg-slate-100 dark:bg-slate-800 text-slate-400" 
                   : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color}`
              }`}>
-              {activity.category}
+              {t(activity.category)}
             </span>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest tabular-nums">
-              · {activity.durationMin}M
+              · {activity.durationMin}{t("mins_short")}
             </span>
           </div>
           
@@ -180,7 +184,7 @@ function SortableActivityCard({
               </button>
             ) : (
               <span className={`text-xs font-medium truncate ${completed ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
-                Location pending
+                {t("location_pending")}
               </span>
             )}
           </div>
@@ -221,6 +225,7 @@ function ActivityEditModal({
   onDelete: () => void;
   onDuplicate: () => void;
 }) {
+  const { t } = useI18n();
   const [localTitle, setLocalTitle] = useState(activity.title);
   const [localTime, setLocalTime] = useState(activity.time);
   const [localDuration, setLocalDuration] = useState(activity.durationMin);
@@ -260,7 +265,7 @@ function ActivityEditModal({
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
                 className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
-                placeholder="Adventure Title..."
+                placeholder={t("adventure_title_placeholder")}
               />
             </div>
 
@@ -281,7 +286,7 @@ function ActivityEditModal({
                     }`}
                   >
                     <Icon size={14} strokeWidth={isSel ? 3 : 2} />
-                    <span className="text-xs font-bold uppercase tracking-wider">{cat}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">{t(cat)}</span>
                   </button>
                 );
               })}
@@ -290,7 +295,7 @@ function ActivityEditModal({
             {/* Time & Duration */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> Time</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
                 <input
                   type="time"
                   value={localTime}
@@ -299,7 +304,7 @@ function ActivityEditModal({
                 />
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Duration</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">{t("duration_mins")}</label>
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
@@ -307,7 +312,7 @@ function ActivityEditModal({
                     onChange={(e) => setLocalDuration(parseInt(e.target.value) || 0)}
                     className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
                   />
-                  <span className="text-[10px] font-black text-slate-300">MINS</span>
+                  <span className="text-[10px] font-black text-slate-300">{t("mins_short")}</span>
                 </div>
               </div>
             </div>
@@ -315,17 +320,17 @@ function ActivityEditModal({
             {/* Location & Cost */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><MapPin size={12}/> Location</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
                 <input
                   type="text"
                   value={localLocation}
                   onChange={(e) => setLocalLocation(e.target.value)}
-                  placeholder="Where is it?"
+                  placeholder={t("location_placeholder")}
                   className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
                 />
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> Est. Cost</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
                 <div className="flex items-center gap-1">
                   <span className="text-xl font-black text-slate-400">$</span>
                   <input
@@ -340,11 +345,11 @@ function ActivityEditModal({
 
             {/* Notes */}
             <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 relative">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1"><FileText size={12}/> Notes</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
               <textarea
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
-                placeholder="Special instructions, tickets needed..."
+                placeholder={t("notes_placeholder")}
                 className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-slate-900 dark:text-white leading-relaxed"
               />
             </div>
@@ -380,7 +385,7 @@ function ActivityEditModal({
              }}
              className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
-             Save Changes
+             {t("save_changes")}
            </button>
         </div>
       </motion.div>
@@ -401,6 +406,7 @@ function ReservationEditModal({
   onDelete: () => void;
   isNew?: boolean;
 }) {
+  const { t } = useI18n();
   const [localTitle, setLocalTitle] = useState(reservation.title || "");
   const [localDate, setLocalDate] = useState(reservation.reservationDate || "");
   const [localDeadline, setLocalDeadline] = useState(reservation.bookingDeadline || "");
@@ -435,13 +441,13 @@ function ReservationEditModal({
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
                 className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
-                placeholder="Reservation Title..."
+                placeholder={t("reservation_title_placeholder")}
                 autoFocus
               />
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> Reservation Date</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
               <input
                 type="date"
                 value={localDate}
@@ -452,7 +458,7 @@ function ReservationEditModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> Booking Deadline</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
                 <input
                   type="date"
                   value={localDeadline}
@@ -462,7 +468,7 @@ function ReservationEditModal({
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> Price</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
                 <div className="flex items-center gap-1">
                   <span className="text-xl font-black text-slate-400">$</span>
                   <input
@@ -476,7 +482,7 @@ function ReservationEditModal({
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> Booking Link</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
               <input
                 type="url"
                 value={localLink}
@@ -510,7 +516,7 @@ function ReservationEditModal({
              }}
              className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
-             Save Reservation
+             {t("save_reservation")}
            </button>
         </div>
       </motion.div>
@@ -521,6 +527,9 @@ function ReservationEditModal({
 
 
 export default function Home() {
+  const { lang, setLang, t } = useI18n();
+  const dateFnsLocale = lang === "es" ? es : enUS;
+
   const {
     trip,
     activeDayId,
@@ -611,7 +620,7 @@ export default function Home() {
       }
     } catch (e) {
       console.error("Error with AI Import", e);
-      alert("Hubo un error con la IA. Verifica tu API Key o conexión.");
+      alert(t("error_ai_import"));
     } finally {
       setIsImporting(false);
       setVoiceState("idle");
@@ -624,7 +633,7 @@ export default function Home() {
     try {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.lang = 'es-ES'; // Force Spanish (Spain) to match natural speech patterns
+      recognition.lang = lang === 'es' ? 'es-ES' : 'en-US'; // Force matched language
       recognition.continuous = false;
       recognition.interimResults = true;
       
@@ -648,7 +657,7 @@ export default function Home() {
 
       recognition.onerror = (event: any) => {
         if (event.error === 'not-allowed') {
-          alert("Microphone access was denied. Please allow microphone permissions in your browser to use voice import.");
+          alert(t("mic_denied"));
         } else {
           console.warn("Speech recognition error:", event.error);
         }
@@ -748,7 +757,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading Adventure...</p>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t("loading_adventure")}</p>
         </div>
       </div>
     );
@@ -761,13 +770,13 @@ export default function Home() {
           <div className="size-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Info className="text-rose-600" size={32} />
           </div>
-          <h2 className="text-xl font-black text-slate-900 mb-2">Connection Issue</h2>
+          <h2 className="text-xl font-black text-slate-900 mb-2">{t("connection_issue")}</h2>
           <p className="text-slate-500 text-sm mb-8">{error}</p>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold"
           >
-            Retry Connection
+            {t("retry_connection")}
           </button>
         </div>
       </div>
@@ -866,21 +875,34 @@ export default function Home() {
               {trip.name}
             </h1>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-              Adventure Itinerary
+              {t("app_title")}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
-             <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">{completion.tripPct}%</span>
-                <div className="w-24 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${completion.tripPct}%` }}
-                    className="h-full bg-linear-to-r from-indigo-500 to-violet-500 rounded-full"
-                  />
+             <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+                  <Globe size={12} className="text-slate-400" />
+                  <select 
+                    value={lang} 
+                    onChange={(e) => setLang(e.target.value)}
+                    className="bg-transparent text-[10px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none pr-1"
+                  >
+                    <option value="en">EN</option>
+                    <option value="es">ES</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">{completion.tripPct}%</span>
+                  <div className="w-24 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${completion.tripPct}%` }}
+                      className="h-full bg-linear-to-r from-indigo-500 to-violet-500 rounded-full"
+                    />
+                  </div>
                 </div>
              </div>
-             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trip Status</p>
+             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t("trip_status")}</p>
           </div>
         </div>
 
@@ -900,10 +922,10 @@ export default function Home() {
                 }`}
               >
                 <span className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isActive ? "text-indigo-400" : "text-slate-400"}`}>
-                  {format(day.date, "EEE")}
+                  {format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
                 <span className="text-lg font-black tracking-tighter">
-                  {format(day.date, "d")}
+                  {format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
                   <div className="absolute top-2 right-2 size-1.5 rounded-full bg-indigo-500" />
@@ -928,7 +950,7 @@ export default function Home() {
                     <CalendarDays size={20} />
                   </div>
                   <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                    {format(activeDay.date, "EEEE, MMM d")}
+                    {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
                   </h2>
                 </div>
                 <div className="flex items-center gap-2 ml-13">
@@ -944,13 +966,13 @@ export default function Home() {
                   className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
                >
                   {isOptimizing ? <div className="size-3 border-2 border-fuchsia-600/20 border-t-fuchsia-600 rounded-full animate-spin" /> : <Sparkles size={12} />}
-                  Day Genius
+                  {t("day_genius")}
                </button>
                <button 
                   onClick={jumpToToday}
                   className="px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100/50"
                >
-                  Today
+                  {t("today")}
                </button>
              </div>
           </div>
@@ -958,7 +980,7 @@ export default function Home() {
           {/* PROGRESS CARDS GRID */}
           <div className="grid grid-cols-2 gap-4">
               <div className="premium-card p-5 border-l-4 border-l-indigo-500">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Day Progress</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
                   <div className="flex items-end justify-between">
                       <span className="text-2xl font-black text-slate-900 dark:text-white">{completion.dayPct}%</span>
                       <CheckCircle2 size={24} className="text-indigo-500 mb-1" />
@@ -972,14 +994,14 @@ export default function Home() {
                   </div>
               </div>
               <div className="premium-card p-5 border-l-4 border-l-violet-500">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Budget Status</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
                   <div className="flex items-end justify-between">
                       <span className="text-xl font-black text-slate-900 dark:text-white">
                         {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
                       </span>
                       <CreditCard size={24} className="text-violet-500 mb-1" />
                   </div>
-                  <p className="text-[10px] font-bold text-slate-500 mt-3">Estimated for {activeDay.city}</p>
+                  <p className="text-[10px] font-bold text-slate-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
               </div>
           </div>
 
@@ -1012,7 +1034,7 @@ export default function Home() {
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 ml-2">
                            <div className="size-2 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/50" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Scheduled Adventure</h3>
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{t("scheduled_adventure")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
@@ -1036,7 +1058,7 @@ export default function Home() {
                       <div className="space-y-4 opacity-70">
                         <div className="flex items-center gap-3 ml-2">
                            <div className="size-2 rounded-full bg-slate-300" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Memory Lane</h3>
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">{t("memory_lane")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
@@ -1061,10 +1083,10 @@ export default function Home() {
                           <Plane className="text-slate-200" size={40} />
                         </div>
                         <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                          Where to first?
+                          {t("where_to_first")}
                         </h3>
                         <p className="text-slate-500 text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
-                          Your itinerary is a blank canvas. Start adding destinations to begin the adventure.
+                          {t("empty_itinerary_hint")}
                         </p>
                       </div>
                     )}
@@ -1084,7 +1106,7 @@ export default function Home() {
             <div className="flex items-center justify-between mb-6 relative z-10">
               <h3 className="text-lg font-black text-white dark:text-slate-900 flex items-center gap-3">
                 <CreditCard className="text-indigo-400" size={24} />
-                Reservations
+                {t("critical_reservations")}
               </h3>
               <button
                 onClick={() => setShowAddReservation(true)}
@@ -1096,7 +1118,7 @@ export default function Home() {
 
             <div className="space-y-4 relative z-10">
               {trip.criticalReservations.length === 0 && (
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center py-4">No reservations yet.</p>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center py-4">{t("no_reservations_yet")}</p>
               )}
               {trip.criticalReservations.map((booking) => {
                 const isBooked = booking.status === "booked";
@@ -1116,10 +1138,10 @@ export default function Home() {
                           <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                             isBooked ? "bg-slate-700 text-slate-400" : "bg-indigo-500 text-white"
                           }`}>
-                            {booking.status}
+                            {t(booking.status)}
                           </span>
                           {booking.urgency === "today" && !isBooked && (
-                            <span className="text-[8px] font-black text-rose-400 animate-pulse">CRITICAL</span>
+                            <span className="text-[8px] font-black text-rose-400 animate-pulse">{t("critical")}</span>
                           )}
                         </div>
                         <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-slate-500 line-through" : "text-white dark:text-slate-900"}`}>
@@ -1202,7 +1224,7 @@ export default function Home() {
               disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
               onClick={() => handleImportSync(importText)}
             >
-              {isImporting || voiceState === 'syncing' ? "Processing Magic..." : "Sync to Timeline"}
+              {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
             </button>
           </div>
 
@@ -1210,14 +1232,14 @@ export default function Home() {
           <div className="premium-card p-8 border-2 border-indigo-500/30 shadow-indigo-500/5">
              <div className="flex items-center justify-between mb-8">
                 <div className="space-y-1">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Day Genius</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">AI Route Optimization</p>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">{t("day_genius")}</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("ai_route_optimization")}</p>
                 </div>
                 <Bot className="text-indigo-500" size={32} />
              </div>
 
              <button className="w-full rounded-[1.5rem] bg-indigo-600 px-6 py-4 text-xs font-black text-white shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 transition-all tracking-widest uppercase mb-8">
-                Run Optimizer
+                {t("run_optimizer")}
              </button>
 
              <div className="space-y-4">
@@ -1270,7 +1292,7 @@ export default function Home() {
                   <Plus size={24} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white">New Adventure</h3>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white">{t("new_activity")}</h3>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Day {activeIndex + 1} · {activeDay.city}</p>
                 </div>
               </div>
@@ -1278,17 +1300,17 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">
-                    Activity Name
+                    {t("title")}
                   </label>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50"
-                    placeholder="e.g., Summit at Fuji"
+                    placeholder={t("title_placeholder")}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">Start Time</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("time")}</label>
                   <input
                     type="time"
                     value={newTime}
@@ -1297,21 +1319,21 @@ export default function Home() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">Location</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("location")}</label>
                   <input
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50"
-                    placeholder="Search place..."
+                    placeholder={t("location_placeholder")}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">Notes</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("notes")}</label>
                   <textarea
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
                     className="w-full rounded-[1.5rem] border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50 min-h-[120px] resize-none"
-                    placeholder="What should we remember?..."
+                    placeholder={t("notes_placeholder")}
                   />
                 </div>
               </div>
@@ -1321,7 +1343,7 @@ export default function Home() {
                   className="flex-1 px-8 py-5 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black text-xs uppercase tracking-widest text-slate-500"
                   onClick={() => setShowAdd(false)}
                 >
-                  Discard
+                  {t("cancel")}
                 </button>
                 <button
                   className="flex-1 px-8 py-5 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
@@ -1346,7 +1368,7 @@ export default function Home() {
                     setNewLocation("");
                   }}
                 >
-                  Create Plan
+                  {t("create_plan")}
                 </button>
               </div>
             </motion.div>
