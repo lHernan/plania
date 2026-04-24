@@ -143,5 +143,44 @@ Do NOT return markdown.`;
       console.error("inferMissingSteps failed:", e);
     }
     return [];
+  },
+
+  async validateTimelineWithAI(activities: Activity[]): Promise<any[]> {
+    if (!activities.length) return activities;
+
+    const systemPrompt = `You are a strict, logical travel itinerary validator.
+You will receive an array of JSON objects representing a single day's travel sequence.
+Your job is to:
+1. Ensure chronological correctness (no impossible time-travel).
+2. Understand travel dependencies: "Go to airport" -> "Flight departure" -> "Layover" -> "Flight arrival" -> "Transport to accommodation".
+3. If an activity is out of order (e.g., transport to accommodation BEFORE a flight arrival), MOVE it to the correct chronological position.
+4. Extract flight intelligence: if notes or titles mention a layover, split the flight and insert "Layover in [City]" as a distinct step.
+5. Assign or adjust times ("HH:MM") logically if they are conflicting or if you inject new steps.
+6. You MUST return ONLY a JSON array of the corrected sequence of activities.
+7. The JSON objects must contain: id (keep existing, or emit a new string like "ai-gen" for injected steps), title, time, category, durationMin, notes.
+8. Do NOT wrap in markdown or code blocks. Return just the raw array.`;
+
+    const userPrompt = JSON.stringify(activities.map(a => ({
+      id: a.id,
+      title: a.title,
+      time: a.time,
+      location: a.location,
+      category: a.category,
+      durationMin: a.durationMin,
+      notes: a.notes
+    })));
+
+    try {
+      const result = await runGeminiPrompt(systemPrompt, userPrompt);
+      const jsonStart = result.indexOf("[");
+      const jsonEnd = result.lastIndexOf("]");
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        return JSON.parse(result.slice(jsonStart, jsonEnd + 1));
+      }
+    } catch (e) {
+      console.error("validateTimelineWithAI failed:", e);
+    }
+    // Fallback: return original sequence if parsing fails
+    return activities;
   }
 };

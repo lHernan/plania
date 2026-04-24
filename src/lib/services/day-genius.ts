@@ -6,7 +6,8 @@ export const dayGeniusService = {
     const normalized = await this.normalizeActivities(activities);
     const enriched = await this.enrichActivities(normalized);
     const routed = this.optimizeRoute(enriched);
-    return routed;
+    const validated = await this.validateAndFixTimeline(routed);
+    return validated;
   },
 
   async normalizeActivities(activities: Activity[]): Promise<Activity[]> {
@@ -145,5 +146,107 @@ export const dayGeniusService = {
     sorted = sorted.map((a, i) => ({ ...a, sort_order: i }));
 
     return sorted;
+  },
+
+  async validateAndFixTimeline(activities: Activity[]): Promise<Activity[]> {
+    if (!activities.length) return activities;
+
+    // 1. AI validation and restructuring
+    const aiValidated = await geminiService.validateTimelineWithAI(activities);
+    
+    // Map back to our Activity format to be safe
+    let validated: Activity[] = aiValidated.map((a: any, i: number) => {
+      // Find original to preserve some fields if possible
+      const original = activities.find(o => o.id === a.id);
+      
+      return {
+        id: a.id || `ai-gen-${Date.now()}-${i}`,
+        dayId: activities[0].dayId,
+        city: original?.city || activities[0].city || "Unassigned",
+        title: a.title || "Unknown Activity",
+        time: a.time || "12:00",
+        durationMin: a.durationMin || 60,
+        category: a.category || "other",
+        priority: original?.priority || "medium",
+        state: original?.state || "pending",
+        sort_order: i,
+        notes: a.notes || "",
+        location: original?.location || a.location || undefined,
+        mapsUrl: original?.mapsUrl || undefined,
+        reservationUrl: original?.reservationUrl || undefined,
+        expectedCost: original?.expectedCost || undefined
+      };
+    });
+
+    // 2. Strict Programmatic Enforcement (Time Ascension)
+    // We trust AI's sequential array order, but we must ensure times are ascending.
+    for (let i = 1; i < validated.length; i++) {
+      const prev = validated[i - 1];
+      const curr = validated[i];
+      
+      const prevTime = prev.time.split(":").map(Number);
+      const currTime = curr.time.split(":").map(Number);
+      
+      if (prevTime.length !== 2 || currTime.length !== 2) continue;
+
+      const prevMins = prevTime[0] * 60 + prevTime[1];
+      const currMins = currTime[0] * 60 + currTime[1];
+      
+      if (currMins < prevMins) {
+        // Force the current time to be at least equal to the previous time + 15 mins
+        const newMins = prevMins + 15;
+        const h = Math.floor(newMins / 60) % 24;
+        const m = newMins % 60;
+        curr.time = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+    }
+
+    // 3. Dependency rule check: Transport to accommodation AFTER arrival
+    const arrivalIndex = validated.findIndex(a => 
+      (a.title.toLowerCase().includes("arrival") || a.title.toLowerCase().includes("arrive")) &&
+      !a.title.toLowerCase().includes("airport")
+    );
+    
+    if (arrivalIndex !== -1) {
+      const transportIndices = validated.map((a, i) => 
+        a.title.toLowerCase().includes("transport to accommodation") || 
+        a.title.toLowerCase().includes("travel to hotel") ||
+        (a.category === "transport" && a.title.toLowerCase().includes("hotel")) 
+        ? i : -1
+      ).filter(i => i !== -1);
+      
+      for (let j = transportIndices.length - 1; j >= 0; j--) {
+        const tIdx = transportIndices[j];
+        if (tIdx < arrivalIndex) {
+          // It's before arrival! Move it to the end.
+          const [moved] = validated.splice(tIdx, 1);
+          validated.push(moved);
+        }
+      }
+    }
+
+    // Re-assign sort orders after any programmatic shifting
+    validated = validated.map((a, i) => ({ ...a, sort_order: i }));
+
+    // Re-run time ascension just in case we moved something to the end
+    for (let i = 1; i < validated.length; i++) {
+      const prev = validated[i - 1];
+      const curr = validated[i];
+      
+      const prevTime = prev.time.split(":").map(Number);
+      const currTime = curr.time.split(":").map(Number);
+      if (prevTime.length !== 2 || currTime.length !== 2) continue;
+
+      const prevMins = prevTime[0] * 60 + prevTime[1];
+      const currMins = currTime[0] * 60 + currTime[1];
+      if (currMins < prevMins) {
+        const newMins = prevMins + 15;
+        const h = Math.floor(newMins / 60) % 24;
+        const m = newMins % 60;
+        curr.time = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+    }
+
+    return validated;
   }
 };
