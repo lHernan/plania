@@ -624,7 +624,8 @@ export default function Home() {
     try {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.lang = 'es-ES'; // Force Spanish (Spain) to match natural speech patterns
+      recognition.continuous = false;
       recognition.interimResults = true;
       
       recognition.onstart = () => {
