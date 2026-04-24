@@ -27,7 +27,12 @@ import {
   Music,
   Map as MapIcon,
   Info,
-  Trash2
+  Trash2,
+  Mic,
+  MicOff,
+  Edit2,
+  X,
+  Loader2
 } from "lucide-react";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
@@ -551,6 +556,135 @@ export default function Home() {
   const [newTime, setNewTime] = useState("09:00");
   const [newNotes, setNewNotes] = useState("");
   const [newLocation, setNewLocation] = useState("");
+  
+  const [voiceState, setVoiceState] = useState<"idle" | "listening" | "preview" | "syncing">("idle");
+  const [previewCountdown, setPreviewCountdown] = useState(0);
+  const recognitionRef = useRef<any>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
+  const cancelVoice = () => {
+    if (recognitionRef.current) recognitionRef.current.stop();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setVoiceState("idle");
+    setPreviewCountdown(0);
+  };
+
+  const handleImportSync = async (textToSync: string) => {
+    if (!textToSync.trim() || isImporting) return;
+    try {
+      setIsImporting(true);
+      if (voiceState === "preview") setVoiceState("syncing");
+      
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: textToSync,
+          fallbackDate: activeDay?.date || new Date().toISOString()
+        })
+      });
+      
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: "Unknown server error" }));
+        throw new Error(errBody.error || `Server error ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.activities && Array.isArray(data.activities)) {
+        const newOnes = data.activities.map((a: any, i: number) => ({
+          id: `ai-${Date.now()}-${i}`,
+          title: a.title,
+          category: a.category || "other",
+          location: a.location || "",
+          time: a.time || "12:00",
+          durationMin: a.duration_minutes || 60,
+          notes: a.notes || "",
+          priority: "medium",
+          state: "pending",
+          sort_order: 999,
+          city: "AI Imported"
+        }));
+
+        await addImportedActivities(activeDayId, newOnes);
+        setImportText("");
+      }
+    } catch (e) {
+      console.error("Error with AI Import", e);
+      alert("Hubo un error con la IA. Verifica tu API Key o conexión.");
+    } finally {
+      setIsImporting(false);
+      setVoiceState("idle");
+      setPreviewCountdown(0);
+    }
+  };
+
+  const startListening = () => {
+    if (!isSpeechSupported) return;
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      recognition.onstart = () => {
+        setVoiceState("listening");
+        setImportText("");
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+        setImportText(finalTranscript);
+
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          recognition.stop();
+        }, 1500);
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'not-allowed') {
+          alert("Microphone access was denied. Please allow microphone permissions in your browser to use voice import.");
+        } else {
+          console.warn("Speech recognition error:", event.error);
+        }
+        cancelVoice();
+      };
+
+      recognition.onend = () => {
+        setVoiceState(prev => {
+          if (prev === "listening") {
+            setPreviewCountdown(2);
+            return "preview";
+          }
+          return prev;
+        });
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (err) {
+      console.error("Failed to start speech recognition", err);
+    }
+  };
+
+  useEffect(() => {
+    if (voiceState === "preview" && previewCountdown > 0) {
+      const timer = setTimeout(() => setPreviewCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (voiceState === "preview" && previewCountdown === 0) {
+      handleImportSync(importText);
+    }
+  }, [voiceState, previewCountdown, importText]);
+
+  const handleImportTextChange = (val: string) => {
+    setImportText(val);
+    if (voiceState === "preview") cancelVoice();
+  };
+
   const [nowTs, setNowTs] = useState<number>(0);
   const [isMounted, setIsMounted] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -1017,66 +1151,57 @@ export default function Home() {
             <div className="relative mb-4">
                <textarea
                 value={importText}
-                onChange={(e) => setImportText(e.target.value)}
+                onChange={(e) => handleImportTextChange(e.target.value)}
                 placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
-                className="w-full h-40 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none outline-none shadow-sm"
+                className={`w-full h-40 bg-white/50 dark:bg-slate-950/50 border ${voiceState === 'listening' ? 'border-red-400 dark:border-red-500 ring-4 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} rounded-3xl p-5 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none outline-none shadow-sm`}
               />
-              <Bot className="absolute bottom-4 right-4 text-slate-200" size={24} />
+              
+              <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                {voiceState === "preview" && (
+                  <div className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full shadow-lg animate-in slide-in-from-bottom-2">
+                    <Loader2 size={14} className="animate-spin" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
+                    <button onClick={cancelVoice} className="hover:bg-slate-700 dark:hover:bg-slate-200 p-0.5 rounded-full transition-colors">
+                      <X size={12} />
+                    </button>
+                    <button onClick={cancelVoice} className="hover:bg-slate-700 dark:hover:bg-slate-200 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
+                      <Edit2 size={12} />
+                    </button>
+                  </div>
+                )}
+
+                {isSpeechSupported && voiceState === "idle" && (
+                  <button onClick={startListening} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all">
+                    <Mic size={20} />
+                  </button>
+                )}
+                
+                {voiceState === "listening" && (
+                  <button onClick={cancelVoice} className="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 animate-pulse transition-all">
+                    <Mic size={20} />
+                  </button>
+                )}
+
+                {voiceState === "syncing" && (
+                  <Loader2 size={24} className="text-indigo-500 animate-spin" />
+                )}
+                
+                {voiceState === "idle" && !isSpeechSupported && (
+                  <Bot className="text-slate-200" size={24} />
+                )}
+              </div>
             </div>
+            
             <button
               className={`w-full rounded-[1.5rem] px-5 py-4 text-xs font-black transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 ${
-                isImporting 
+                isImporting || voiceState === 'syncing'
                   ? "bg-slate-800 dark:bg-slate-200 text-white/50 dark:text-slate-900/50 cursor-wait" 
                   : "bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
               }`}
-              disabled={isImporting || !importText.trim()}
-              onClick={async () => {
-                if (!importText.trim() || isImporting) return;
-                try {
-                  setIsImporting(true);
-                  
-                  const res = await fetch("/api/import", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      text: importText,
-                      fallbackDate: activeDay?.date || new Date().toISOString()
-                    })
-                  });
-                  
-                  if (!res.ok) {
-                    const errBody = await res.json().catch(() => ({ error: "Unknown server error" }));
-                    throw new Error(errBody.error || `Server error ${res.status}`);
-                  }
-                  
-                  const data = await res.json();
-                  if (data.activities && Array.isArray(data.activities)) {
-                    const newOnes = data.activities.map((a: any, i: number) => ({
-                      id: `ai-${Date.now()}-${i}`,
-                      title: a.title,
-                      category: a.category || "other",
-                      location: a.location || "",
-                      time: a.time || "12:00",
-                      durationMin: a.duration_minutes || 60,
-                      notes: a.notes || "",
-                      priority: "medium",
-                      state: "pending",
-                      sort_order: 999,
-                      city: "AI Imported"
-                    }));
-
-                    await addImportedActivities(activeDayId, newOnes);
-                    setImportText(""); // This ensures the text area clears
-                  }
-                } catch (e) {
-                  console.error("Error with AI Import", e);
-                  alert("Hubo un error con la IA. Verifica tu API Key o conexión.");
-                } finally {
-                  setIsImporting(false); // Synchronous local state update batched by React
-                }
-              }}
+              disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
+              onClick={() => handleImportSync(importText)}
             >
-              {isImporting ? "Processing Magic..." : "Sync to Timeline"}
+              {isImporting || voiceState === 'syncing' ? "Processing Magic..." : "Sync to Timeline"}
             </button>
           </div>
 
