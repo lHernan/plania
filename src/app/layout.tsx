@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
 import { I18nProvider } from "@/components/I18nProvider";
 import { AuthInitializer } from "@/components/AuthInitializer";
+import { Suspense } from "react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,7 +36,9 @@ export default function RootLayout({
         <I18nProvider>
           <AuthInitializer />
           <PwaRegister />
-          {children}
+          <Suspense fallback={null}>
+            {children}
+          </Suspense>
         </I18nProvider>
       </body>
     </html>

@@ -10,8 +10,15 @@ export function TripSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
   const { trips, activeTrip, fetchAllTrips, switchTrip, createTrip, deleteTrip, loading } = useItineraryStore();
   const { t } = useI18n();
+  const [todayStr, setTodayStr] = useState("");
+
+  useEffect(() => {
+    setTodayStr(new Date().toISOString().split('T')[0]);
+  }, []);
 
   useEffect(() => {
     fetchAllTrips();
@@ -20,8 +27,10 @@ export function TripSwitcher() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    await createTrip(newName);
+    await createTrip(newName, newStartDate || undefined, newEndDate || undefined);
     setNewName("");
+    setNewStartDate("");
+    setNewEndDate("");
     setShowCreate(false);
   };
 
@@ -106,6 +115,30 @@ export function TripSwitcher() {
                       onChange={(e) => setNewName(e.target.value)}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                     />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Start Date</label>
+                        <input
+                          type="date"
+                          min={todayStr}
+                          value={newStartDate}
+                          onChange={(e) => setNewStartDate(e.target.value)}
+                          onClick={(e) => (e.currentTarget as any).showPicker?.()}
+                          className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">End Date</label>
+                        <input
+                          type="date"
+                          min={newStartDate || todayStr}
+                          value={newEndDate}
+                          onChange={(e) => setNewEndDate(e.target.value)}
+                          onClick={(e) => (e.currentTarget as any).showPicker?.()}
+                          className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
                     <div className="flex gap-2">
                       <button 
                         type="submit"

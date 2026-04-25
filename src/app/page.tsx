@@ -420,6 +420,11 @@ function ReservationEditModal({
   const [localDeadline, setLocalDeadline] = useState(reservation.bookingDeadline || "");
   const [localLink, setLocalLink] = useState(reservation.bookingLink || "");
   const [localPrice, setLocalPrice] = useState(reservation.price || 0);
+  const [todayStr, setTodayStr] = useState("");
+
+  useEffect(() => {
+    setTodayStr(new Date().toISOString().split('T')[0]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center md:p-6" onClick={onClose}>
@@ -458,8 +463,10 @@ function ReservationEditModal({
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
               <input
                 type="date"
+                min={todayStr}
                 value={localDate}
                 onChange={(e) => setLocalDate(e.target.value)}
+                onClick={(e) => (e.currentTarget as any).showPicker?.()}
                 className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
               />
             </div>
@@ -469,8 +476,10 @@ function ReservationEditModal({
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
                 <input
                   type="date"
+                  min={todayStr}
                   value={localDeadline}
                   onChange={(e) => setLocalDeadline(e.target.value)}
+                  onClick={(e) => (e.currentTarget as any).showPicker?.()}
                   className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
                 />
               </div>
@@ -537,6 +546,7 @@ function ReservationEditModal({
 export default function Home() {
   const { lang, setLang, t } = useI18n();
   const dateFnsLocale = lang === "es" ? es : enUS;
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const {
     activeTrip,
@@ -802,7 +812,9 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t("loading_adventure")}</p>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+            {isMounted ? t("loading_adventure") : "Loading..."}
+          </p>
         </div>
       </div>
     );

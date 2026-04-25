@@ -250,13 +250,27 @@ export const useItineraryStore = create<Store>((set, get) => ({
       
       if (error) throw error;
       
-      // Always seed a first day to avoid empty states breaking the UI
-      await supabase.from("trip_days").insert({
-        trip_id: newTrip.id,
-        date: finalStartDate,
-        city: "New Destination",
-        label: "Day 1"
-      });
+      // Calculate and seed all days in the range
+      const daysToCreate = [];
+      const start = new Date(finalStartDate + "T00:00:00");
+      const end = new Date((endDate || finalStartDate) + "T00:00:00");
+      
+      // Limit to 90 days to avoid abuse/performance issues
+      let dayCounter = 1;
+      let current = new Date(start);
+      while (current <= end && dayCounter <= 90) {
+        daysToCreate.push({
+          trip_id: newTrip.id,
+          date: current.toISOString().split('T')[0],
+          city: "New Destination",
+          label: `Day ${dayCounter++}`
+        });
+        current.setDate(current.getDate() + 1);
+      }
+
+      if (daysToCreate.length > 0) {
+        await supabase.from("trip_days").insert(daysToCreate);
+      }
 
       await get().fetchAllTrips();
       await get().fetchActiveTrip(newTrip.id);
@@ -312,6 +326,10 @@ export const useItineraryStore = create<Store>((set, get) => ({
     const { activeTrip } = get();
     if (!activeTrip) return;
 
+    // 1. Delete activities for this day first to avoid constraint errors
+    await supabase.from("activities").delete().eq("day_id", dayId);
+
+    // 2. Delete the day itself
     const { error } = await supabase
       .from("trip_days")
       .delete()
