@@ -52,6 +52,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ loading: true });
     const { error } = await supabase.auth.signOut();
     if (!error) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("plania_migration_done");
+      }
       set({ user: null, session: null });
     }
     set({ loading: false });

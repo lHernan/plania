@@ -16,6 +16,7 @@ export type ReservationStatus = "pending" | "booked";
 export type Activity = {
   id: string;
   dayId: string;
+  tripId: string;
   city: string;
   title: string;
   time: string;
@@ -58,8 +59,20 @@ export type TripPlan = {
   id: string;
   name: string;
   userId?: string | null;
+  startDate?: string;
+  endDate?: string;
+  createdAt?: string;
   days: TripDay[];
   criticalReservations: CriticalReservation[];
+};
+
+export type TripSummary = {
+  id: string;
+  name: string;
+  startDate?: string;
+  endDate?: string;
+  dayCount: number;
+  activityCount: number;
 };
 
 export type OptimizationSuggestion = {

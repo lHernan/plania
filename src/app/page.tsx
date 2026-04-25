@@ -49,6 +49,7 @@ import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import { Activity, ActivityCategory, CriticalReservation } from "@/lib/types";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { TripSwitcher } from "@/components/TripSwitcher";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -538,9 +539,10 @@ export default function Home() {
   const dateFnsLocale = lang === "es" ? es : enUS;
 
   const {
-    trip,
+    activeTrip,
     activeDayId,
     setActiveDay,
+    fetchActiveTrip,
     addActivity,
     reorderActivities,
     updateActivityState,
@@ -551,7 +553,6 @@ export default function Home() {
     patchActivity,
     loading,
     error,
-    fetchTrip,
     removeActivity,
     duplicateActivity,
     addReservation,
@@ -559,21 +560,34 @@ export default function Home() {
     removeReservation,
     isOptimizing,
     optimizeDay: runOptimizeDay,
-    migrateGuestData
+    migrateGuestData,
+    addTripDay,
+    removeTripDay,
+    updateTripDay
   } = useItineraryStore();
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  // Migrate data and refetch when user logs in
+  const prevUserRef = useRef(user);
+
+  // Detect Guest -> Auth transition and migrate data
   useEffect(() => {
-    if (user) {
+    const isTransitionToAuth = !prevUserRef.current && user;
+    
+    if (isTransitionToAuth) {
       migrateGuestData(user.id);
-    } else {
-      fetchTrip();
+    } else if (!user && !activeTrip && !loading) {
+      // Load guest data if not logged in and no trip loaded
+      fetchActiveTrip();
+    } else if (user && !activeTrip && !loading) {
+       // Load user data if logged in and no trip loaded
+       fetchActiveTrip();
     }
-  }, [user, migrateGuestData, fetchTrip]);
+
+    prevUserRef.current = user;
+  }, [user, activeTrip, loading, migrateGuestData, fetchActiveTrip]);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -591,6 +605,9 @@ export default function Home() {
   const [newTime, setNewTime] = useState("09:00");
   const [newNotes, setNewNotes] = useState("");
   const [newLocation, setNewLocation] = useState("");
+  const [editingDay, setEditingDay] = useState<TripDay | null>(null);
+  const [editDayCity, setEditDayCity] = useState("");
+  const [editDayLabel, setEditDayLabel] = useState("");
   
   const [voiceState, setVoiceState] = useState<"idle" | "listening" | "preview" | "syncing">("idle");
   const [previewCountdown, setPreviewCountdown] = useState(0);
@@ -737,9 +754,9 @@ export default function Home() {
   useEffect(() => {
     if (isMounted) {
       console.log("Plania: fetchTrip triggered");
-      fetchTrip();
+      fetchActiveTrip();
     }
-  }, [fetchTrip, isMounted]);
+  }, [fetchActiveTrip, isMounted]);
 
   useEffect(() => {
     if (timelineRef.current) {
@@ -747,12 +764,14 @@ export default function Home() {
     }
   }, [activeDayId, dayScrollY]);
 
-  const activeIndex = trip ? Math.max(0, trip.days.findIndex((d) => d.id === activeDayId)) : 0;
-  const activeDay = trip?.days[activeIndex];
+  const activeDay = useMemo(() => 
+    activeTrip?.days.find(d => d.id === activeDayId) || activeTrip?.days[0], 
+    [activeTrip, activeDayId]
+  );
 
   const completion = useMemo(() => {
-    if (!trip || !activeDay) return { tripPct: 0, dayPct: 0, cityPct: 0 };
-    const all = trip.days.flatMap((d) => d.activities);
+    if (!activeTrip || !activeDay) return { tripPct: 0, dayPct: 0, cityPct: 0 };
+    const all = activeTrip.days.flatMap((d) => d.activities);
     const done = all.filter((a) => a.state === "completed").length;
     const dayDone = activeDay.activities.filter((a) => a.state === "completed").length;
     const cityItems = all.filter((a) => a.city === activeDay.city);
@@ -762,7 +781,7 @@ export default function Home() {
       dayPct: activeDay.activities.length ? Math.round((dayDone / activeDay.activities.length) * 100) : 0,
       cityPct: cityItems.length ? Math.round((cityDone / cityItems.length) * 100) : 0,
     };
-  }, [trip, activeDay]);
+  }, [activeTrip, activeDay]);
 
   const suggestions = useMemo(() => activeDay ? optimizeDay(activeDay) : [], [activeDay]);
 
@@ -778,7 +797,7 @@ export default function Home() {
     return [...pending, ...completed];
   }, [activeDay]);
 
-  if (!isMounted || (loading && !trip)) {
+  if (!isMounted || (loading && !activeTrip)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
@@ -809,6 +828,20 @@ export default function Home() {
     );
   }
 
+  const handleAddDay = async () => {
+    if (!activeTrip) return;
+    
+    let nextDate = format(new Date(), "yyyy-MM-dd");
+    if (activeTrip.days.length > 0) {
+      const lastDay = activeTrip.days[activeTrip.days.length - 1];
+      const dateObj = new Date(lastDay.date + "T00:00:00");
+      dateObj.setDate(dateObj.getDate() + 1);
+      nextDate = format(dateObj, "yyyy-MM-dd");
+    }
+
+    await addTripDay(nextDate, "New City", `Day ${activeTrip.days.length + 1}`);
+  };
+
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || over.id === active.id || !activeDay) return;
@@ -838,15 +871,17 @@ export default function Home() {
     }
   };
 
+  const activeIndex = activeTrip ? Math.max(0, activeTrip.days.findIndex((d) => d.id === activeDayId)) : 0;
+
   const handleSwipeEnd = (e: any, info: any) => {
-    if (!trip) return;
+    if (!activeTrip) return;
     const swipeThreshold = 50;
-    if (info.offset.x < -swipeThreshold && activeIndex < trip.days.length - 1) {
+    if (info.offset.x < -swipeThreshold && activeIndex < activeTrip.days.length - 1) {
       setSlideDirection(1);
-      setActiveDay(trip.days[activeIndex + 1].id);
+      setActiveDay(activeTrip.days[activeIndex + 1].id);
     } else if (info.offset.x > swipeThreshold && activeIndex > 0) {
       setSlideDirection(-1);
-      setActiveDay(trip.days[activeIndex - 1].id);
+      setActiveDay(activeTrip.days[activeIndex - 1].id);
     }
   };
 
@@ -889,7 +924,7 @@ export default function Home() {
       )
     : 0;
 
-  if (!isMounted || !trip || !activeDay) return null;
+  if (!isMounted || !activeTrip) return null;
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
@@ -897,10 +932,8 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-5 pt-6 pb-4">
         <div className="max-w-7xl mx-auto flex items-end justify-between mb-6">
           <div className="space-y-1">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              {trip.name}
-            </h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
+            <TripSwitcher />
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
               {t("app_title")}
             </p>
           </div>
@@ -960,7 +993,7 @@ export default function Home() {
 
         {/* 🍱 THE DATE STRIP slider */}
         <div className="max-w-7xl mx-auto flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
-          {trip.days.map((day, index) => {
+          {activeTrip.days.map((day, index) => {
             const isActive = day.id === activeDayId;
             const isToday = day.date === today;
             return (
@@ -988,6 +1021,14 @@ export default function Home() {
               </button>
             );
           })}
+          
+          <button 
+            onClick={handleAddDay}
+            className="snap-center flex flex-col items-center justify-center min-w-[70px] h-[84px] py-4 px-2 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all"
+          >
+            <Plus size={24} />
+            <span className="text-[8px] font-black uppercase tracking-widest mt-1">Add Day</span>
+          </button>
         </div>
       </header>
 
@@ -995,8 +1036,9 @@ export default function Home() {
         {/* 🕰️ MAIN TIMELINE FLOW */}
         <div className="space-y-8">
           {/* DAY INTRO */}
-          <div className="flex items-center justify-between mb-4">
-             <div className="space-y-1">
+          {activeDay ? (
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-1">
                 <div className="flex items-center gap-3">
                   <div className="size-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                     <CalendarDays size={20} />
@@ -1008,54 +1050,93 @@ export default function Home() {
                 <div className="flex items-center gap-2 ml-13">
                   <MapPin size={12} className="text-slate-400" />
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{activeDay.city}</p>
+                  <button 
+                    onClick={() => {
+                      setEditingDay(activeDay);
+                      setEditDayCity(activeDay.city);
+                      setEditDayLabel(activeDay.label);
+                    }}
+                    className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"
+                  >
+                    <Edit2 size={10} />
+                  </button>
                 </div>
-             </div>
-             
-             <div className="flex items-center gap-2">
-               <button 
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    if (confirm("Delete this entire day and all its activities?")) {
+                      removeTripDay(activeDayId);
+                    }
+                  }}
+                  className="size-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800"
+                  title="Remove Day"
+                >
+                  <Trash2 size={14} />
+                </button>
+                <button 
                   onClick={() => runOptimizeDay(activeDayId)}
                   disabled={isOptimizing}
                   className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
-               >
+                >
                   {isOptimizing ? <div className="size-3 border-2 border-fuchsia-600/20 border-t-fuchsia-600 rounded-full animate-spin" /> : <Sparkles size={12} />}
                   {t("day_genius")}
-               </button>
-               <button 
+                </button>
+                <button 
                   onClick={jumpToToday}
                   className="px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100/50"
-               >
+                >
                   {t("today")}
-               </button>
-             </div>
-          </div>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-12 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-center space-y-4">
+              <div className="size-16 bg-slate-50 dark:bg-slate-900 rounded-3xl flex items-center justify-center mx-auto text-slate-300">
+                <CalendarDays size={32} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">No days found</h3>
+                <p className="text-sm text-slate-400">Add your first destination to start planning.</p>
+              </div>
+              <button 
+                onClick={handleAddDay}
+                className="px-6 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-500/20"
+              >
+                Add Day 1
+              </button>
+            </div>
+          )}
 
-          {/* PROGRESS CARDS GRID */}
-          <div className="grid grid-cols-2 gap-4">
-              <div className="premium-card p-5 border-l-4 border-l-indigo-500">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
-                  <div className="flex items-end justify-between">
-                      <span className="text-2xl font-black text-slate-900 dark:text-white">{completion.dayPct}%</span>
-                      <CheckCircle2 size={24} className="text-indigo-500 mb-1" />
-                  </div>
-                  <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${completion.dayPct}%` }}
-                        className="h-full bg-indigo-500 rounded-full"
-                      />
-                  </div>
-              </div>
-              <div className="premium-card p-5 border-l-4 border-l-violet-500">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
-                  <div className="flex items-end justify-between">
-                      <span className="text-xl font-black text-slate-900 dark:text-white">
-                        {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
-                      </span>
-                      <CreditCard size={24} className="text-violet-500 mb-1" />
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
-              </div>
-          </div>
+          {activeDay && (
+            <div className="grid grid-cols-2 gap-4">
+                <div className="premium-card p-5 border-l-4 border-l-indigo-500">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
+                    <div className="flex items-end justify-between">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">{completion.dayPct}%</span>
+                        <CheckCircle2 size={24} className="text-indigo-500 mb-1" />
+                    </div>
+                    <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${completion.dayPct}%` }}
+                          className="h-full bg-indigo-500 rounded-full"
+                        />
+                    </div>
+                </div>
+                <div className="premium-card p-5 border-l-4 border-l-violet-500">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
+                    <div className="flex items-end justify-between">
+                        <span className="text-xl font-black text-slate-900 dark:text-white">
+                          {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
+                        </span>
+                        <CreditCard size={24} className="text-violet-500 mb-1" />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
+                </div>
+            </div>
+          )}
 
           <DndContext id="itinerary-dnd" sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext
@@ -1169,10 +1250,10 @@ export default function Home() {
             </div>
 
             <div className="space-y-4 relative z-10">
-              {trip.criticalReservations.length === 0 && (
+              {activeTrip.criticalReservations.length === 0 && (
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center py-4">{t("no_reservations_yet")}</p>
               )}
-              {trip.criticalReservations.map((booking) => {
+              {activeTrip.criticalReservations.map((booking) => {
                 const isBooked = booking.status === "booked";
                 return (
                   <div
@@ -1475,6 +1556,65 @@ export default function Home() {
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}
             onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingDay && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setEditingDay(null)}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-8"
+            >
+              <h2 className="text-xl font-black text-slate-900 dark:text-white mb-6">Edit Day</h2>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Destination City</label>
+                  <input 
+                    type="text" 
+                    value={editDayCity}
+                    onChange={(e) => setEditDayCity(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Day Label</label>
+                  <input 
+                    type="text" 
+                    value={editDayLabel}
+                    onChange={(e) => setEditDayLabel(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={async () => {
+                      await updateTripDay(editingDay.id, { city: editDayCity, label: editDayLabel });
+                      setEditingDay(null);
+                    }}
+                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20"
+                  >
+                    Save Changes
+                  </button>
+                  <button 
+                    onClick={() => setEditingDay(null)}
+                    className="px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
