@@ -57,6 +57,7 @@ export type TripDay = {
 export type TripPlan = {
   id: string;
   name: string;
+  userId?: string | null;
   days: TripDay[];
   criticalReservations: CriticalReservation[];
 };

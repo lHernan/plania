@@ -34,9 +34,16 @@ import {
   Edit2,
   X,
   Loader2,
-  Globe
+  Globe,
+  User as UserIcon,
+  LogOut,
+  ShieldCheck,
+  ChevronRight,
+  ChevronLeft
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { useAuthStore } from "@/store/use-auth-store";
+import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import { Activity, ActivityCategory, CriticalReservation } from "@/lib/types";
@@ -551,8 +558,27 @@ export default function Home() {
     patchReservation,
     removeReservation,
     isOptimizing,
-    optimizeDay: runOptimizeDay
+    optimizeDay: runOptimizeDay,
+    migrateGuestData
   } = useItineraryStore();
+
+  const { user, signOut: authSignOut } = useAuthStore();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  // Migrate data and refetch when user logs in
+  useEffect(() => {
+    if (user) {
+      migrateGuestData(user.id);
+    } else {
+      fetchTrip();
+    }
+  }, [user, migrateGuestData, fetchTrip]);
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const [showAdd, setShowAdd] = useState(false);
   const [showAddReservation, setShowAddReservation] = useState(false);
@@ -901,8 +927,34 @@ export default function Home() {
                     />
                   </div>
                 </div>
+                
+                <div className="flex items-center gap-2">
+                  {user ? (
+                    <div className="flex items-center gap-2">
+                       <div className="size-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
+                         <UserIcon size={14} />
+                       </div>
+                       <button 
+                         onClick={() => authSignOut()}
+                         className="size-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                       >
+                         <LogOut size={14} />
+                       </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setShowAuthModal(true)}
+                      className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
+                    >
+                      <ShieldCheck size={12} />
+                      {t("save_permanently")}
+                    </button>
+                  )}
+                </div>
              </div>
-             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t("trip_status")}</p>
+             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+               {user ? user.email : t("guest_mode")} • {t("trip_status")}
+             </p>
           </div>
         </div>
 
@@ -1423,6 +1475,27 @@ export default function Home() {
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}
             onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}
           />
+        )}
+      </AnimatePresence>
+
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+        onShowToast={(msg) => showToast(msg)}
+      />
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
+              toast.type === "success" ? "bg-slate-900 text-white" : "bg-rose-500 text-white"
+            }`}
+          >
+            {toast.msg}
+          </motion.div>
         )}
       </AnimatePresence>
     </main>

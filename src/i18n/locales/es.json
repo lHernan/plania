@@ -77,5 +77,10 @@
   "error_ai_import": "Hubo un error con la IA. Verifica tu API Key o conexión.",
   "mic_denied": "El acceso al micrófono fue denegado. Por favor, permite los permisos del micrófono en tu navegador para usar la importación por voz.",
   "language": "Idioma",
-  "select_language": "Seleccionar Idioma"
+  "select_language": "Seleccionar Idioma",
+  "guest_mode": "Modo Invitado",
+  "save_permanently": "Guardar Permanente",
+  "logout": "Cerrar Sesión",
+  "welcome_back": "¡Bienvenido de nuevo!",
+  "account_created": "¡Cuenta creada con éxito!"
 }

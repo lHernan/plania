@@ -68,6 +68,7 @@ type Store = {
   removeReservation: (reservationId: string) => Promise<void>;
   setIsImporting: (status: boolean) => void;
   optimizeDay: (dayId: string) => Promise<void>;
+  migrateGuestData: (userId: string) => Promise<void>;
 };
 
 export const useItineraryStore = create<Store>((set, get) => ({
@@ -83,8 +84,18 @@ export const useItineraryStore = create<Store>((set, get) => ({
     console.log("Plania: Starting fetchTrip...");
     set({ loading: true, error: null });
     try {
-      // 1. Get the first trip available (Global Trip)
-      let { data: trips, error: tripFetchError } = await supabase.from("trips").select("*").limit(1);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 1. Get the first trip available for this user or a guest trip
+      let query = supabase.from("trips").select("*");
+      if (user) {
+        query = query.eq("user_id", user.id);
+      } else {
+        query = query.is("user_id", null);
+      }
+
+      let { data: trips, error: tripFetchError } = await query.limit(1);
       
       if (tripFetchError) {
         console.error("Plania: Supabase Trip Fetch Error:", tripFetchError);
@@ -93,26 +104,32 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
       let trip;
       if (!trips || trips.length === 0) {
-        console.log("Plania: No trip found, seeding global trip...");
-        // Create initial trip if none exists
-        const { data: newTrip, error: createError } = await supabase
-          .from("trips")
-          .insert({ name: "My Seoul Adventure" })
-          .select()
-          .single();
-        
-        if (createError) throw createError;
-        trip = newTrip;
+        if (!user) {
+          console.log("Plania: No trip found, seeding global trip...");
+          // Create initial trip if none exists (Guest Mode)
+          const { data: newTrip, error: createError } = await supabase
+            .from("trips")
+            .insert({ name: "My Seoul Adventure" })
+            .select()
+            .single();
+          
+          if (createError) throw createError;
+          trip = newTrip;
 
-        // Seed initial days (May 2-5)
-        const daysToSeed = [
-          { trip_id: trip.id, date: "2026-05-02", city: "Madrid", label: "Flight to Seoul" },
-          { trip_id: trip.id, date: "2026-05-03", city: "Seoul", label: "Arrival & Hanok Magic" },
-          { trip_id: trip.id, date: "2026-05-04", city: "Seoul", label: "Palace + Modern Seoul" },
-          { trip_id: trip.id, date: "2026-05-05", city: "Seoul", label: "Foodie + Relax + Hongdae" },
-        ];
-        await supabase.from("trip_days").insert(daysToSeed);
-        console.log("Plania: Seeding complete.");
+          // Seed initial days (May 2-5)
+          const daysToSeed = [
+            { trip_id: trip.id, date: "2026-05-02", city: "Madrid", label: "Flight to Seoul" },
+            { trip_id: trip.id, date: "2026-05-03", city: "Seoul", label: "Arrival & Hanok Magic" },
+            { trip_id: trip.id, date: "2026-05-04", city: "Seoul", label: "Palace + Modern Seoul" },
+            { trip_id: trip.id, date: "2026-05-05", city: "Seoul", label: "Foodie + Relax + Hongdae" },
+          ];
+          await supabase.from("trip_days").insert(daysToSeed);
+        } else {
+          // If logged in but no trip, return null (User can create one)
+          console.log("Plania: Logged in user has no trips.");
+          set({ trip: null, loading: false });
+          return;
+        }
       } else {
         trip = trips[0];
         console.log("Plania: Trip found:", trip.id);
@@ -138,10 +155,10 @@ export const useItineraryStore = create<Store>((set, get) => ({
         .select("*")
         .eq("trip_id", trip.id);
 
-      // 4. Assemble TripPlan object
       const tripPlan: TripPlan = {
         id: trip.id,
         name: trip.name,
+        userId: trip.user_id,
         days: (days || []).map(d => ({
           id: d.id,
           date: d.date,
@@ -552,6 +569,22 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
     } catch (e: any) {
       set({ error: e.message || "Failed to optimize day", isOptimizing: false });
+    }
+  },
+
+  migrateGuestData: async (userId) => {
+    console.log("Plania: Migrating guest data to user", userId);
+    const { error } = await supabase
+      .from("trips")
+      .update({ user_id: userId })
+      .is("user_id", null);
+
+    if (error) {
+      console.error("Plania: Migration Error:", error);
+      set({ error: "Failed to migrate guest data." });
+    } else {
+      // Re-fetch trip to load the newly claimed data
+      await get().fetchTrip();
     }
   }
 }));
