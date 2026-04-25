@@ -33,3 +33,30 @@ ALTER TABLE activities ALTER COLUMN trip_id SET NOT NULL;
 -- 5. Optional: Indexes for faster multi-trip querying
 CREATE INDEX IF NOT EXISTS idx_activities_trip_id ON activities(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trips_created_at ON trips(created_at);
+
+
+-- Allow users to delete their own trips
+CREATE POLICY "Users can delete their own trips" 
+ON trips FOR DELETE 
+USING (auth.uid() = user_id);
+
+-- Also ensure you can delete related records
+CREATE POLICY "Users can delete their own trip days" 
+ON trip_days FOR DELETE 
+USING (
+  EXISTS (
+    SELECT 1 FROM trips 
+    WHERE trips.id = trip_days.trip_id 
+    AND trips.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can delete their own activities" 
+ON activities FOR DELETE 
+USING (
+  EXISTS (
+    SELECT 1 FROM trips 
+    WHERE trips.id = activities.trip_id 
+    AND trips.user_id = auth.uid()
+  )
+);
