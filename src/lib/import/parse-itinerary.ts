@@ -23,7 +23,7 @@ const categoryFromTitle = (title: string): ActivityCategory => {
 
 export function parseItineraryText(input: string, fallbackDayId: string): {
   dayDate: string | null;
-  activities: Activity[];
+  activities: Omit<Activity, "tripId">[];
 } {
   const lines = input
     .split("\n")
@@ -42,7 +42,7 @@ export function parseItineraryText(input: string, fallbackDayId: string): {
   const dayDate = Number.isNaN(parsedDate.getTime()) ? null : format(parsedDate, "yyyy-MM-dd");
 
   const activities = lines
-    .map<Activity | null>((line, index) => {
+    .map<Omit<Activity, "tripId"> | null>((line, index) => {
       const timeMatch = line.match(/(\d{1,2}:\d{2})\s+(.+)/);
       if (!timeMatch) {
         return null;
@@ -61,7 +61,7 @@ export function parseItineraryText(input: string, fallbackDayId: string): {
         sort_order: index,
       };
     })
-    .filter((item): item is Activity => Boolean(item));
+    .filter((item): item is Omit<Activity, "tripId"> => Boolean(item));
 
   return { dayDate, activities };
 }

@@ -46,7 +46,7 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
-import { Activity, ActivityCategory, CriticalReservation } from "@/lib/types";
+import { Activity, ActivityCategory, CriticalReservation, TripDay } from "@/lib/types";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
@@ -916,8 +916,8 @@ export default function Home() {
 
   const today = format(new Date(), "yyyy-MM-dd");
   const jumpToToday = () => {
-    if (!trip) return;
-    const todayDay = trip.days.find((day) => day.date === today);
+    if (!activeTrip) return;
+    const todayDay = activeTrip.days.find((day) => day.date === today);
     if (todayDay) {
       setActiveDay(todayDay.id);
     }
@@ -936,7 +936,26 @@ export default function Home() {
       )
     : 0;
 
-  if (!isMounted || !activeTrip) return null;
+  if (!isMounted) return null;
+
+  if (!activeTrip) {
+    return (
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-8">
+        <div className="max-w-md w-full text-center space-y-8">
+          <div className="size-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto ring-8 ring-slate-100 dark:ring-slate-800/50">
+            <Globe className="text-indigo-500 animate-pulse" size={48} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white">Start Your Adventure</h1>
+            <p className="text-slate-500 font-medium">You don&apos;t have any active trips yet. Let&apos;s create your first one!</p>
+          </div>
+          <div className="pt-4">
+            <TripSwitcher />
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
@@ -1438,7 +1457,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-slate-900 dark:text-white">{t("new_activity")}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Day {activeIndex + 1} · {activeDay.city}</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Day {activeIndex + 1} · {activeDay?.city}</p>
                 </div>
               </div>
 

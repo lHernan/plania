@@ -87,19 +87,17 @@ export function TripSwitcher() {
                         </span>
                       </div>
                     </button>
-                    {trips.length > 1 && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("Are you sure you want to delete this trip?")) {
-                            deleteTrip(t.id);
-                          }
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm("Are you sure you want to delete this trip?")) {
+                          deleteTrip(t.id);
+                        }
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))}
               </div>

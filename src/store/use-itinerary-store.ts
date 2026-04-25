@@ -65,7 +65,7 @@ type Store = {
   setActiveDay: (dayId: string) => void;
   setDayScroll: (dayId: string, y: number) => void;
   
-  addActivity: (activity: Omit<Activity, "id">) => Promise<void>;
+  addActivity: (activity: Omit<Activity, "id" | "tripId">) => Promise<void>;
   updateActivityState: (dayId: string, activityId: string, state: ActivityState) => Promise<void>;
   patchActivity: (dayId: string, activityId: string, patch: Partial<Activity>) => Promise<void>;
   removeActivity: (dayId: string, activityId: string) => Promise<void>;
@@ -73,7 +73,7 @@ type Store = {
   
   toggleBooking: (bookingId: string) => Promise<void>;
   duplicateActivity: (dayId: string, activityId: string) => Promise<void>;
-  addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order">[]) => Promise<void>;
+  addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId">[]) => Promise<void>;
   
   addReservation: (reservation: Omit<CriticalReservation, "id">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
@@ -100,17 +100,24 @@ export const useItineraryStore = create<Store>((set, get) => ({
       let query = supabase.from("trips").select(`
         id, 
         name, 
+        user_id,
         start_date, 
         end_date,
         trip_days(count),
         activities(count)
       `);
       
-      if (user) query = query.eq("user_id", user.id);
+      if (user) query = query.or(`user_id.eq.${user.id},user_id.is.null`);
       else query = query.is("user_id", null);
 
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
+      
+      // If we find guest trips and we are logged in, trigger migration
+      if (user && data && (data as any[]).some(t => !t.user_id)) {
+        console.log("Plania: Found unclaimed guest trips while logged in. Triggering migration...");
+        get().migrateGuestData(user.id);
+      }
 
       const summaries: TripSummary[] = (data || []).map((t: any) => ({
         id: t.id,
@@ -280,17 +287,68 @@ export const useItineraryStore = create<Store>((set, get) => ({
   },
 
   deleteTrip: async (tripId) => {
-    const { error } = await supabase.from("trips").delete().eq("id", tripId);
-    if (error) {
-      set({ error: error.message });
-    } else {
+    set({ loading: true, error: null });
+    console.log("Plania: Attempting to delete trip:", tripId);
+    try {
+      // 1. Manually clear all child records in reverse order of dependency
+      // Delete activities first as they depend on both trip and day
+      const { error: err1 } = await supabase.from("activities").delete().eq("trip_id", tripId);
+      if (err1) {
+        console.error("Plania: Error deleting activities:", err1.message);
+        throw err1;
+      }
+
+      // Delete reservations
+      const { error: err2 } = await supabase.from("critical_reservations").delete().eq("trip_id", tripId);
+      if (err2) {
+        console.error("Plania: Error deleting reservations:", err2.message);
+        throw err2;
+      }
+
+      // Delete days
+      const { error: err3 } = await supabase.from("trip_days").delete().eq("trip_id", tripId);
+      if (err3) {
+        console.error("Plania: Error deleting days:", err3.message);
+        throw err3;
+      }
+      
+      // 2. Delete the trip itself
+      const { data: deletedTrips, error: err4 } = await supabase
+        .from("trips")
+        .delete()
+        .eq("id", tripId)
+        .select();
+
+      if (err4) {
+        console.error("Plania: Trip delete failed:", err4.message);
+        throw err4;
+      }
+
+      if (!deletedTrips || deletedTrips.length === 0) {
+        console.error("Plania: No trip was deleted. This usually means Supabase RLS is blocking the operation.");
+        console.warn("Plania: Recommendation: Check your Supabase 'trips' table policies. Ensure 'DELETE' is allowed for the user.");
+        throw new Error("Permission Denied: You don't have permission to delete this trip. (Supabase RLS)");
+      }
+
+      console.log("Plania: Trip deleted successfully from DB:", deletedTrips[0].name);
+
+      // 3. Refresh list
       await get().fetchAllTrips();
       const { trips } = get();
+      
       if (trips.length > 0) {
-        await get().fetchActiveTrip(trips[0].id);
+        // If we deleted the active trip, switch to another one
+        if (get().activeTrip?.id === tripId) {
+          await get().fetchActiveTrip(trips[0].id);
+        }
       } else {
+        // No trips left, create a default one or set null
         set({ activeTrip: null });
       }
+      set({ loading: false });
+    } catch (e: any) {
+      console.error("Plania: CRITICAL Delete Trip Error:", e);
+      set({ error: e.message, loading: false });
     }
   },
 
@@ -326,21 +384,23 @@ export const useItineraryStore = create<Store>((set, get) => ({
     const { activeTrip } = get();
     if (!activeTrip) return;
 
-    // 1. Delete activities for this day first to avoid constraint errors
-    await supabase.from("activities").delete().eq("day_id", dayId);
+    try {
+      // 1. Delete activities for this day first
+      const { error: actError } = await supabase.from("activities").delete().eq("day_id", dayId);
+      if (actError) throw actError;
 
-    // 2. Delete the day itself
-    const { error } = await supabase
-      .from("trip_days")
-      .delete()
-      .eq("id", dayId);
+      // 2. Delete the day itself
+      const { error: dayError } = await supabase
+        .from("trip_days")
+        .delete()
+        .eq("id", dayId);
+      if (dayError) throw dayError;
 
-    if (error) {
-      set({ error: error.message });
-      return;
+      await get().fetchActiveTrip(activeTrip.id);
+    } catch (e: any) {
+      console.error("Plania: Remove Day Error:", e);
+      set({ error: e.message });
     }
-
-    await get().fetchActiveTrip(activeTrip.id);
   },
 
   updateTripDay: async (dayId, updates) => {
@@ -369,7 +429,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
   setDayScroll: (dayId, y) =>
     set((state) => ({ dayScrollY: { ...state.dayScrollY, [dayId]: y } })),
 
-  addActivity: async (activity) => {
+  addActivity: async (activity: Omit<Activity, "id" | "tripId">) => {
     const { activeTrip } = get();
     if (!activeTrip) return;
 
@@ -571,7 +631,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
     }));
   },
 
-  addImportedActivities: async (dayId, activities) => {
+  addImportedActivities: async (dayId, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId">[]) => {
     const { activeTrip } = get();
     if (!activeTrip) return;
 
@@ -758,10 +818,11 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
   migrateGuestData: async (userId) => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem("plania_migration_done") === "true") return;
+    // Don't skip if migration is done, as there might be new guest data from another device or session
+    // localStorage.getItem("plania_migration_done") === "true" is no longer enough
 
     try {
-      // Check if guest data exists
+      console.log("Plania: Checking for guest data to migrate to user", userId);
       const { count, error: countError } = await supabase
         .from("trips")
         .select("*", { count: "exact", head: true })

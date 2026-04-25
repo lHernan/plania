@@ -98,6 +98,7 @@ export const dayGeniusService = {
         enriched.push({
           id: `inferred-airport-${Date.now()}`,
           dayId: airportActivity.dayId,
+          tripId: airportActivity.tripId,
           city: airportActivity.city,
           title: "Go to Airport",
           time: newTime,
@@ -121,6 +122,7 @@ export const dayGeniusService = {
          enriched.push({
           id: `inferred-gemini-${Date.now()}-${i}`,
           dayId: enriched[0]?.dayId || "",
+          tripId: enriched[0]?.tripId || "",
           city: enriched[0]?.city || "Unassigned",
           title: s.title,
           time: "12:00", // Default time, to be sorted manually or by time if we had logic
@@ -162,6 +164,7 @@ export const dayGeniusService = {
       return {
         id: a.id || `ai-gen-${Date.now()}-${i}`,
         dayId: activities[0].dayId,
+        tripId: activities[0].tripId,
         city: original?.city || activities[0].city || "Unassigned",
         title: a.title || "Unknown Activity",
         time: a.time || "12:00",
