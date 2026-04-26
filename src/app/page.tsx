@@ -763,7 +763,15 @@ export default function Home() {
       console.log("Plania: fetchTrip triggered", user?.id);
       fetchActiveTrip();
     }
-  }, [user?.id, isMounted, fetchActiveTrip]); // Removed activeTrip and trips.length to break the loop
+  }, [user?.id, isMounted, fetchActiveTrip]);
+
+  // Redirect if logged in but stuck on welcome
+  useEffect(() => {
+    if (isMounted && user && !user.is_anonymous && !activeTrip && trips.length > 0 && !loading) {
+      console.log("Plania: Auto-redirecting to first trip...");
+      switchTrip(trips[0].id);
+    }
+  }, [isMounted, user, activeTrip, trips.length, loading, switchTrip]);
 
   useEffect(() => {
     if (timelineRef.current) {
