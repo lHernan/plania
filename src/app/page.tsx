@@ -1086,110 +1086,93 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
-      {/* 💎 PREMIUM STICKY HEADER */}
-      <header className="sticky top-0 z-40 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 md:px-5 pt-4 md:pt-6 pb-3 md:pb-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between mb-4 md:mb-6">
-          <div className="space-y-0.5 md:space-y-1">
-            <TripSwitcher />
-            <p className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.2em] ml-1 hidden xs:block">
-              {t("app_title")}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-             <div className="flex items-center gap-2 md:gap-4">
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-1.5 md:px-2 py-0.5 md:py-1">
-                  <Globe size={10} className="text-slate-400" />
-                  <select 
-                    value={lang} 
-                    onChange={(e) => setLang(e.target.value)}
-                    className="bg-transparent text-[8px] md:text-[10px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none pr-0.5"
-                  >
-                    <option value="en">EN</option>
-                    <option value="es">ES</option>
-                  </select>
+      {/* COMPACT STICKY HEADER */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+        {/* Top bar: trip selector + controls */}
+        <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto">
+          {/* Left: Trip Switcher */}
+          <TripSwitcher />
+
+          {/* Right: user controls */}
+          <div className="flex items-center gap-2">
+            {/* Language picker — hidden on smallest screens */}
+            <div className="hidden xs:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+              <Globe size={10} className="text-slate-400" />
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value)}
+                className="bg-transparent text-[9px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none"
+              >
+                <option value="en">EN</option>
+                <option value="es">ES</option>
+              </select>
+            </div>
+
+            {user && !user.is_anonymous ? (
+              <div className="flex items-center gap-1.5">
+                <div className="size-7 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
+                  <UserIcon size={12} />
                 </div>
-                
-                <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">{completion.tripPct}%</span>
-                  <div className="w-16 md:w-24 h-1.5 md:h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${completion.tripPct}%` }}
-                      className="h-full bg-linear-to-r from-indigo-500 to-violet-500 rounded-full"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {user && !user.is_anonymous ? (
-                    <div className="flex items-center gap-1.5 md:gap-2">
-                       <div className="size-7 md:size-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
-                         <UserIcon size={12} />
-                       </div>
-                       <button 
-                         onClick={() => authSignOut()}
-                         className="size-7 md:size-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
-                       >
-                         <LogOut size={12} />
-                       </button>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => setShowAuthModal(true)}
-                      className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-indigo-600 text-white text-[8px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-1 md:gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
-                    >
-                      <ShieldCheck size={10} />
-                      <span className="hidden xs:inline">{t("save_permanently")}</span>
-                      <span className="xs:hidden">Save</span>
-                    </button>
-                  )}
-                </div>
-             </div>
-             <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
-               {user && !user.is_anonymous ? user.email : t("guest_mode")} <span className="hidden xs:inline">• {t("trip_status")}</span>
-             </p>
+                <button
+                  onClick={() => authSignOut()}
+                  className="size-7 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                >
+                  <LogOut size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20"
+              >
+                <ShieldCheck size={10} />
+                <span>Save</span>
+              </button>
+            )}
           </div>
         </div>
-        {/* 🍱 THE DATE STRIP slider */}
-        <div className="max-w-7xl mx-auto flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
-          {activeTrip?.days.map((day, index) => {
+
+        {/* Date strip */}
+        <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto">
+          {activeTrip?.days.map((day) => {
             const isActive = day.id === activeDayId;
             const isToday = day.date === today;
             return (
               <button
                 key={day.id}
                 onClick={() => setActiveDay(day.id)}
-                className={`snap-center flex flex-col items-center min-w-[70px] py-4 px-2 rounded-3xl transition-all duration-500 relative border ${
-                  isActive 
-                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xl translate-y-[-4px]" 
+                className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-all duration-300 relative border flex-shrink-0 ${
+                  isActive
+                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-lg -translate-y-0.5"
                     : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:bg-slate-50"
                 }`}
               >
-                <span className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isActive ? "text-indigo-400" : "text-slate-400"}`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-indigo-400" : "text-slate-400"}`}>
                   {format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
-                <span className="text-lg font-black tracking-tighter">
+                <span className="text-base font-black tracking-tight leading-none">
                   {format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
-                  <div className="absolute top-2 right-2 size-1.5 rounded-full bg-indigo-500" />
+                  <div className="absolute top-1.5 right-1.5 size-1 rounded-full bg-indigo-500" />
                 )}
                 {isActive && (
-                  <motion.div layoutId="date-active" className="absolute -bottom-1 size-1 bg-indigo-400 rounded-full shadow-lg shadow-indigo-400/50" />
+                  <motion.div layoutId="date-active" className="absolute -bottom-0.5 size-1 bg-indigo-400 rounded-full shadow shadow-indigo-400/50" />
                 )}
               </button>
             );
           })}
-          
-          <button 
+
+          <button
             onClick={handleAddDay}
-            className="snap-center flex flex-col items-center justify-center min-w-[70px] h-[84px] py-4 px-2 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all"
+            className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all flex-shrink-0"
           >
-            <Plus size={24} />
-            <span className="text-[8px] font-black uppercase tracking-widest mt-1">Add Day</span>
+            <Plus size={18} />
+            <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
           </button>
         </div>
       </header>
+
 
       <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
         {/* 🕰️ MAIN TIMELINE FLOW */}
