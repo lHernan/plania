@@ -2,9 +2,20 @@
 
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
-import { Activity, ActivityState, TripDay, TripPlan, CriticalReservation, TripSummary } from "@/lib/types";
+import { Activity, ActivityState, TripDay, TripPlan, CriticalReservation, TripSummary, ActivityFile } from "@/lib/types";
 
 // HELPERS TO MAP DB SNAKE_CASE TO TS CAMELCASE
+const mapActivityFileFromDb = (db: any): ActivityFile => ({
+  id: db.id,
+  activityId: db.activity_id,
+  tripId: db.trip_id,
+  userId: db.user_id,
+  fileUrl: db.file_url,
+  filePath: db.file_path,
+  fileType: db.file_type as any,
+  fileName: db.file_name,
+  createdAt: db.created_at,
+});
 const mapActivityFromDb = (db: any): Activity => ({
   id: db.id,
   dayId: db.day_id,
@@ -82,6 +93,10 @@ type Store = {
   addReservation: (reservation: Omit<CriticalReservation, "id" | "userId">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
+  
+  uploadActivityFile: (activityId: string, file: File) => Promise<void>;
+  deleteActivityFile: (fileId: string) => Promise<void>;
+
   setIsImporting: (status: boolean) => void;
   optimizeDay: (dayId: string) => Promise<void>;
 };
@@ -186,6 +201,13 @@ export const useItineraryStore = create<Store>((set, get) => ({
         .select("*")
         .eq("trip_id", trip.id);
 
+      const { data: files } = await supabase
+        .from("activity_files")
+        .select("*")
+        .eq("trip_id", trip.id);
+
+      const mappedFiles = (files || []).map(mapActivityFileFromDb);
+
       const tripPlan: TripPlan = {
         id: trip.id,
         name: trip.name,
@@ -201,7 +223,10 @@ export const useItineraryStore = create<Store>((set, get) => ({
           userId: d.user_id,
           activities: (activities || [])
             .filter(a => a.day_id === d.id)
-            .map(mapActivityFromDb)
+            .map(a => ({
+              ...mapActivityFromDb(a),
+              files: mappedFiles.filter(f => f.activityId === a.id)
+            }))
         })),
         criticalReservations: (reservations || []).map(r => ({
           id: r.id,
@@ -758,6 +783,122 @@ export const useItineraryStore = create<Store>((set, get) => ({
         criticalReservations: state.activeTrip!.criticalReservations.filter((r) => r.id !== reservationId)
       }
     }));
+  },
+
+  uploadActivityFile: async (activityId, file) => {
+    const { activeTrip } = get();
+    if (!activeTrip) return;
+
+    set({ loading: true });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // 1. Upload to Storage
+      // Path: {user_id}/{activity_id}/{timestamp}_{file_name} to avoid conflicts
+      const timestamp = Date.now();
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const filePath = `${user.id}/${activityId}/${timestamp}_${sanitizedFileName}`;
+
+      const { error: storageError } = await supabase.storage
+        .from("activity-files")
+        .upload(filePath, file);
+
+      if (storageError) throw storageError;
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("activity-files")
+        .getPublicUrl(filePath);
+
+      // 3. Insert into DB
+      const fileType = file.type.includes("pdf") ? "pdf" : file.type.includes("image") ? "image" : "other";
+      
+      const { data: dbFile, error: dbError } = await supabase
+        .from("activity_files")
+        .insert({
+          activity_id: activityId,
+          trip_id: activeTrip.id,
+          user_id: user.id,
+          file_url: publicUrl,
+          file_path: filePath,
+          file_type: fileType,
+          file_name: file.name
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // 4. Update state
+      const mappedFile = mapActivityFileFromDb(dbFile);
+      set((state) => ({
+        activeTrip: {
+          ...state.activeTrip!,
+          days: state.activeTrip!.days.map((d) => ({
+            ...d,
+            activities: d.activities.map((a) =>
+              a.id === activityId
+                ? { ...a, files: [...(a.files || []), mappedFile] }
+                : a
+            )
+          }))
+        },
+        loading: false
+      }));
+    } catch (e: any) {
+      set({ error: e.message, loading: false });
+    }
+  },
+
+  deleteActivityFile: async (fileId) => {
+    const { activeTrip } = get();
+    if (!activeTrip) return;
+
+    set({ loading: true });
+    try {
+      // 1. Get file info first
+      const { data: file, error: fetchError } = await supabase
+        .from("activity_files")
+        .select("file_path, activity_id")
+        .eq("id", fileId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // 2. Delete from Storage
+      const { error: storageError } = await supabase.storage
+        .from("activity-files")
+        .remove([file.file_path]);
+
+      if (storageError) throw storageError;
+
+      // 3. Delete from DB
+      const { error: dbError } = await supabase
+        .from("activity_files")
+        .delete()
+        .eq("id", fileId);
+
+      if (dbError) throw dbError;
+
+      // 4. Update state
+      set((state) => ({
+        activeTrip: {
+          ...state.activeTrip!,
+          days: state.activeTrip!.days.map((d) => ({
+            ...d,
+            activities: d.activities.map((a) =>
+              a.id === file.activity_id
+                ? { ...a, files: (a.files || []).filter((f) => f.id !== fileId) }
+                : a
+            )
+          }))
+        },
+        loading: false
+      }));
+    } catch (e: any) {
+      set({ error: e.message, loading: false });
+    }
   },
   setIsImporting: (status: boolean) => set({ isImporting: status }),
 

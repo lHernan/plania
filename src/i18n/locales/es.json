@@ -82,5 +82,10 @@
   "save_permanently": "Guardar Permanente",
   "logout": "Cerrar Sesión",
   "welcome_back": "¡Bienvenido de nuevo!",
-  "account_created": "¡Cuenta creada con éxito!"
+  "account_created": "¡Cuenta creada con éxito!",
+  "attachments": "Adjuntos",
+  "add_file": "Añadir Archivo",
+  "view_file": "Ver Archivo",
+  "confirm_delete_file": "¿Eliminar este archivo?",
+  "no_attachments_hint": "Sin archivos adjuntos aún"
 }

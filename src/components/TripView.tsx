@@ -50,7 +50,7 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
-import { Activity, ActivityCategory, CriticalReservation, TripDay } from "@/lib/types";
+import { Activity, ActivityCategory, CriticalReservation, TripDay, ActivityFile } from "@/lib/types";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
@@ -224,6 +224,109 @@ function SortableActivityCard({
   );
 }
 
+function ActivityFilesSection({ 
+  activityId, 
+  files = [] 
+}: { 
+  activityId: string; 
+  files?: ActivityFile[];
+}) {
+  const { t } = useI18n();
+  const uploadFile = useItineraryStore((s) => s.uploadActivityFile);
+  const deleteFile = useItineraryStore((s) => s.deleteActivityFile);
+  const loading = useItineraryStore((s) => s.loading);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      await uploadFile(activityId, selectedFiles[i]);
+    }
+    // Clear input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+          <FileText size={12} /> {t("attachments")}
+        </label>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+          className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 disabled:opacity-50 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full transition-all"
+        >
+          <Plus size={12} /> {t("add_file")}
+        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          multiple
+          accept="image/*,.pdf"
+          className="hidden"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className="group relative bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
+          >
+            <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
+              file.fileType === "pdf" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
+            }`}>
+              {file.fileType === "pdf" ? <FileText size={20} /> : <Camera size={20} />}
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 dark:text-white truncate pr-6" title={file.fileName}>
+                {file.fileName}
+              </p>
+              <button
+                onClick={() => window.open(file.fileUrl, "_blank")}
+                className="text-[10px] font-bold text-indigo-500 hover:underline uppercase tracking-wider"
+              >
+                {t("view_file")}
+              </button>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm(t("confirm_delete_file"))) {
+                  deleteFile(file.id);
+                }
+              }}
+              className="absolute top-2 right-2 p-1 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+        
+        {files.length === 0 && !loading && (
+          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {t("no_attachments_hint")}
+            </p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="col-span-full py-6 flex items-center justify-center">
+            <Loader2 size={20} className="text-indigo-500 animate-spin" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ActivityEditModal({
   activity,
   onClose,
@@ -358,6 +461,7 @@ function ActivityEditModal({
             {/* Notes */}
             <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 relative">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
+
               <textarea
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
@@ -365,6 +469,9 @@ function ActivityEditModal({
                 className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-slate-900 dark:text-white leading-relaxed"
               />
             </div>
+
+            {/* Attachments Section */}
+            <ActivityFilesSection activityId={activity.id} files={activity.files} />
           </div>
         </div>
 
@@ -594,7 +701,15 @@ export function TripView() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [showAddReservation, setShowAddReservation] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
+  const editingActivity = useMemo(() => {
+    if (!activeTrip || !editingActivityId) return null;
+    for (const day of activeTrip.days) {
+      const found = day.activities.find((a) => a.id === editingActivityId);
+      if (found) return found;
+    }
+    return null;
+  }, [activeTrip, editingActivityId]);
   const [editingReservation, setEditingReservation] = useState<CriticalReservation | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
@@ -1175,7 +1290,7 @@ export function TripView() {
                                   dayId={activeDayId}
                                   activity={activity}
                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                  onEdit={() => setEditingActivity(activity)}
+                                  onEdit={() => setEditingActivityId(activity.id)}
                                 />
                               </div>
                             ))}
@@ -1199,7 +1314,7 @@ export function TripView() {
                                   dayId={activeDayId}
                                   activity={activity}
                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                  onEdit={() => setEditingActivity(activity)}
+                                  onEdit={() => setEditingActivityId(activity.id)}
                                 />
                               </div>
                             ))}
@@ -1548,7 +1663,7 @@ export function TripView() {
         {editingActivity && (
           <ActivityEditModal
             activity={editingActivity}
-            onClose={() => setEditingActivity(null)}
+            onClose={() => setEditingActivityId(null)}
             onSave={(updates) => patchActivity(activeDayId, editingActivity.id, updates)}
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}
             onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}

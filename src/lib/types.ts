@@ -13,6 +13,18 @@ export type ActivityState = "pending" | "completed" | "skipped" | "delayed";
 export type Priority = "low" | "medium" | "high" | "critical";
 export type ReservationStatus = "pending" | "booked";
 
+export type ActivityFile = {
+  id: string;
+  activityId: string;
+  tripId: string;
+  userId: string;
+  fileUrl: string;
+  filePath: string;
+  fileType: "pdf" | "image" | "other";
+  fileName: string;
+  createdAt: string;
+};
+
 export type Activity = {
   id: string;
   dayId: string;
@@ -32,6 +44,7 @@ export type Activity = {
   priority: Priority;
   state: ActivityState;
   sort_order: number;
+  files?: ActivityFile[];
 };
 
 export type BookingUrgency = "safe" | "this_week" | "today";

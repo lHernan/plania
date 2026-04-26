@@ -82,5 +82,10 @@
   "save_permanently": "Save Permanently",
   "logout": "Logout",
   "welcome_back": "Welcome back!",
-  "account_created": "Account created successfully!"
+  "account_created": "Account created successfully!",
+  "attachments": "Attachments",
+  "add_file": "Add File",
+  "view_file": "View File",
+  "confirm_delete_file": "Delete this file?",
+  "no_attachments_hint": "No files attached yet"
 }
