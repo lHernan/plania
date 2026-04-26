@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/use-auth-store";
+import { supabase } from "@/lib/supabase";
 import { X, Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 
 export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string) => void }) {
@@ -13,16 +14,35 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = isLogin 
-      ? await signIn(email, password) 
+
+    // Capture current anonymous user ID BEFORE signing in
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const anonId = currentUser?.is_anonymous ? currentUser.id : null;
+
+    const { error } = isLogin
+      ? await signIn(email, password)
       : await signUp(email, password);
 
     if (error) {
       onShowToast(error.message);
-    } else {
-      onShowToast(isLogin ? "Welcome back!" : "Account created successfully!");
-      onClose();
+      return;
     }
+
+    // Transfer anonymous data to the newly authenticated account
+    if (anonId && isLogin) {
+      const { data: { user: newUser } } = await supabase.auth.getUser();
+      if (newUser && newUser.id !== anonId) {
+        console.log("Plania: Transferring data from", anonId, "→", newUser.id);
+        const { error: rpcError } = await supabase.rpc("transfer_anonymous_data", {
+          p_anon_id: anonId,
+          p_new_id: newUser.id,
+        });
+        if (rpcError) console.warn("transfer_anonymous_data RPC error:", rpcError.message);
+      }
+    }
+
+    onShowToast(isLogin ? "Welcome back!" : "Account created successfully!");
+    onClose();
   };
 
   if (!isOpen) return null;
