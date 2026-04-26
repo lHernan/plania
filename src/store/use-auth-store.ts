@@ -13,10 +13,13 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
-  initialize: () => Promise<void>;
+  initialize: () => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+// Track whether the auth listener has been registered globally (survives HMR)
+let listenerRegistered = false;
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   loading: true,
@@ -47,37 +50,45 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { error } = await supabase.auth.signOut();
     if (!error) {
       set({ user: null, session: null });
-      // Re-create an anonymous session so user_id is always valid
+      // Re-create an anonymous session so user_id is always valid for RLS
       await supabase.auth.signInAnonymously();
     }
     set({ loading: false });
     return { error };
   },
 
-  initialize: async () => {
+  initialize: () => {
     if (typeof window === "undefined") return;
 
-    // Resolve existing session first — do NOT fetch data here.
-    // AuthInitializer component coordinates the data fetch after this resolves.
-    const { data: { session } } = await supabase.auth.getSession();
+    // Register the auth listener exactly once per page load.
+    // All session state (initial + changes) flows through this single listener.
+    // This avoids the race condition caused by registering inside an async function.
+    if (!listenerRegistered) {
+      listenerRegistered = true;
 
-    if (!session) {
-      console.log("Plania: No session — signing in anonymously…");
-      await supabase.auth.signInAnonymously();
-      // SIGNED_IN event will fire from onAuthStateChange, which AuthInitializer handles
-    } else {
-      set({ session, user: session.user, loading: false, initialized: true });
-    }
+      supabase.auth.onAuthStateChange((event, session) => {
+        console.log("Plania: Auth event:", event, session?.user?.id ?? "none");
 
-    // Keep session state in sync — data coordination is handled by AuthInitializer
-    supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Plania: Auth state changed:", _event, session?.user?.id ?? "none");
-      set({
-        session,
-        user: session?.user ?? null,
-        loading: false,
-        initialized: true,
+        if (event === "INITIAL_SESSION") {
+          if (!session) {
+            // No existing session — create anonymous one
+            console.log("Plania: No session — signing in anonymously…");
+            supabase.auth.signInAnonymously();
+            // The SIGNED_IN event from signInAnonymously will set initialized
+          } else {
+            // Existing session found — set state and mark initialized
+            set({ session, user: session.user, loading: false, initialized: true });
+          }
+        } else {
+          // SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED, etc.
+          set({
+            session,
+            user: session?.user ?? null,
+            loading: false,
+            initialized: true,
+          });
+        }
       });
-    });
+    }
   },
 }));
