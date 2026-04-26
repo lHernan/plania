@@ -757,22 +757,15 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch active trip when component mounts with a known user.
-  // The auth store handles the initial fetch; this catches the case where
-  // the component mounts *after* auth is already initialized (e.g. hot reload).
+  // One-shot initial fetch: fires exactly once when the component mounts with a known user.
+  // We use a ref (not hasFetched) so that subsequent switchTrip calls don't re-trigger this.
+  const hasFetchedRef = useRef(false);
   useEffect(() => {
-    if (isMounted && user?.id && !hasFetched) {
+    if (isMounted && user?.id && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       fetchActiveTrip();
     }
-  }, [isMounted, user?.id, hasFetched, fetchActiveTrip]);
-
-  // Redirect if logged in but stuck on welcome
-  useEffect(() => {
-    if (isMounted && user && !user.is_anonymous && !activeTrip && trips.length > 0 && !loading) {
-      console.log("Plania: Auto-redirecting to first trip...");
-      switchTrip(trips[0].id);
-    }
-  }, [isMounted, user, activeTrip, trips.length, loading, switchTrip]);
+  }, [isMounted, user?.id, fetchActiveTrip]);
 
   useEffect(() => {
     if (timelineRef.current) {

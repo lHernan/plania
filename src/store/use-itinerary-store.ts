@@ -348,10 +348,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
   },
 
   switchTrip: async (tripId) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("last_plania_trip_id", tripId);
-    }
-    await get().fetchActiveTrip(tripId);
+    // skipLoading=true prevents resetting hasFetched, which would re-trigger the mount effect
+    await get().fetchActiveTrip(tripId, true);
   },
 
   addTripDay: async (date, city, label) => {
