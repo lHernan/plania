@@ -135,14 +135,18 @@ export const useItineraryStore = create<Store>((set, get) => ({
   },
 
   fetchActiveTrip: async (tripId) => {
-    console.log("Plania: Starting fetchActiveTrip...", tripId);
+    let targetId = tripId;
+    if (!targetId && typeof window !== "undefined") {
+      targetId = localStorage.getItem("last_plania_trip_id") || undefined;
+    }
+    console.log("Plania: Starting fetchActiveTrip...", targetId || "no-id");
     set({ loading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       let query = supabase.from("trips").select("*");
-      if (tripId) {
-        query = query.eq("id", tripId);
+      if (targetId) {
+        query = query.eq("id", targetId);
       } else {
         // Fallback: Get most recent trip
         if (user) query = query.eq("user_id", user.id);
@@ -156,7 +160,14 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
       let trip;
       if (!trips || trips.length === 0) {
-        if (!user && !tripId) {
+        // If we were looking for a specific trip and failed, try to get the most recent one
+        if (targetId) {
+          console.log("Plania: Target trip not found, falling back to most recent...");
+          if (typeof window !== "undefined") localStorage.removeItem("last_plania_trip_id");
+          return get().fetchActiveTrip(); 
+        }
+
+        if (!user) {
           console.log("Plania: No trip found, seeding global trip...");
           const { data: newTrip, error: createError } = await supabase
             .from("trips")
@@ -233,6 +244,10 @@ export const useItineraryStore = create<Store>((set, get) => ({
         activeDayId: tripPlan.days[0]?.id || "",
         loading: false 
       });
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("last_plania_trip_id", tripPlan.id);
+      }
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }
@@ -353,6 +368,9 @@ export const useItineraryStore = create<Store>((set, get) => ({
   },
 
   switchTrip: async (tripId) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("last_plania_trip_id", tripId);
+    }
     await get().fetchActiveTrip(tripId);
   },
 

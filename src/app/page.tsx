@@ -573,7 +573,8 @@ export default function Home() {
     migrateGuestData,
     addTripDay,
     removeTripDay,
-    updateTripDay
+    updateTripDay,
+    createTrip
   } = useItineraryStore();
 
   const { user, signOut: authSignOut } = useAuthStore();
@@ -937,21 +938,69 @@ export default function Home() {
     : 0;
 
   if (!isMounted) return null;
-
   if (!activeTrip) {
     return (
-      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-8">
-        <div className="max-w-md w-full text-center space-y-8">
-          <div className="size-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto ring-8 ring-slate-100 dark:ring-slate-800/50">
-            <Globe className="text-indigo-500 animate-pulse" size={48} />
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <div className="text-center space-y-6 mb-12">
+            <div className="size-20 md:size-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto ring-8 ring-slate-100 dark:ring-slate-800/50">
+              <Sparkles className="text-indigo-500 animate-pulse" size={40} />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white">Welcome to Plania</h1>
+              <p className="text-slate-500 text-sm font-medium">You don&apos;t have any active trips yet. Let&apos;s start planning your next big adventure!</p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white">Start Your Adventure</h1>
-            <p className="text-slate-500 font-medium">You don&apos;t have any active trips yet. Let&apos;s create your first one!</p>
+
+          <div className="premium-card p-6 md:p-8 bg-white dark:bg-slate-900 border-2 border-indigo-500/10 shadow-2xl">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500 mb-6">Quick Start</h2>
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">What is your trip name?</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. My Japan Escape 2026"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.target as any).value.trim()) {
+                        createTrip((e.target as any).value);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 dark:border-indigo-800/50">
+                  <div className="size-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm">
+                    <CalendarDays size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Pro Tip</p>
+                    <p className="text-[11px] font-bold text-slate-500 leading-tight">You can use your voice or paste text notes later to import everything at once!</p>
+                  </div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => {
+                  const input = document.querySelector('input[placeholder*="Japan"]') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    createTrip(input.value);
+                  } else {
+                    input?.focus();
+                  }
+                }}
+                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Create My First Trip
+              </button>
+            </div>
           </div>
-          <div className="pt-4">
-            <TripSwitcher />
-          </div>
+          
+          {!user && (
+            <p className="text-center mt-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Running in Guest Mode • <button onClick={() => setShowAuthModal(true)} className="text-indigo-500 hover:underline">Sign In to Save</button>
+            </p>
+          )}
         </div>
       </main>
     );
@@ -960,30 +1009,31 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
       {/* 💎 PREMIUM STICKY HEADER */}
-      <header className="sticky top-0 z-40 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-5 pt-6 pb-4">
-        <div className="max-w-7xl mx-auto flex items-end justify-between mb-6">
-          <div className="space-y-1">
+      <header className="sticky top-0 z-40 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 md:px-5 pt-4 md:pt-6 pb-3 md:pb-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between mb-4 md:mb-6">
+          <div className="space-y-0.5 md:space-y-1">
             <TripSwitcher />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
+            <p className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.2em] ml-1 hidden xs:block">
               {t("app_title")}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
-             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-                  <Globe size={12} className="text-slate-400" />
+             <div className="flex items-center gap-2 md:gap-4">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-1.5 md:px-2 py-0.5 md:py-1">
+                  <Globe size={10} className="text-slate-400" />
                   <select 
                     value={lang} 
                     onChange={(e) => setLang(e.target.value)}
-                    className="bg-transparent text-[10px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none pr-1"
+                    className="bg-transparent text-[8px] md:text-[10px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none pr-0.5"
                   >
                     <option value="en">EN</option>
                     <option value="es">ES</option>
                   </select>
                 </div>
-                <div className="flex items-center gap-2">
+                
+                <div className="hidden sm:flex items-center gap-2">
                   <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">{completion.tripPct}%</span>
-                  <div className="w-24 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-16 md:w-24 h-1.5 md:h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${completion.tripPct}%` }}
@@ -994,34 +1044,34 @@ export default function Home() {
                 
                 <div className="flex items-center gap-2">
                   {user ? (
-                    <div className="flex items-center gap-2">
-                       <div className="size-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
-                         <UserIcon size={14} />
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                       <div className="size-7 md:size-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
+                         <UserIcon size={12} />
                        </div>
                        <button 
                          onClick={() => authSignOut()}
-                         className="size-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                         className="size-7 md:size-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
                        >
-                         <LogOut size={14} />
+                         <LogOut size={12} />
                        </button>
                     </div>
                   ) : (
                     <button 
                       onClick={() => setShowAuthModal(true)}
-                      className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
+                      className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-indigo-600 text-white text-[8px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-1 md:gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
                     >
-                      <ShieldCheck size={12} />
-                      {t("save_permanently")}
+                      <ShieldCheck size={10} />
+                      <span className="hidden xs:inline">{t("save_permanently")}</span>
+                      <span className="xs:hidden">Save</span>
                     </button>
                   )}
                 </div>
              </div>
-             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-               {user ? user.email : t("guest_mode")} • {t("trip_status")}
+             <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
+               {user ? user.email : t("guest_mode")} <span className="hidden xs:inline">• {t("trip_status")}</span>
              </p>
           </div>
         </div>
-
         {/* 🍱 THE DATE STRIP slider */}
         <div className="max-w-7xl mx-auto flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
           {activeTrip.days.map((day, index) => {
