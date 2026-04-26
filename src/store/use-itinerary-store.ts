@@ -158,9 +158,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
       let trip;
       if (!trips || trips.length === 0) {
         if (targetId) {
-          console.log("Plania: Target trip not found, falling back to most recent...");
-          if (typeof window !== "undefined") localStorage.removeItem("last_plania_trip_id");
-          return get().fetchActiveTrip(); 
+          console.log("Plania: Target trip not found, falling back to most recent…");
+          return get().fetchActiveTrip();
         }
 
         set({ activeTrip: null, loading: false, hasFetched: true });
@@ -225,7 +224,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
       });
       // No localStorage write — the trip ID is not persisted between sessions intentionally
     } catch (e: any) {
-      set({ error: e.message, loading: false });
+      console.error("Plania: fetchActiveTrip error:", e.message);
+      set({ error: e.message, loading: false, hasFetched: true });
     }
   },
 
