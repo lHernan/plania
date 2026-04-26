@@ -570,35 +570,23 @@ export default function Home() {
     removeReservation,
     isOptimizing,
     optimizeDay: runOptimizeDay,
-    migrateGuestData,
     addTripDay,
     removeTripDay,
     updateTripDay,
-    createTrip
+    createTrip,
+    hasFetched
   } = useItineraryStore();
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  const prevUserRef = useRef(user);
-
-  // Detect Guest -> Auth transition and migrate data
+  // Initial data fetch
   useEffect(() => {
-    const isTransitionToAuth = !prevUserRef.current && user;
-    
-    if (isTransitionToAuth) {
-      migrateGuestData(user.id);
-    } else if (!user && !activeTrip && !loading) {
-      // Load guest data if not logged in and no trip loaded
+    if (!hasFetched && !loading) {
       fetchActiveTrip();
-    } else if (user && !activeTrip && !loading) {
-       // Load user data if logged in and no trip loaded
-       fetchActiveTrip();
     }
-
-    prevUserRef.current = user;
-  }, [user, activeTrip, loading, migrateGuestData, fetchActiveTrip]);
+  }, [hasFetched, loading, fetchActiveTrip]);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -612,6 +600,9 @@ export default function Home() {
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [quickTripName, setQuickTripName] = useState("");
+  const [quickTripStart, setQuickTripStart] = useState("");
+  const [quickTripEnd, setQuickTripEnd] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newTime, setNewTime] = useState("09:00");
   const [newNotes, setNewNotes] = useState("");
@@ -666,7 +657,8 @@ export default function Home() {
           priority: "medium",
           state: "pending",
           sort_order: 999,
-          city: "AI Imported"
+          city: "AI Imported",
+          userId: user?.id || ""
         }));
 
         await addImportedActivities(activeDayId, newOnes);
@@ -962,12 +954,32 @@ export default function Home() {
                     type="text"
                     placeholder="e.g. My Japan Escape 2026"
                     className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.target as any).value.trim()) {
-                        createTrip((e.target as any).value);
-                      }
-                    }}
+                    value={quickTripName}
+                    onChange={(e) => setQuickTripName(e.target.value)}
                   />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Start Date</label>
+                    <input 
+                      type="date"
+                      min={today}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                      value={quickTripStart}
+                      onChange={(e) => setQuickTripStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">End Date</label>
+                    <input 
+                      type="date"
+                      min={quickTripStart || today}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                      value={quickTripEnd}
+                      onChange={(e) => setQuickTripEnd(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 dark:border-indigo-800/50">
                   <div className="size-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm">
@@ -982,11 +994,10 @@ export default function Home() {
               
               <button 
                 onClick={() => {
-                  const input = document.querySelector('input[placeholder*="Japan"]') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    createTrip(input.value);
+                  if (quickTripName.trim()) {
+                    createTrip(quickTripName, quickTripStart || undefined, quickTripEnd || undefined);
                   } else {
-                    input?.focus();
+                    alert("Please enter a trip name");
                   }
                 }}
                 className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
@@ -1043,7 +1054,7 @@ export default function Home() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {user ? (
+                  {user && !user.is_anonymous ? (
                     <div className="flex items-center gap-1.5 md:gap-2">
                        <div className="size-7 md:size-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
                          <UserIcon size={12} />
@@ -1068,13 +1079,13 @@ export default function Home() {
                 </div>
              </div>
              <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
-               {user ? user.email : t("guest_mode")} <span className="hidden xs:inline">• {t("trip_status")}</span>
+               {user && !user.is_anonymous ? user.email : t("guest_mode")} <span className="hidden xs:inline">• {t("trip_status")}</span>
              </p>
           </div>
         </div>
         {/* 🍱 THE DATE STRIP slider */}
         <div className="max-w-7xl mx-auto flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
-          {activeTrip.days.map((day, index) => {
+          {activeTrip?.days.map((day, index) => {
             const isActive = day.id === activeDayId;
             const isToday = day.date === today;
             return (

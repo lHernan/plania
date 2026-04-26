@@ -52,10 +52,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ loading: true });
     const { error } = await supabase.auth.signOut();
     if (!error) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("plania_migration_done");
-      }
       set({ user: null, session: null });
+      // Immediately sign in anonymously again to maintain a valid user_id
+      await supabase.auth.signInAnonymously();
     }
     set({ loading: false });
     return { error };
@@ -66,19 +65,27 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     // Get initial session
     const { data: { session } } = await supabase.auth.getSession();
-    set({ 
-      session, 
-      user: session?.user ?? null, 
-      loading: false, 
-      initialized: true 
-    });
+    
+    if (!session) {
+      console.log("Plania: No session found, signing in anonymously...");
+      await supabase.auth.signInAnonymously();
+    } else {
+      set({ 
+        session, 
+        user: session.user, 
+        loading: false, 
+        initialized: true 
+      });
+    }
 
     // Listen for auth changes
     supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Plania: Auth state changed:", _event, session?.user?.id);
       set({ 
         session, 
         user: session?.user ?? null, 
-        loading: false 
+        loading: false,
+        initialized: true
       });
     });
   },

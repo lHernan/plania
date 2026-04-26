@@ -17,6 +17,7 @@ export type Activity = {
   id: string;
   dayId: string;
   tripId: string;
+  userId: string;
   city: string;
   title: string;
   time: string;
@@ -45,6 +46,7 @@ export type CriticalReservation = {
   status: ReservationStatus;
   price?: number;
   cancellationNotes?: string;
+  userId: string;
 };
 
 export type TripDay = {
@@ -53,6 +55,7 @@ export type TripDay = {
   city: string;
   label: string;
   activities: Activity[];
+  userId: string;
 };
 
 export type TripPlan = {

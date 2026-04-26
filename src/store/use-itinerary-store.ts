@@ -9,6 +9,7 @@ const mapActivityFromDb = (db: any): Activity => ({
   id: db.id,
   dayId: db.day_id,
   tripId: db.trip_id,
+  userId: db.user_id,
   city: db.city || "",
   title: db.title,
   time: db.time,
@@ -27,6 +28,7 @@ const mapActivityFromDb = (db: any): Activity => ({
 const mapActivityToDb = (a: Partial<Activity>) => ({
   day_id: a.dayId,
   trip_id: a.tripId,
+  user_id: a.userId,
   title: a.title,
   time: a.time,
   duration_min: a.durationMin,
@@ -49,11 +51,12 @@ type Store = {
   loading: boolean;
   isImporting: boolean;
   isOptimizing: boolean;
+  hasFetched: boolean;
   error: string | null;
 
   // Actions
   fetchAllTrips: () => Promise<void>;
-  fetchActiveTrip: (tripId?: string) => Promise<void>;
+  fetchActiveTrip: (tripId?: string, skipLoading?: boolean) => Promise<void>;
   createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
   switchTrip: (tripId: string) => Promise<void>;
@@ -65,7 +68,7 @@ type Store = {
   setActiveDay: (dayId: string) => void;
   setDayScroll: (dayId: string, y: number) => void;
   
-  addActivity: (activity: Omit<Activity, "id" | "tripId">) => Promise<void>;
+  addActivity: (activity: Omit<Activity, "id" | "tripId" | "userId">) => Promise<void>;
   updateActivityState: (dayId: string, activityId: string, state: ActivityState) => Promise<void>;
   patchActivity: (dayId: string, activityId: string, patch: Partial<Activity>) => Promise<void>;
   removeActivity: (dayId: string, activityId: string) => Promise<void>;
@@ -73,14 +76,13 @@ type Store = {
   
   toggleBooking: (bookingId: string) => Promise<void>;
   duplicateActivity: (dayId: string, activityId: string) => Promise<void>;
-  addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId">[]) => Promise<void>;
+  addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId" | "userId">[]) => Promise<void>;
   
-  addReservation: (reservation: Omit<CriticalReservation, "id">) => Promise<void>;
+  addReservation: (reservation: Omit<CriticalReservation, "id" | "userId">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
   setIsImporting: (status: boolean) => void;
   optimizeDay: (dayId: string) => Promise<void>;
-  migrateGuestData: (userId: string) => Promise<void>;
 };
 
 export const useItineraryStore = create<Store>((set, get) => ({
@@ -91,6 +93,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
   loading: false,
   isImporting: false,
   isOptimizing: false,
+  hasFetched: false,
   error: null,
 
   fetchAllTrips: async () => {
@@ -107,17 +110,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
         activities(count)
       `);
       
-      if (user) query = query.or(`user_id.eq.${user.id},user_id.is.null`);
-      else query = query.is("user_id", null);
-
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
-      
-      // If we find guest trips and we are logged in, trigger migration
-      if (user && data && (data as any[]).some(t => !t.user_id)) {
-        console.log("Plania: Found unclaimed guest trips while logged in. Triggering migration...");
-        get().migrateGuestData(user.id);
-      }
 
       const summaries: TripSummary[] = (data || []).map((t: any) => ({
         id: t.id,
@@ -134,23 +128,19 @@ export const useItineraryStore = create<Store>((set, get) => ({
     }
   },
 
-  fetchActiveTrip: async (tripId) => {
+  fetchActiveTrip: async (tripId, skipLoading = false) => {
     let targetId = tripId;
     if (!targetId && typeof window !== "undefined") {
       targetId = localStorage.getItem("last_plania_trip_id") || undefined;
     }
     console.log("Plania: Starting fetchActiveTrip...", targetId || "no-id");
-    set({ loading: true, error: null });
+    if (!skipLoading) set({ loading: true, error: null });
+    else set({ error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       let query = supabase.from("trips").select("*");
       if (targetId) {
         query = query.eq("id", targetId);
       } else {
-        // Fallback: Get most recent trip
-        if (user) query = query.eq("user_id", user.id);
-        else query = query.is("user_id", null);
         query = query.order("created_at", { ascending: false }).limit(1);
       }
 
@@ -160,35 +150,14 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
       let trip;
       if (!trips || trips.length === 0) {
-        // If we were looking for a specific trip and failed, try to get the most recent one
         if (targetId) {
           console.log("Plania: Target trip not found, falling back to most recent...");
           if (typeof window !== "undefined") localStorage.removeItem("last_plania_trip_id");
           return get().fetchActiveTrip(); 
         }
 
-        if (!user) {
-          console.log("Plania: No trip found, seeding global trip...");
-          const { data: newTrip, error: createError } = await supabase
-            .from("trips")
-            .insert({ name: "My Seoul Adventure" })
-            .select()
-            .single();
-          
-          if (createError) throw createError;
-          trip = newTrip;
-
-          const daysToSeed = [
-            { trip_id: trip.id, date: "2026-05-02", city: "Madrid", label: "Flight to Seoul" },
-            { trip_id: trip.id, date: "2026-05-03", city: "Seoul", label: "Arrival & Hanok Magic" },
-            { trip_id: trip.id, date: "2026-05-04", city: "Seoul", label: "Palace + Modern Seoul" },
-            { trip_id: trip.id, date: "2026-05-05", city: "Seoul", label: "Foodie + Relax + Hongdae" },
-          ];
-          await supabase.from("trip_days").insert(daysToSeed);
-        } else {
-          set({ activeTrip: null, loading: false });
-          return;
-        }
+        set({ activeTrip: null, loading: false, hasFetched: true });
+        return;
       } else {
         trip = trips[0];
       }
@@ -223,6 +192,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
           date: d.date,
           city: d.city,
           label: d.label,
+          userId: d.user_id,
           activities: (activities || [])
             .filter(a => a.day_id === d.id)
             .map(mapActivityFromDb)
@@ -230,6 +200,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
         criticalReservations: (reservations || []).map(r => ({
           id: r.id,
           title: r.title,
+          userId: r.user_id,
           bookingDeadline: r.booking_deadline,
           reservationDate: r.reservation_date,
           bookingLink: r.booking_link,
@@ -242,7 +213,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
       set({ 
         activeTrip: tripPlan, 
         activeDayId: tripPlan.days[0]?.id || "",
-        loading: false 
+        loading: false,
+        hasFetched: true
       });
 
       if (typeof window !== "undefined") {
@@ -283,6 +255,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
       while (current <= end && dayCounter <= 90) {
         daysToCreate.push({
           trip_id: newTrip.id,
+          user_id: user?.id,
           date: current.toISOString().split('T')[0],
           city: "New Destination",
           label: `Day ${dayCounter++}`
@@ -293,9 +266,12 @@ export const useItineraryStore = create<Store>((set, get) => ({
       if (daysToCreate.length > 0) {
         await supabase.from("trip_days").insert(daysToCreate);
       }
-
-      await get().fetchAllTrips();
-      await get().fetchActiveTrip(newTrip.id);
+      
+      // Clear loading state and fetch the new trip
+      // We don't set loading: true again inside fetchActiveTrip to prevent double animation
+      await get().fetchActiveTrip(newTrip.id, true);
+      
+      set({ loading: false });
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }
@@ -382,6 +358,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
       .from("trip_days")
       .insert({
         trip_id: activeTrip.id,
+        user_id: activeTrip.userId,
         date,
         city,
         label
@@ -447,7 +424,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
   setDayScroll: (dayId, y) =>
     set((state) => ({ dayScrollY: { ...state.dayScrollY, [dayId]: y } })),
 
-  addActivity: async (activity: Omit<Activity, "id" | "tripId">) => {
+  addActivity: async (activity: Omit<Activity, "id" | "tripId" | "userId">) => {
     const { activeTrip } = get();
     if (!activeTrip) return;
 
@@ -455,7 +432,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
       .from("activities")
       .insert({
         ...mapActivityToDb(activity),
-        trip_id: activeTrip.id
+        trip_id: activeTrip.id,
+        user_id: activeTrip.userId
       })
       .select()
       .single();
@@ -626,6 +604,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
       .insert({
         ...mapActivityToDb(original),
         trip_id: activeTrip.id,
+        user_id: activeTrip.userId,
         state: "pending",
         title: `${original.title} (Copy)`
       })
@@ -649,13 +628,14 @@ export const useItineraryStore = create<Store>((set, get) => ({
     }));
   },
 
-  addImportedActivities: async (dayId, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId">[]) => {
+  addImportedActivities: async (dayId, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId" | "userId">[]) => {
     const { activeTrip } = get();
     if (!activeTrip) return;
 
     const dbActivities = activities.map(a => ({
       ...mapActivityToDb(a as any),
       trip_id: activeTrip.id,
+      user_id: activeTrip.userId,
       day_id: dayId,
       sort_order: 999 // Let them be at the end
     }));
@@ -688,6 +668,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
     const dbPayload = {
       trip_id: activeTrip.id,
+      user_id: activeTrip.userId,
       title: reservation.title,
       booking_deadline: reservation.bookingDeadline,
       reservation_date: reservation.reservationDate,
@@ -711,6 +692,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
     const newRes: CriticalReservation = {
       id: data.id,
       title: data.title,
+      userId: data.user_id,
       bookingDeadline: data.booking_deadline,
       reservationDate: data.reservation_date,
       bookingLink: data.booking_link,
@@ -803,6 +785,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
         const dbA: any = {
           ...mapActivityToDb(a),
           trip_id: activeTrip.id,
+          user_id: activeTrip.userId,
           day_id: dayId,
           sort_order: idx
         };
@@ -831,48 +814,6 @@ export const useItineraryStore = create<Store>((set, get) => ({
 
     } catch (e: any) {
       set({ error: e.message || "Failed to optimize day", isOptimizing: false });
-    }
-  },
-
-  migrateGuestData: async (userId) => {
-    if (typeof window === "undefined") return;
-    // Don't skip if migration is done, as there might be new guest data from another device or session
-    // localStorage.getItem("plania_migration_done") === "true" is no longer enough
-
-    try {
-      console.log("Plania: Checking for guest data to migrate to user", userId);
-      const { count, error: countError } = await supabase
-        .from("trips")
-        .select("*", { count: "exact", head: true })
-        .is("user_id", null);
-
-      if (countError) throw countError;
-
-      if (!count || count === 0) {
-        console.log("Plania: No guest data found to migrate.");
-        localStorage.setItem("plania_migration_done", "true");
-        return;
-      }
-
-      console.log("Plania: Migrating guest data to user", userId);
-      const { error } = await supabase
-        .from("trips")
-        .update({ user_id: userId })
-        .is("user_id", null);
-
-      if (error) throw error;
-
-      localStorage.setItem("plania_migration_done", "true");
-      
-      // Re-fetch trips to load the newly claimed data
-      await get().fetchAllTrips();
-      const { trips } = get();
-      if (trips.length > 0) {
-        await get().fetchActiveTrip(trips[0].id);
-      }
-    } catch (e: any) {
-      console.error("Plania: Migration Error:", e);
-      set({ error: "Failed to migrate guest data." });
     }
   }
 }));

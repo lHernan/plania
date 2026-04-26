@@ -22,6 +22,7 @@ export function TripSwitcher() {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
+    setTodayStr(new Date().toISOString().split('T')[0]);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
