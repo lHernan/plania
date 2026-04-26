@@ -757,13 +757,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Initial data fetch - re-trigger if user changes
+  // Fetch active trip when component mounts with a known user.
+  // The auth store handles the initial fetch; this catches the case where
+  // the component mounts *after* auth is already initialized (e.g. hot reload).
   useEffect(() => {
-    if (isMounted && !loading) {
-      console.log("Plania: fetchTrip triggered", user?.id);
+    if (isMounted && user?.id && !hasFetched) {
       fetchActiveTrip();
     }
-  }, [user?.id, isMounted, fetchActiveTrip]);
+  }, [isMounted, user?.id, hasFetched, fetchActiveTrip]);
 
   // Redirect if logged in but stuck on welcome
   useEffect(() => {

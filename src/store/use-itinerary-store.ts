@@ -98,20 +98,13 @@ export const useItineraryStore = create<Store>((set, get) => ({
   error: null,
 
   fetchAllTrips: async () => {
-    set({ loading: true });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      let query = supabase.from("trips").select(`
-        id, 
-        name, 
-        user_id,
-        start_date, 
-        end_date,
-        trip_days(count),
-        activities(count)
-      `);
-      
-      const { data, error } = await query.order("created_at", { ascending: false });
+      // Supabase RLS scopes this automatically to the current auth.uid()
+      const { data, error } = await supabase
+        .from("trips")
+        .select(`id, name, user_id, start_date, end_date, trip_days(count), activities(count)`)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
 
       const summaries: TripSummary[] = (data || []).map((t: any) => ({
@@ -120,12 +113,12 @@ export const useItineraryStore = create<Store>((set, get) => ({
         startDate: t.start_date,
         endDate: t.end_date,
         dayCount: t.trip_days[0].count,
-        activityCount: t.activities[0].count
+        activityCount: t.activities[0].count,
       }));
 
-      set({ trips: summaries, loading: false });
+      set({ trips: summaries });
     } catch (e: any) {
-      set({ error: e.message, loading: false });
+      set({ error: e.message });
     }
   },
 
@@ -144,11 +137,10 @@ export const useItineraryStore = create<Store>((set, get) => ({
   },
 
   fetchActiveTrip: async (tripId, skipLoading = false) => {
-    let targetId = tripId;
-    if (!targetId && typeof window !== "undefined") {
-      targetId = localStorage.getItem("last_plania_trip_id") || undefined;
-    }
-    console.log("Plania: Starting fetchActiveTrip...", targetId || "no-id");
+    // Use the provided tripId or fall back to the most-recent trip from Supabase.
+    // We deliberately do NOT read localStorage here — Supabase is the single source of truth.
+    const targetId = tripId;
+    console.log("Plania: Starting fetchActiveTrip…", targetId ?? "latest");
     if (!skipLoading) set({ loading: true, error: null, hasFetched: false });
     else set({ error: null });
     try {
@@ -231,10 +223,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
         loading: false,
         hasFetched: true
       });
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("last_plania_trip_id", tripPlan.id);
-      }
+      // No localStorage write — the trip ID is not persisted between sessions intentionally
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }
