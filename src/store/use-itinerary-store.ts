@@ -134,7 +134,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
       targetId = localStorage.getItem("last_plania_trip_id") || undefined;
     }
     console.log("Plania: Starting fetchActiveTrip...", targetId || "no-id");
-    if (!skipLoading) set({ loading: true, error: null });
+    if (!skipLoading) set({ loading: true, error: null, hasFetched: false });
     else set({ error: null });
     try {
       let query = supabase.from("trips").select("*");

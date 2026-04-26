@@ -39,7 +39,8 @@ import {
   LogOut,
   ShieldCheck,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  ArrowRight
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -581,12 +582,12 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  // Initial data fetch
+  // Initial data fetch - re-trigger if user changes
   useEffect(() => {
-    if (!hasFetched && !loading) {
+    if (!loading) {
       fetchActiveTrip();
     }
-  }, [hasFetched, loading, fetchActiveTrip]);
+  }, [user?.id, fetchActiveTrip]);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -1007,12 +1008,43 @@ export default function Home() {
             </div>
           </div>
           
-          {!user && (
-            <p className="text-center mt-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Running in Guest Mode • <button onClick={() => setShowAuthModal(true)} className="text-indigo-500 hover:underline">Sign In to Save</button>
-            </p>
+          {user?.is_anonymous && (
+            <div className="mt-12 text-center space-y-4">
+              <div className="h-px w-12 bg-slate-200 dark:bg-slate-800 mx-auto" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                Already a Plania user?
+              </p>
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors flex items-center justify-center gap-2 mx-auto group"
+              >
+                Sign In to your account
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
           )}
         </div>
+
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => setShowAuthModal(false)} 
+          onShowToast={(msg) => showToast(msg)}
+        />
+
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
+                toast.type === "success" ? "bg-slate-900 text-white" : "bg-rose-500 text-white"
+              }`}
+            >
+              {toast.msg}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     );
   }
