@@ -551,9 +551,11 @@ export default function Home() {
 
   const {
     activeTrip,
+    trips,
     activeDayId,
     setActiveDay,
     fetchActiveTrip,
+    switchTrip,
     addActivity,
     reorderActivities,
     updateActivityState,
@@ -755,12 +757,13 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Initial data fetch - re-trigger if user changes
   useEffect(() => {
-    if (isMounted) {
-      console.log("Plania: fetchTrip triggered");
+    if (isMounted && !loading) {
+      console.log("Plania: fetchTrip triggered", user?.id);
       fetchActiveTrip();
     }
-  }, [fetchActiveTrip, isMounted]);
+  }, [user?.id, isMounted, fetchActiveTrip]); // Removed activeTrip and trips.length to break the loop
 
   useEffect(() => {
     if (timelineRef.current) {
