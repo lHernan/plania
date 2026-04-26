@@ -81,6 +81,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Listen for auth changes
     supabase.auth.onAuthStateChange((_event, session) => {
       console.log("Plania: Auth state changed:", _event, session?.user?.id);
+      
+      // If user changed or signed out, we should clear the itinerary store's stale data
+      // Import and call useItineraryStore.getState().clearData()
+      // Note: We use dynamic import or access the store's state directly to avoid circular deps if needed
+      const { useItineraryStore } = require("./use-itinerary-store");
+      useItineraryStore.getState().clearData();
+
       set({ 
         session, 
         user: session?.user ?? null, 

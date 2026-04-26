@@ -60,6 +60,7 @@ type Store = {
   createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
   switchTrip: (tripId: string) => Promise<void>;
+  clearData: () => void;
   
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
   removeTripDay: (dayId: string) => Promise<void>;
@@ -126,6 +127,20 @@ export const useItineraryStore = create<Store>((set, get) => ({
     } catch (e: any) {
       set({ error: e.message, loading: false });
     }
+  },
+
+  clearData: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("last_plania_trip_id");
+    }
+    set({ 
+      activeTrip: null, 
+      trips: [], 
+      activeDayId: "", 
+      hasFetched: false,
+      loading: false,
+      error: null 
+    });
   },
 
   fetchActiveTrip: async (tripId, skipLoading = false) => {
