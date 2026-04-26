@@ -931,30 +931,50 @@ export default function Home() {
     : 0;
 
   if (!isMounted) return null;
-  if (!activeTrip) {
-    return (
-      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
-        <div className="max-w-md w-full">
-          <div className="text-center space-y-6 mb-12">
-            <div className="size-20 md:size-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto ring-8 ring-slate-100 dark:ring-slate-800/50">
-              <Sparkles className="text-indigo-500 animate-pulse" size={40} />
+  if (!activeTrip) {    return (
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 md:p-6 overflow-hidden relative">
+        {/* Background Decorative Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] size-64 md:size-96 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-[-10%] right-[-10%] size-64 md:size-96 bg-violet-500/10 rounded-full blur-3xl" />
+
+        <div className="max-w-md w-full relative z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center space-y-6 mb-10 md:mb-12"
+          >
+            <div className="size-20 md:size-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl flex items-center justify-center mx-auto ring-8 ring-slate-100/50 dark:ring-slate-800/30 border border-white/20">
+              <Sparkles className="text-indigo-500 animate-pulse" size={36} />
             </div>
             <div className="space-y-2">
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white">Welcome to Plania</h1>
-              <p className="text-slate-500 text-sm font-medium">You don&apos;t have any active trips yet. Let&apos;s start planning your next big adventure!</p>
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                Plania
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium px-8 leading-relaxed">
+                Your premium adventure starts here. Plan, sync, and explore with AI precision.
+              </p>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="premium-card p-6 md:p-8 bg-white dark:bg-slate-900 border-2 border-indigo-500/10 shadow-2xl">
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500 mb-6">Quick Start</h2>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+            className="premium-card p-6 md:p-8 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-2 border-indigo-500/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] rounded-[3rem]"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500">Quick Start</h2>
+              <Plane size={16} className="text-slate-200 dark:text-slate-800" />
+            </div>
+
             <div className="space-y-6">
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">What is your trip name?</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Trip Name</label>
                   <input 
                     type="text"
                     placeholder="e.g. My Japan Escape 2026"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-6 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                     value={quickTripName}
                     onChange={(e) => setQuickTripName(e.target.value)}
                   />
@@ -962,33 +982,24 @@ export default function Home() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Start Date</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Start Date</label>
                     <input 
                       type="date"
                       min={today}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none"
                       value={quickTripStart}
                       onChange={(e) => setQuickTripStart(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">End Date</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">End Date</label>
                     <input 
                       type="date"
                       min={quickTripStart || today}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none"
                       value={quickTripEnd}
                       onChange={(e) => setQuickTripEnd(e.target.value)}
                     />
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 dark:border-indigo-800/50">
-                  <div className="size-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm">
-                    <CalendarDays size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Pro Tip</p>
-                    <p className="text-[11px] font-bold text-slate-500 leading-tight">You can use your voice or paste text notes later to import everything at once!</p>
                   </div>
                 </div>
               </div>
@@ -1001,28 +1012,41 @@ export default function Home() {
                     alert("Please enter a trip name");
                   }
                 }}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
               >
-                Create My First Trip
+                Create Adventure
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
               </button>
             </div>
-          </div>
+          </motion.div>
           
-          {user?.is_anonymous && (
-            <div className="mt-12 text-center space-y-4">
-              <div className="h-px w-12 bg-slate-200 dark:bg-slate-800 mx-auto" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                Already a Plania user?
-              </p>
-              <button 
-                onClick={() => setShowAuthModal(true)}
-                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors flex items-center justify-center gap-2 mx-auto group"
-              >
-                Sign In to your account
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-          )}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="mt-10 md:mt-12 text-center"
+          >
+            {user?.is_anonymous ? (
+              <div className="space-y-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  Already have an account?
+                </p>
+                <button 
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-8 py-3 rounded-full border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm"
+                >
+                  Sign In to Sync
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 dark:border-indigo-800/50">
+                <p className="text-[10px] font-bold text-slate-500 leading-tight">
+                  <CheckCircle2 size={12} className="inline mr-2 text-indigo-500" />
+                  Successfully logged in as <span className="text-indigo-600">{user?.email}</span>
+                </p>
+              </div>
+            )}
+          </motion.div>
         </div>
 
         <AuthModal 
@@ -1037,7 +1061,7 @@ export default function Home() {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
-              className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
+              className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-[10px] uppercase tracking-widest ${
                 toast.type === "success" ? "bg-slate-900 text-white" : "bg-rose-500 text-white"
               }`}
             >
