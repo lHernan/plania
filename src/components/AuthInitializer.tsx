@@ -58,7 +58,7 @@ export function AuthInitializer() {
     }
 
     // New user confirmed — fetch their data fresh
-    console.log("Plania: User confirmed →", currentId, "— fetching trips…");
+    console.log("Plania [init]: User confirmed →", currentId, "anon:", user?.is_anonymous);
     clearData();
     fetchAllTrips();
     fetchActiveTrip();
