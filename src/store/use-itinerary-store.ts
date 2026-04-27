@@ -168,7 +168,6 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   day_id: activity.dayId,
   trip_id: activity.tripId,
   user_id: activity.userId,
-  city: activity.city,
   title: activity.title,
   time: activity.time,
   duration_min: activity.durationMin,
