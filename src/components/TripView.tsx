@@ -51,6 +51,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import { Activity, ActivityCategory, CriticalReservation, TripDay, ActivityFile } from "@/lib/types";
+import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
@@ -228,19 +229,89 @@ function SortableActivityCard({
 function ActivityFilesSection({ 
   activityId, 
   files = [],
-  onPreview,
-  activityTitle
+  onPreview
 }: { 
   activityId: string; 
   files?: ActivityFile[];
   onPreview: (file: ActivityFile) => void;
-  activityTitle: string;
 }) {
   const { t } = useI18n();
   const uploadFile = useItineraryStore((s) => s.uploadActivityFile);
   const deleteFile = useItineraryStore((s) => s.deleteActivityFile);
   const loading = useItineraryStore((s) => s.loading);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [offlineStatuses, setOfflineStatuses] = useState<Record<string, DocumentOfflineStatus>>({});
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncStatuses = async () => {
+      const nextStatuses = await Promise.all(
+        files.map(async (file) => [file.id, (await getCachedDocumentAvailability(file.fileUrl)) ? "available" : "unavailable"] as const)
+      );
+
+      if (cancelled) return;
+
+      setOfflineStatuses((current) => {
+        const updated: Record<string, DocumentOfflineStatus> = { ...current };
+        for (const [fileId, status] of nextStatuses) {
+          if (current[fileId] !== "pending") {
+            updated[fileId] = status;
+          }
+        }
+        return updated;
+      });
+    };
+
+    void syncStatuses();
+
+    const handleConnectionChange = () => {
+      setIsOnline(navigator.onLine);
+      void syncStatuses();
+    };
+
+    window.addEventListener("online", handleConnectionChange);
+    window.addEventListener("offline", handleConnectionChange);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", handleConnectionChange);
+      window.removeEventListener("offline", handleConnectionChange);
+    };
+  }, [files]);
+
+  const handleOfflineDownload = async (file: ActivityFile) => {
+    setOfflineStatuses((current) => ({ ...current, [file.id]: "pending" }));
+
+    try {
+      const cached = await cacheDocumentForOffline(file.fileUrl);
+      setOfflineStatuses((current) => ({
+        ...current,
+        [file.id]: cached ? "available" : "failed",
+      }));
+    } catch {
+      setOfflineStatuses((current) => ({ ...current, [file.id]: "failed" }));
+    }
+  };
+
+  const handlePreview = (file: ActivityFile) => {
+    if (offlineStatuses[file.id] !== "available" && isOnline) {
+      void handleOfflineDownload(file);
+    }
+
+    onPreview(file);
+  };
+
+  const getOfflineBadgeCopy = (status: DocumentOfflineStatus) => {
+    if (status === "available") return { label: t("offline_available"), tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" };
+    if (status === "pending") return { label: t("offline_caching"), tone: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" };
+    if (status === "failed") return { label: t("offline_failed"), tone: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" };
+    return {
+      label: isOnline ? t("offline_not_cached") : t("offline_unavailable"),
+      tone: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    };
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -292,13 +363,26 @@ function ActivityFilesSection({
               <p className="text-xs font-bold text-slate-900 dark:text-white truncate pr-6" title={file.fileName}>
                 {file.fileName}
               </p>
-              <button
-                onClick={() => onPreview(file)}
-                className="text-[10px] font-bold text-indigo-500 hover:underline uppercase tracking-wider"
-              >
-                {t("view_file")}
-              </button>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handlePreview(file)}
+                  className="text-[10px] font-bold text-indigo-500 hover:underline uppercase tracking-wider"
+                >
+                  {t("view_file")}
+                </button>
+                <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getOfflineBadgeCopy(offlineStatuses[file.id] ?? "unavailable").tone}`}>
+                  {getOfflineBadgeCopy(offlineStatuses[file.id] ?? "unavailable").label}
+                </span>
+              </div>
             </div>
+
+            <button
+              onClick={() => handleOfflineDownload(file)}
+              disabled={offlineStatuses[file.id] === "pending" || !isOnline}
+              className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+            >
+              {offlineStatuses[file.id] === "available" ? t("offline_ready_short") : t("download_offline")}
+            </button>
 
             <button
               onClick={(e) => {
@@ -482,7 +566,6 @@ function ActivityEditModal({
               activityId={activity.id} 
               files={activity.files} 
               onPreview={onPreviewFile}
-              activityTitle={activity.title}
             />
           </div>
         </div>

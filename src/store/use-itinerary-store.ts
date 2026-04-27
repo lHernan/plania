@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
+import { removeCachedDocument } from "@/lib/offline-documents";
 import { Activity, ActivityState, TripDay, TripPlan, CriticalReservation, TripSummary, ActivityFile } from "@/lib/types";
 
 // HELPERS TO MAP DB SNAKE_CASE TO TS CAMELCASE
@@ -862,7 +863,7 @@ export const useItineraryStore = create<Store>((set, get) => ({
       // 1. Get file info first
       const { data: file, error: fetchError } = await supabase
         .from("activity_files")
-        .select("file_path, activity_id")
+        .select("file_path, file_url, activity_id")
         .eq("id", fileId)
         .single();
 
@@ -882,6 +883,8 @@ export const useItineraryStore = create<Store>((set, get) => ({
         .eq("id", fileId);
 
       if (dbError) throw dbError;
+
+      await removeCachedDocument(file.file_url);
 
       // 4. Update state
       set((state) => ({

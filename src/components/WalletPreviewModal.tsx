@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { 
   X, 
   Share, 
   ExternalLink, 
   Trash2, 
   Maximize2, 
-  ChevronDown,
   Download,
   QrCode,
   FileText,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import jsQR from "jsqr";
 import { ActivityFile } from "@/lib/types";
+import { cacheDocumentForOffline, getCachedDocumentAvailability, getCachedDocumentBlobUrl, openDocumentInNewTab, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
 interface WalletPreviewModalProps {
@@ -40,7 +40,12 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
   const [isSelectingArea, setIsSelectingArea] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tempFocusArea, setTempFocusArea] = useState<import("@/lib/types").FocusArea | null>(file.focusArea || null);
+  const [offlineStatus, setOfflineStatus] = useState<DocumentOfflineStatus>("pending");
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
+  const [resolvedFileUrl, setResolvedFileUrl] = useState(file.fileUrl);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cachedBlobUrlRef = useRef<string | null>(null);
   const setFileFocusArea = useItineraryStore((s) => s.setFileFocusArea);
 
   const y = useMotionValue(0);
@@ -48,12 +53,101 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
   const scale = useTransform(y, [0, 300], [1, 0.9]);
 
   useEffect(() => {
-    if (file.fileType === "image") {
-      detectQRCode(file.fileUrl);
-    } else if (file.fileType === "pdf") {
-      renderPdfPreview(file.fileUrl);
-    }
+    let cancelled = false;
+
+    const syncOfflineState = async () => {
+      const available = await getCachedDocumentAvailability(file.fileUrl);
+      if (cancelled) return;
+
+      setOfflineStatus(available ? "available" : "unavailable");
+
+      if (!navigator.onLine && !available) {
+        setOfflineMessage("This file is not available offline");
+        setResolvedFileUrl(file.fileUrl);
+        setPdfPreviewUrl(null);
+        return;
+      }
+
+      if (!navigator.onLine && available) {
+        const cachedBlobUrl = await getCachedDocumentBlobUrl(file.fileUrl);
+        if (cancelled) return;
+
+        if (cachedBlobUrlRef.current) {
+          URL.revokeObjectURL(cachedBlobUrlRef.current);
+        }
+
+        cachedBlobUrlRef.current = cachedBlobUrl;
+        setResolvedFileUrl(cachedBlobUrl || file.fileUrl);
+      } else {
+        setResolvedFileUrl(file.fileUrl);
+        setOfflineMessage(null);
+      }
+    };
+
+    void syncOfflineState();
+
+    const handleConnectionChange = () => {
+      setIsOnline(navigator.onLine);
+      void syncOfflineState();
+    };
+
+    window.addEventListener("online", handleConnectionChange);
+    window.addEventListener("offline", handleConnectionChange);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", handleConnectionChange);
+      window.removeEventListener("offline", handleConnectionChange);
+      if (cachedBlobUrlRef.current) {
+        URL.revokeObjectURL(cachedBlobUrlRef.current);
+        cachedBlobUrlRef.current = null;
+      }
+    };
   }, [file]);
+
+  useEffect(() => {
+    if (offlineMessage) return;
+
+    if (file.fileType === "image") {
+      detectQRCode(resolvedFileUrl);
+    } else if (file.fileType === "pdf") {
+      void renderPdfPreview(resolvedFileUrl);
+    }
+  }, [file.fileType, offlineMessage, resolvedFileUrl]);
+
+  const cacheForOffline = async () => {
+    setOfflineStatus("pending");
+    setOfflineMessage(null);
+
+    try {
+      const cached = await cacheDocumentForOffline(file.fileUrl);
+      setOfflineStatus(cached ? "available" : "failed");
+      if (!cached && !navigator.onLine) {
+        setOfflineMessage("This file is not available offline");
+      }
+    } catch {
+      setOfflineStatus("failed");
+    }
+  };
+
+  const offlineBadge = (() => {
+    if (offlineStatus === "available") {
+      return { label: "Available offline", tone: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20" };
+    }
+
+    if (offlineStatus === "pending") {
+      return { label: "Caching offline", tone: "bg-amber-500/15 text-amber-200 border-amber-400/20" };
+    }
+
+    if (offlineStatus === "failed") {
+      return { label: "Failed to cache", tone: "bg-rose-500/15 text-rose-200 border-rose-400/20" };
+    }
+
+    return {
+      label: isOnline ? "Not cached yet" : "Offline unavailable",
+      tone: "bg-white/10 text-slate-200 border-white/10",
+    };
+  })();
 
   const handleSaveFocusArea = async () => {
     await setFileFocusArea(file.id, tempFocusArea);
@@ -109,7 +203,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
   const runAiDeepScan = async () => {
     setIsAiScanning(true);
     try {
-      const imgToScan = pdfPreviewUrl || file.fileUrl;
+      const imgToScan = pdfPreviewUrl || resolvedFileUrl;
       const res = await fetch("/api/detect-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,7 +242,13 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      await page.render({ canvasContext: context, viewport, canvas } as any).promise;
+      const renderContext: Parameters<typeof page.render>[0] = {
+        canvasContext: context,
+        viewport,
+        canvas,
+      };
+
+      await page.render(renderContext).promise;
       
       const imgData = canvas.toDataURL("image/png");
       setPdfPreviewUrl(imgData);
@@ -198,7 +298,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
     img.src = url;
   };
 
-  const handleDragEnd = (_: any, info: any) => {
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > 100) {
       onClose();
     }
@@ -258,6 +358,9 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
               <div className="space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Reservation</p>
                 <h3 className="text-xl font-black text-white truncate w-48">{activityTitle}</h3>
+                <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${offlineBadge.tone}`}>
+                  {offlineBadge.label}
+                </span>
               </div>
               <div className="size-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
                 {file.fileType === "pdf" ? <FileText size={24} /> : <QrCode size={24} />}
@@ -282,7 +385,14 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
               }}
             >
               <div className="w-full h-full rounded-[2rem] overflow-hidden bg-black/40 flex items-center justify-center relative">
-                {isRendering || isAiScanning ? (
+                {offlineMessage ? (
+                  <div className="max-w-[18rem] space-y-3 px-6 text-center">
+                    <p className="text-sm font-black text-white">{offlineMessage}</p>
+                    <p className="text-xs font-medium text-slate-400">
+                      Open it once while connected or use Download for offline before you travel.
+                    </p>
+                  </div>
+                ) : isRendering || isAiScanning ? (
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 size={32} className="text-indigo-500 animate-spin" />
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -313,7 +423,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
 
                       return (
                         <img 
-                          src={pdfPreviewUrl || file.fileUrl} 
+                          src={pdfPreviewUrl || resolvedFileUrl} 
                           alt={file.fileName}
                           className={`max-w-full max-h-full object-contain transition-all duration-500 absolute inset-0 m-auto ${
                             isQrZoomed ? 'z-50' : 'z-0'
@@ -461,12 +571,12 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                 ) : (
                   <div className="text-center space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Scan code not detected</p>
-                    <p className="text-xs text-slate-400">Use full preview for scanning</p>
+                    <p className="text-xs text-slate-400">{offlineMessage ?? "Use full preview for scanning"}</p>
                   </div>
                 )}
                 
                 <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                  Tap card to view original
+                  {offlineStatus === "available" ? "Ready offline" : "Tap card to view original"}
                 </p>
               </div>
             </div>
@@ -481,10 +591,26 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
           className="absolute bottom-10 left-4 right-4 flex items-center justify-center gap-4 z-[110]"
         >
           <button
-            onClick={() => window.open(file.fileUrl, "_blank")}
+            onClick={() => {
+              void openDocumentInNewTab(file.fileUrl);
+            }}
+            disabled={!isOnline && offlineStatus !== "available"}
             className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-100 active:scale-95 transition-all shadow-xl"
           >
             <ExternalLink size={18} /> {file.fileType === "pdf" ? "Open PDF" : "Open Original"}
+          </button>
+
+          <button
+            onClick={() => {
+              void cacheForOffline();
+            }}
+            disabled={!isOnline || offlineStatus === "pending"}
+            className="h-14 rounded-2xl bg-white/10 px-4 font-black text-[10px] uppercase tracking-widest text-white backdrop-blur-md border border-white/10 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="flex items-center gap-2">
+              <Download size={16} />
+              {offlineStatus === "available" ? "Offline ready" : "Download offline"}
+            </span>
           </button>
           
           <button
@@ -542,7 +668,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
 
                   return (
                     <img 
-                      src={pdfPreviewUrl || file.fileUrl} 
+                      src={pdfPreviewUrl || resolvedFileUrl} 
                       alt="QR Zoom" 
                       className="w-full h-full object-contain transition-transform duration-300"
                       style={{

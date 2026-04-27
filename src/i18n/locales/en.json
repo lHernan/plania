@@ -86,6 +86,13 @@
   "attachments": "Attachments",
   "add_file": "Add File",
   "view_file": "View File",
+  "offline_available": "Available offline",
+  "offline_caching": "Caching offline",
+  "offline_failed": "Failed to cache",
+  "offline_not_cached": "Not cached yet",
+  "offline_unavailable": "Not available offline",
+  "offline_ready_short": "Offline Ready",
+  "download_offline": "Download Offline",
   "confirm_delete_file": "Delete this file?",
   "no_attachments_hint": "No files attached yet"
 }
