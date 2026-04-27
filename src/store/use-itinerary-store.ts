@@ -20,6 +20,7 @@ import type {
   ActivityState,
   CriticalReservation,
   FocusArea,
+  ShoppingItem,
   TripDay,
   TripPlan,
   TripSummary,
@@ -123,6 +124,11 @@ type Store = {
   addReservation: (reservation: Omit<CriticalReservation, "id" | "userId">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
+  addShoppingItems: (items: ShoppingItem[]) => Promise<void>;
+  toggleShoppingItemStatus: (itemId: string) => Promise<void>;
+  updateShoppingItem: (itemId: string, patch: Partial<ShoppingItem>) => Promise<void>;
+  removeShoppingItem: (itemId: string) => Promise<void>;
+  ignoreShoppingSuggestion: (ignoreKey: string) => Promise<void>;
   uploadActivityFile: (activityId: string, file: File) => Promise<void>;
   deleteActivityFile: (fileId: string) => Promise<void>;
   setFileFocusArea: (fileId: string, focusArea: FocusArea | null) => Promise<void>;
@@ -193,6 +199,14 @@ function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
   };
 }
 
+function normalizeTripPlan(plan: TripPlan): TripPlan {
+  return {
+    ...plan,
+    shoppingItems: plan.shoppingItems ?? [],
+    ignoredShoppingSuggestionKeys: plan.ignoredShoppingSuggestionKeys ?? [],
+  };
+}
+
 function buildTripPlan(
   trip: TripDb,
   days: TripDayDb[],
@@ -233,6 +247,8 @@ function buildTripPlan(
       status: reservation.status,
       price: reservation.price ?? undefined,
     })),
+    shoppingItems: [],
+    ignoredShoppingSuggestionKeys: [],
   };
 }
 
@@ -286,7 +302,7 @@ export const useItineraryStore = create<Store>((set, get) => {
     const tripPlans = { ...(existingCache?.tripPlans ?? {}) };
     const activeTrip = get().activeTrip;
     if (activeTrip) {
-      tripPlans[activeTrip.id] = activeTrip;
+      tripPlans[activeTrip.id] = normalizeTripPlan(activeTrip);
     }
 
     await saveOfflineTripCache(userId, {
@@ -377,12 +393,18 @@ export const useItineraryStore = create<Store>((set, get) => {
     }
 
     const resolvedTripId = tripId ?? cache.latestTripId ?? cache.trips[0]?.id ?? null;
-    const cachedTrip = resolvedTripId ? cache.tripPlans[resolvedTripId] ?? null : null;
+    const cachedTrip = resolvedTripId && cache.tripPlans[resolvedTripId]
+      ? normalizeTripPlan(cache.tripPlans[resolvedTripId])
+      : null;
+    const currentActiveDayId = get().activeDayId;
+    const nextActiveDayId = cachedTrip?.days.some((day) => day.id === currentActiveDayId)
+      ? currentActiveDayId
+      : cachedTrip?.days[0]?.id ?? "";
 
     set({
       trips: cache.trips,
       activeTrip: cachedTrip,
-      activeDayId: cachedTrip?.days[0]?.id ?? "",
+      activeDayId: nextActiveDayId,
       loading: false,
       hasFetched: true,
       error: null,
@@ -390,6 +412,7 @@ export const useItineraryStore = create<Store>((set, get) => {
   };
 
   const fetchFreshTrip = async (tripId?: string) => {
+    const userId = getCurrentUserId();
     let tripQuery = supabase.from("trips").select("*");
     if (tripId) {
       tripQuery = tripQuery.eq("id", tripId);
@@ -413,22 +436,31 @@ export const useItineraryStore = create<Store>((set, get) => {
       supabase.from("activity_files").select("*").eq("trip_id", trip.id),
     ]);
 
-    const tripPlan = buildTripPlan(
+    const baseTripPlan = buildTripPlan(
       trip,
       (days ?? []) as TripDayDb[],
       (activities ?? []) as ActivityDb[],
       (reservations ?? []) as ReservationDb[],
       (files ?? []) as ActivityFileDb[]
     );
+    const cachedTrip = userId ? (await loadOfflineTripCache(userId))?.tripPlans?.[baseTripPlan.id] : null;
+    const tripPlan: TripPlan = normalizeTripPlan({
+      ...baseTripPlan,
+      shoppingItems: cachedTrip?.shoppingItems ?? [],
+      ignoredShoppingSuggestionKeys: cachedTrip?.ignoredShoppingSuggestionKeys ?? [],
+    });
 
     set((state) => {
       const nextTrips = state.trips.some((summary) => summary.id === tripPlan.id)
         ? state.trips.map((summary) => (summary.id === tripPlan.id ? buildTripSummaryFromPlan(tripPlan) : summary))
         : [buildTripSummaryFromPlan(tripPlan), ...state.trips];
+      const nextActiveDayId = tripPlan.days.some((day) => day.id === state.activeDayId)
+        ? state.activeDayId
+        : tripPlan.days[0]?.id ?? "";
 
       return {
         activeTrip: tripPlan,
-        activeDayId: tripPlan.days[0]?.id ?? "",
+        activeDayId: nextActiveDayId,
         trips: nextTrips,
         loading: false,
         hasFetched: true,
@@ -760,6 +792,8 @@ export const useItineraryStore = create<Store>((set, get) => {
           createdAt: new Date().toISOString(),
           days,
           criticalReservations: [],
+          shoppingItems: [],
+          ignoredShoppingSuggestionKeys: [],
         };
 
         await writeState((state) => ({
@@ -1265,6 +1299,80 @@ export const useItineraryStore = create<Store>((set, get) => {
 
       const { error } = await supabase.from("critical_reservations").delete().eq("id", reservationId);
       if (error) set({ error: error.message });
+    },
+
+    addShoppingItems: async (items) => {
+      await writeState((current) => {
+        if (!current.activeTrip) return {};
+
+        const existingKeys = new Set(current.activeTrip.shoppingItems.map((item) => item.name.trim().toLowerCase()));
+        const nextItems = items
+          .filter((item) => !existingKeys.has(item.name.trim().toLowerCase()))
+          .map((item) => ({
+            ...item,
+            id: item.id || createOfflineId("shopping"),
+            status: item.status || "pending",
+          }));
+
+        return {
+          activeTrip: {
+            ...current.activeTrip,
+            shoppingItems: [...current.activeTrip.shoppingItems, ...nextItems],
+          },
+        };
+      });
+    },
+
+    toggleShoppingItemStatus: async (itemId) => {
+      await writeState((current) => ({
+        activeTrip: current.activeTrip
+          ? {
+              ...current.activeTrip,
+              shoppingItems: current.activeTrip.shoppingItems.map((item) =>
+                item.id === itemId
+                  ? { ...item, status: item.status === "purchased" ? "pending" : "purchased" }
+                  : item
+              ),
+            }
+          : null,
+      }));
+    },
+
+    updateShoppingItem: async (itemId, patch) => {
+      await writeState((current) => ({
+        activeTrip: current.activeTrip
+          ? {
+              ...current.activeTrip,
+              shoppingItems: current.activeTrip.shoppingItems.map((item) =>
+                item.id === itemId ? { ...item, ...patch } : item
+              ),
+            }
+          : null,
+      }));
+    },
+
+    removeShoppingItem: async (itemId) => {
+      await writeState((current) => ({
+        activeTrip: current.activeTrip
+          ? {
+              ...current.activeTrip,
+              shoppingItems: current.activeTrip.shoppingItems.filter((item) => item.id !== itemId),
+            }
+          : null,
+      }));
+    },
+
+    ignoreShoppingSuggestion: async (ignoreKey) => {
+      await writeState((current) => ({
+        activeTrip: current.activeTrip
+          ? {
+              ...current.activeTrip,
+              ignoredShoppingSuggestionKeys: current.activeTrip.ignoredShoppingSuggestionKeys.includes(ignoreKey)
+                ? current.activeTrip.ignoredShoppingSuggestionKeys
+                : [...current.activeTrip.ignoredShoppingSuggestionKeys, ignoreKey],
+            }
+          : null,
+      }));
     },
 
     uploadActivityFile: async (activityId, file) => {

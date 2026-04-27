@@ -50,7 +50,16 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
-import { Activity, ActivityCategory, CriticalReservation, TripDay, ActivityFile } from "@/lib/types";
+import {
+  Activity,
+  ActivityCategory,
+  ActivityFile,
+  CriticalReservation,
+  ShoppingAssistantResponse,
+  ShoppingItem,
+  ShoppingSuggestion,
+  TripDay,
+} from "@/lib/types";
 import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
@@ -73,6 +82,33 @@ const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: 
 const getCategoryStyle = (category: string) =>
   CATEGORY_STYLES[category as ActivityCategory] ??
   CATEGORY_STYLES["other" as ActivityCategory];
+
+async function callShoppingAssistant(payload: Record<string, unknown>) {
+  const response = await fetch("/api/shopping-assistant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: "Shopping assistant failed" }));
+    throw new Error(errorBody.error || "Shopping assistant failed");
+  }
+
+  return (await response.json()) as ShoppingAssistantResponse;
+}
+
+const EMPTY_SHOPPING_ITEMS: ShoppingItem[] = [];
+const EMPTY_STRING_LIST: string[] = [];
+
+function shallowEqualShoppingUi(left: ShoppingAssistantResponse["ui"], right: ShoppingAssistantResponse["ui"]) {
+  return (
+    left.input_mode === right.input_mode &&
+    left.input_placeholder === right.input_placeholder &&
+    left.list_style === right.list_style &&
+    left.show_suggestions_card === right.show_suggestions_card
+  );
+}
 
 function SortableActivityCard({
   dayId,
@@ -777,6 +813,11 @@ export function TripView() {
     addReservation,
     patchReservation,
     removeReservation,
+    addShoppingItems,
+    toggleShoppingItemStatus,
+    updateShoppingItem,
+    removeShoppingItem,
+    ignoreShoppingSuggestion,
     isOptimizing,
     optimizeDay: runOptimizeDay,
     addTripDay,
@@ -819,6 +860,20 @@ export function TripView() {
   const [editingDay, setEditingDay] = useState<TripDay | null>(null);
   const [editDayCity, setEditDayCity] = useState("");
   const [editDayLabel, setEditDayLabel] = useState("");
+  const [shoppingInput, setShoppingInput] = useState("");
+  const [shoppingSuggestions, setShoppingSuggestions] = useState<ShoppingSuggestion[]>([]);
+  const [shoppingUi, setShoppingUi] = useState<ShoppingAssistantResponse["ui"]>({
+    input_mode: "textbox",
+    input_placeholder: "Add things to buy (e.g. Japanese knife, souvenirs, sneakers...)",
+    list_style: "todo",
+    show_suggestions_card: false,
+  });
+  const [shoppingLoading, setShoppingLoading] = useState(false);
+  const [selectedShoppingItemId, setSelectedShoppingItemId] = useState<string | null>(null);
+  const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<{ name: string; area: string | null }[]>([]);
+  const [nearbyAttribution, setNearbyAttribution] = useState<string | null>(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
   
   const [voiceState, setVoiceState] = useState<"idle" | "listening" | "preview" | "syncing">("idle");
   const [previewCountdown, setPreviewCountdown] = useState(0);
@@ -989,6 +1044,8 @@ export function TripView() {
     activeTrip?.days.find(d => d.id === activeDayId) || activeTrip?.days[0], 
     [activeTrip, activeDayId]
   );
+  const shoppingItems = activeTrip?.shoppingItems ?? EMPTY_SHOPPING_ITEMS;
+  const ignoredSuggestionKeys = activeTrip?.ignoredShoppingSuggestionKeys ?? EMPTY_STRING_LIST;
 
   const completion = useMemo(() => {
     if (!activeTrip || !activeDay) return { tripPct: 0, dayPct: 0, cityPct: 0 };
@@ -1005,6 +1062,38 @@ export function TripView() {
   }, [activeTrip, activeDay]);
 
   const suggestions = useMemo(() => activeDay ? optimizeDay(activeDay) : [], [activeDay]);
+  const visibleShoppingSuggestions = useMemo(
+    () =>
+      selectedShoppingItemId
+        ? shoppingSuggestions.filter((suggestion) => suggestion.shopping_item_id === selectedShoppingItemId)
+        : shoppingSuggestions,
+    [selectedShoppingItemId, shoppingSuggestions]
+  );
+  const sortedShoppingItems = useMemo(() => {
+    const pending = shoppingItems.filter((item) => item.status === "pending");
+    const purchased = shoppingItems.filter((item) => item.status !== "pending");
+    return [...pending, ...purchased];
+  }, [shoppingItems]);
+  const shoppingCandidatePlaces = useMemo(
+    () =>
+      (activeDay?.activities ?? [])
+        .filter((activity) => activity.location)
+        .map((activity) => ({
+          name: activity.location as string,
+          area: activity.city || activeDay?.city || null,
+        })),
+    [activeDay]
+  );
+  const mergedCandidatePlaces = useMemo(() => {
+    const merged = [...nearbyPlaces, ...shoppingCandidatePlaces];
+    const seen = new Set<string>();
+    return merged.filter((place) => {
+      const key = `${place.name.toLowerCase()}|${(place.area ?? "").toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [nearbyPlaces, shoppingCandidatePlaces]);
 
   const sortedActivities = useMemo(() => {
     if (!activeDay) return [];
@@ -1017,39 +1106,6 @@ export function TripView() {
       .sort((a, b) => a.time.localeCompare(b.time));
     return [...pending, ...completed];
   }, [activeDay]);
-
-  if (!isMounted || (loading && !activeTrip)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center gap-4">
-          <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-            {isMounted ? t("loading_adventure") : "Loading..."}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-8 text-center">
-        <div className="premium-card p-12 max-w-md">
-          <div className="size-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Info className="text-rose-600" size={32} />
-          </div>
-          <h2 className="text-xl font-black text-slate-900 mb-2">{t("connection_issue")}</h2>
-          <p className="text-slate-500 text-sm mb-8">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold"
-          >
-            {t("retry_connection")}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const handleAddDay = async () => {
     if (!activeTrip) return;
@@ -1147,12 +1203,171 @@ export function TripView() {
       )
     : 0;
 
+  useEffect(() => {
+    const loadShoppingSuggestions = async () => {
+      // During the initial load there may be no trip/day yet; do nothing to avoid render loops.
+      if (!activeTrip || !activeDay) return;
+
+      if (shoppingItems.filter((item) => item.status === "pending").length === 0) {
+        setShoppingSuggestions((current) => (current.length ? [] : current));
+        setShoppingUi((current) =>
+          current.show_suggestions_card ? { ...current, show_suggestions_card: false } : current
+        );
+        return;
+      }
+
+      try {
+        const result = await callShoppingAssistant({
+          type: "suggestions",
+          day: {
+            date: activeDay.date,
+            city: activeDay.city,
+            country: activeTrip?.name?.includes("Japan") ? "Japan" : activeTrip?.name?.includes("Korea") ? "South Korea" : activeDay.city,
+          },
+          itinerary: activeDay.activities,
+          shopping_list: shoppingItems,
+          candidate_places: mergedCandidatePlaces,
+          ignored_suggestion_keys: ignoredSuggestionKeys,
+        });
+        setShoppingUi((current) => (shallowEqualShoppingUi(current, result.ui) ? current : result.ui));
+        setShoppingSuggestions(result.suggestions);
+      } catch {
+        setShoppingSuggestions((current) => (current.length ? [] : current));
+        setShoppingUi((current) =>
+          current.show_suggestions_card ? { ...current, show_suggestions_card: false } : current
+        );
+      }
+    };
+
+    void loadShoppingSuggestions();
+  }, [activeDay, activeTrip, activeTrip?.name, ignoredSuggestionKeys, mergedCandidatePlaces, shoppingItems]);
+
+  const handleEnableDeviceLocation = async () => {
+    if (!("geolocation" in navigator)) {
+      showToast("Geolocation is not supported in this browser.", "error");
+      return;
+    }
+
+    setNearbyLoading(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 60_000,
+        });
+      });
+
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      setDeviceLocation({ lat, lon });
+
+      const res = await fetch("/api/places/nearby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat,
+          lon,
+          radius_m: 1800,
+          limit: 12,
+          categories: "commercial,commercial.supermarket,commercial.shopping_mall,commercial.department_store,commercial.gift_and_souvenir,commercial.clothes,commercial.shoes,commercial.health_and_beauty,commercial.houseware_and_hardware",
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Nearby places failed" }));
+        throw new Error(body.error || "Nearby places failed");
+      }
+
+      const data = (await res.json()) as { places: { name: string; area: string | null }[]; attribution?: string };
+      setNearbyPlaces(Array.isArray(data.places) ? data.places : []);
+      setNearbyAttribution(data.attribution ?? null);
+      showToast("Nearby shops loaded.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to load nearby places.", "error");
+    } finally {
+      setNearbyLoading(false);
+    }
+  };
+
+  const handleAddShoppingItems = async () => {
+    if (!shoppingInput.trim()) return;
+    setShoppingLoading(true);
+    try {
+      const result = await callShoppingAssistant({
+        type: "wishlist_input",
+        text: shoppingInput,
+        shopping_list: shoppingItems,
+      });
+      if (result.wishlist_items.length === 0) {
+        showToast("Nothing new to add.", "error");
+      } else {
+        await addShoppingItems(result.wishlist_items);
+        setShoppingInput("");
+        showToast("Shopping list updated.");
+      }
+      setShoppingUi(result.ui);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Shopping assistant failed.", "error");
+    } finally {
+      setShoppingLoading(false);
+    }
+  };
+
+  const handleShoppingPlanAdd = async (suggestion: ShoppingSuggestion) => {
+    if (!activeDay) return;
+    const matchingItem = shoppingItems.find((item) => item.id === suggestion.shopping_item_id);
+    if (!matchingItem) return;
+
+    await addActivity({
+      dayId: activeDayId,
+      city: activeDay.city,
+      title: suggestion.title,
+      time: suggestion.suggested_time || "17:00",
+      durationMin: suggestion.suggested_duration || 75,
+      category: "shopping",
+      priority: matchingItem.priority === "high" ? "high" : "medium",
+      state: "pending",
+      notes: suggestion.reason,
+      location: suggestion.location_suggestions[0]?.name || activeDay.city,
+      sort_order: 0,
+    });
+    showToast("Shopping stop added to your day.");
+  };
+
+  const handleIgnoreShoppingSuggestion = async (suggestion: ShoppingSuggestion) => {
+    const ignoreKey = suggestion.ui_hints?.ignore_key;
+    if (!ignoreKey) return;
+    await ignoreShoppingSuggestion(ignoreKey);
+    setShoppingSuggestions((current) => current.filter((item) => item.ui_hints?.ignore_key !== ignoreKey));
+  };
+
   if (!isMounted || (loading && !activeTrip)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading\u2026</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-8 text-center">
+        <div className="premium-card p-12 max-w-md">
+          <div className="size-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Info className="text-rose-600" size={32} />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2">{t("connection_issue")}</h2>
+          <p className="text-slate-500 text-sm mb-8">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold"
+          >
+            {t("retry_connection")}
+          </button>
         </div>
       </div>
     );
@@ -1354,6 +1569,43 @@ export function TripView() {
             </div>
           )}
 
+          {shoppingUi.show_suggestions_card && visibleShoppingSuggestions.length > 0 && (
+            <div className="premium-card p-6 border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-900">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600">Good opportunity today</p>
+                  <h3 className="mt-2 text-lg font-black text-slate-900 dark:text-white">
+                    {visibleShoppingSuggestions[0].title}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    {visibleShoppingSuggestions[0].reason}
+                  </p>
+                  {visibleShoppingSuggestions[0].location_suggestions[0] && (
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                      {visibleShoppingSuggestions[0].location_suggestions[0].name}
+                      {visibleShoppingSuggestions[0].location_suggestions[0].area ? ` · ${visibleShoppingSuggestions[0].location_suggestions[0].area}` : ""}
+                    </p>
+                  )}
+                </div>
+                <ShoppingBag className="shrink-0 text-emerald-500" size={28} />
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  onClick={() => void handleShoppingPlanAdd(visibleShoppingSuggestions[0])}
+                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20"
+                >
+                  Add to plan
+                </button>
+                <button
+                  onClick={() => void handleIgnoreShoppingSuggestion(visibleShoppingSuggestions[0])}
+                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  Ignore
+                </button>
+              </div>
+            </div>
+          )}
+
           <DndContext id="itinerary-dnd" sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext
               items={sortedActivities.map((a) => a.id)}
@@ -1448,6 +1700,113 @@ export function TripView() {
 
         {/* ­ƒì▒ SIDEBAR / SECONDARY CONTENT */}
         <aside className="space-y-10">
+          <div className="premium-card p-6 border-fuchsia-200/60 shadow-fuchsia-500/5">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
+                <ShoppingBag className="text-fuchsia-500" size={22} />
+                Shopping List
+              </h3>
+              <span className="rounded-full bg-fuchsia-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-fuchsia-600 dark:bg-fuchsia-900/20 dark:text-fuchsia-300">
+                Todo
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <input
+                  value={shoppingInput}
+                  onChange={(e) => setShoppingInput(e.target.value)}
+                  placeholder={shoppingUi.input_placeholder}
+                  className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition-all focus:ring-4 focus:ring-fuchsia-500/10 dark:border-slate-800 dark:bg-slate-950/50 dark:text-white"
+                />
+                <button
+                  onClick={() => void handleAddShoppingItems()}
+                  disabled={shoppingLoading || !shoppingInput.trim()}
+                  className="rounded-2xl bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 dark:bg-white dark:text-slate-900"
+                >
+                  {shoppingLoading ? "Adding" : "Add"}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => void handleEnableDeviceLocation()}
+                  disabled={nearbyLoading}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-fuchsia-200 hover:text-fuchsia-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300"
+                >
+                  {nearbyLoading ? "Locating" : deviceLocation ? "Refresh nearby" : "Use my location"}
+                </button>
+                {nearbyAttribution && (
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                    {nearbyAttribution}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {sortedShoppingItems.length === 0 && (
+                  <div className="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:border-slate-800">
+                    No shopping items yet
+                  </div>
+                )}
+
+                {sortedShoppingItems.map((item) => {
+                  const isSelected = selectedShoppingItemId === item.id;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-2xl border px-4 py-3 transition-all ${
+                        isSelected
+                          ? "border-fuchsia-300 bg-fuchsia-50/60 dark:border-fuchsia-700 dark:bg-fuchsia-900/10"
+                          : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={item.status === "purchased"}
+                          onChange={() => void toggleShoppingItemStatus(item.id)}
+                          className="mt-1 size-4 rounded border-slate-300 accent-fuchsia-500"
+                        />
+                        <button
+                          onClick={() => setSelectedShoppingItemId(isSelected ? null : item.id)}
+                          className="flex-1 text-left"
+                        >
+                          <p className={`text-sm font-black ${item.status === "purchased" ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
+                            {item.name}
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            {item.category}
+                            {item.preferred_cities?.length ? ` · Best in ${item.preferred_cities.join(", ")}` : ""}
+                          </p>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const nextName = window.prompt("Edit shopping item", item.name);
+                              if (nextName && nextName.trim()) {
+                                void updateShoppingItem(item.id, { name: nextName.trim() });
+                              }
+                            }}
+                            className="text-slate-300 hover:text-indigo-500 transition-colors"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => void removeShoppingItem(item.id)}
+                            className="text-slate-300 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {/* TICKET-STYLE RESERVATIONS */}
           <div className="premium-card bg-slate-900 dark:bg-white p-6 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 size-32 bg-indigo-500/10 blur-3xl rounded-full translate-x-12 -translate-y-12" />
