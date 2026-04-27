@@ -87,7 +87,77 @@ async function runGeminiPrompt(systemPrompt: string, userPrompt: string) {
   return content;
 }
 
+async function runGeminiVision(systemPrompt: string, userPrompt: string, imageUri: string) {
+  // Convert URI to base64 if needed, but here we assume the URI is accessible or provided as base64
+  // For simplicity in this implementation, we'll pass the URL directly if it's public
+  // or handle base64 if it's a data URI.
+  
+  const payload = [
+    { role: "system", content: systemPrompt },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: userPrompt },
+        {
+          type: "image_url",
+          image_url: {
+            url: imageUri,
+          },
+        },
+      ],
+    },
+  ];
+
+  const primaryConfig = {
+    url: process.env.AI_API_URL || "",
+    key: process.env.AI_API_KEY || "",
+    models: process.env.AI_MODEL || "gpt-4o-mini"
+  };
+
+  if (!primaryConfig.key || !primaryConfig.url) {
+    throw new Error("Primary AI configuration missing");
+  }
+
+  const result = await tryModelsForProvider(primaryConfig, payload);
+  const res = result.response;
+  if (!result.success || !res) {
+    throw new Error("AI Provider error");
+  }
+
+  const data = await res.json();
+  const content =
+    data.choices?.[0]?.message?.content ||
+    data.candidates?.[0]?.content?.parts?.[0]?.text ||
+    "";
+    
+  return content;
+}
+
 export const geminiService = {
+  async detectCodeRegions(imageUri: string): Promise<{ type: string; x: number; y: number; width: number; height: number; label: string }[]> {
+    const systemPrompt = `You are a document analyzer.
+Identify ALL QR codes and Barcodes in the provided image.
+Return a JSON array of objects with the following structure:
+[{"type": "qr" | "barcode", "x": number, "y": number, "width": number, "height": number, "label": "string description"}]
+Coordinates (x, y, width, height) must be NORMALIZED (0-100) relative to the image size.
+x, y represent the CENTER of the code.
+Return ONLY the JSON array.`;
+
+    const userPrompt = "Find all scan codes in this boarding pass.";
+
+    try {
+      const result = await runGeminiVision(systemPrompt, userPrompt, imageUri);
+      const jsonStart = result.indexOf("[");
+      const jsonEnd = result.lastIndexOf("]");
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        return JSON.parse(result.slice(jsonStart, jsonEnd + 1));
+      }
+    } catch (e) {
+      console.error("detectCodeRegions failed:", e);
+    }
+    return [];
+  },
+
   async compareLocations(locations: string[]): Promise<string[][]> {
     if (locations.length < 2) return locations.map(l => [l]);
 

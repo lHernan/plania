@@ -15,6 +15,7 @@ const mapActivityFileFromDb = (db: any): ActivityFile => ({
   fileType: db.file_type as any,
   fileName: db.file_name,
   createdAt: db.created_at,
+  focusArea: db.focus_area,
 });
 const mapActivityFromDb = (db: any): Activity => ({
   id: db.id,
@@ -96,6 +97,7 @@ type Store = {
   
   uploadActivityFile: (activityId: string, file: File) => Promise<void>;
   deleteActivityFile: (fileId: string) => Promise<void>;
+  setFileFocusArea: (fileId: string, focusArea: import("@/lib/types").FocusArea | null) => Promise<void>;
 
   setIsImporting: (status: boolean) => void;
   optimizeDay: (dayId: string) => Promise<void>;
@@ -890,6 +892,42 @@ export const useItineraryStore = create<Store>((set, get) => ({
             activities: d.activities.map((a) =>
               a.id === file.activity_id
                 ? { ...a, files: (a.files || []).filter((f) => f.id !== fileId) }
+                : a
+            )
+          }))
+        },
+        loading: false
+      }));
+    } catch (e: any) {
+      set({ error: e.message, loading: false });
+    }
+  },
+
+  setFileFocusArea: async (fileId, focusArea) => {
+    set({ loading: true });
+    try {
+      const { data: file, error: updateError } = await supabase
+        .from("activity_files")
+        .update({ focus_area: focusArea })
+        .eq("id", fileId)
+        .select("activity_id")
+        .single();
+
+      if (updateError) throw updateError;
+
+      set((state) => ({
+        activeTrip: {
+          ...state.activeTrip!,
+          days: state.activeTrip!.days.map((d) => ({
+            ...d,
+            activities: d.activities.map((a) =>
+              a.id === file.activity_id
+                ? {
+                    ...a,
+                    files: (a.files || []).map((f) =>
+                      f.id === fileId ? { ...f, focusArea: focusArea || undefined } : f
+                    )
+                  }
                 : a
             )
           }))

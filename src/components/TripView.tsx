@@ -54,6 +54,7 @@ import { Activity, ActivityCategory, CriticalReservation, TripDay, ActivityFile 
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
+import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -226,10 +227,14 @@ function SortableActivityCard({
 
 function ActivityFilesSection({ 
   activityId, 
-  files = [] 
+  files = [],
+  onPreview,
+  activityTitle
 }: { 
   activityId: string; 
   files?: ActivityFile[];
+  onPreview: (file: ActivityFile) => void;
+  activityTitle: string;
 }) {
   const { t } = useI18n();
   const uploadFile = useItineraryStore((s) => s.uploadActivityFile);
@@ -288,7 +293,7 @@ function ActivityFilesSection({
                 {file.fileName}
               </p>
               <button
-                onClick={() => window.open(file.fileUrl, "_blank")}
+                onClick={() => onPreview(file)}
                 className="text-[10px] font-bold text-indigo-500 hover:underline uppercase tracking-wider"
               >
                 {t("view_file")}
@@ -332,13 +337,15 @@ function ActivityEditModal({
   onClose,
   onSave,
   onDelete,
-  onDuplicate
+  onDuplicate,
+  onPreviewFile
 }: {
   activity: Activity;
   onClose: () => void;
   onSave: (updates: Partial<Activity>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onPreviewFile: (file: ActivityFile) => void;
 }) {
   const { t } = useI18n();
   const [localTitle, setLocalTitle] = useState(activity.title);
@@ -471,7 +478,12 @@ function ActivityEditModal({
             </div>
 
             {/* Attachments Section */}
-            <ActivityFilesSection activityId={activity.id} files={activity.files} />
+            <ActivityFilesSection 
+              activityId={activity.id} 
+              files={activity.files} 
+              onPreview={onPreviewFile}
+              activityTitle={activity.title}
+            />
           </div>
         </div>
 
@@ -687,6 +699,7 @@ export function TripView() {
     removeTripDay,
     updateTripDay,
     createTrip,
+    deleteActivityFile,
     hasFetched
   } = useItineraryStore();
 
@@ -711,6 +724,7 @@ export function TripView() {
     return null;
   }, [activeTrip, editingActivityId]);
   const [editingReservation, setEditingReservation] = useState<CriticalReservation | null>(null);
+  const [previewFile, setPreviewFile] = useState<ActivityFile | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -1667,9 +1681,27 @@ export function TripView() {
             onSave={(updates) => patchActivity(activeDayId, editingActivity.id, updates)}
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}
             onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}
+            onPreviewFile={(file) => setPreviewFile(file)}
           />
         )}
       </AnimatePresence>
+
+
+
+      {previewFile && (
+        <WalletPreviewModal
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
+          activityTitle={editingActivity?.title || ""}
+          onDelete={() => {
+            deleteActivityFile(previewFile.id);
+            setPreviewFile(null);
+          }}
+        />
+      )}
+
+
+
 
       <AnimatePresence>
         {editingDay && (

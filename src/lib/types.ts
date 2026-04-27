@@ -13,6 +13,13 @@ export type ActivityState = "pending" | "completed" | "skipped" | "delayed";
 export type Priority = "low" | "medium" | "high" | "critical";
 export type ReservationStatus = "pending" | "booked";
 
+export type FocusArea = {
+  x: number; // 0 to 1
+  y: number; // 0 to 1
+  width: number; // 0 to 1
+  height: number; // 0 to 1
+};
+
 export type ActivityFile = {
   id: string;
   activityId: string;
@@ -23,6 +30,7 @@ export type ActivityFile = {
   fileType: "pdf" | "image" | "other";
   fileName: string;
   createdAt: string;
+  focusArea?: FocusArea;
 };
 
 export type Activity = {
