@@ -1,21 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
-import { supabase } from "@/lib/supabase";
 
-/**
- * AuthInitializer — renders null, runs once at app root.
- *
- * Responsibilities:
- * 1. Call auth.initialize() to resolve/create the Supabase session.
- * 2. Watch for user changes and load trip data accordingly.
- * 3. Redirect to /trips once an active trip is available.
- * 4. Clear trip data on sign-out and redirect to /.
- * 5. Revalidate trip data when the browser tab regains focus.
- */
 export function AuthInitializer() {
   const router = useRouter();
   const pathname = usePathname();
@@ -24,83 +14,70 @@ export function AuthInitializer() {
   const initialized = useAuthStore((s) => s.initialized);
   const user = useAuthStore((s) => s.user);
 
-  const {
-    activeTrip,
-    hasFetched,
-    loading,
-    fetchAllTrips,
-    fetchActiveTrip,
-    clearData,
-  } = useItineraryStore();
+  const activeTrip = useItineraryStore((s) => s.activeTrip);
+  const hasFetched = useItineraryStore((s) => s.hasFetched);
+  const loading = useItineraryStore((s) => s.loading);
+  const fetchAllTrips = useItineraryStore((s) => s.fetchAllTrips);
+  const fetchActiveTrip = useItineraryStore((s) => s.fetchActiveTrip);
+  const clearData = useItineraryStore((s) => s.clearData);
+  const syncPendingMutations = useItineraryStore((s) => s.syncPendingMutations);
 
-  // Run auth initialization once on mount
   useEffect(() => {
-    initialize();
+    void initialize();
   }, [initialize]);
 
-  // Track the previous user id so we only react to actual user changes
-  const prevUserIdRef = useRef<string | null>(null);
+  const previousUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    // Don't act until auth is fully resolved (prevents firing on the null→null no-op)
     if (!initialized) return;
 
-    const currentId = user?.id ?? null;
-    const prevId = prevUserIdRef.current;
+    const currentUserId = user?.id ?? null;
+    if (currentUserId === previousUserId.current) return;
+    previousUserId.current = currentUserId;
 
-    if (currentId === prevId) return;
-    prevUserIdRef.current = currentId;
-
-    if (!currentId) {
+    if (!currentUserId) {
       clearData();
       if (pathname !== "/") router.push("/");
       return;
     }
 
-    // New user confirmed — fetch their data fresh
-    console.log("Plania [init]: User confirmed →", currentId, "anon:", user?.is_anonymous);
     clearData();
-    fetchAllTrips();
-    fetchActiveTrip();
-  }, [initialized, user?.id, clearData, fetchAllTrips, fetchActiveTrip, router, pathname]);
+    void fetchAllTrips();
+    void fetchActiveTrip();
+  }, [clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id]);
 
-  // Once we have an active trip, redirect to /trips (unless already there)
   useEffect(() => {
     if (activeTrip && pathname === "/") {
-      console.log("Plania: Active trip ready — navigating to /trips");
       router.push("/trips");
     }
   }, [activeTrip, pathname, router]);
 
-  // Guard: only redirect from /trips → / when:
-  // - fetch is fully complete (hasFetched=true)
-  // - not currently loading (avoids premature redirect on slow mobile networks)
-  // - there's genuinely no active trip
-  // - auth is initialized (avoids redirect before session is resolved)
   useEffect(() => {
     if (initialized && hasFetched && !loading && !activeTrip && pathname === "/trips") {
-      console.log("Plania: No trips found after full fetch — navigating to /");
       router.push("/");
     }
-  }, [initialized, hasFetched, loading, activeTrip, pathname, router]);
+  }, [activeTrip, hasFetched, initialized, loading, pathname, router]);
 
-  // Revalidate on window focus (handles returning from background on mobile)
   useEffect(() => {
     const handleFocus = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      console.log("Plania: Window focused — revalidating trips…");
-      // Only refetch if not already loading
-      if (!loading) {
-        fetchAllTrips();
-        fetchActiveTrip();
+
+      if (navigator.onLine) {
+        void fetchAllTrips();
+        void fetchActiveTrip();
+        void syncPendingMutations();
+      } else if (!loading) {
+        void fetchAllTrips();
+        void fetchActiveTrip();
       }
     };
 
     window.addEventListener("focus", handleFocus);
-    // Mobile: visibilitychange fires when user switches back to the tab/app
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") handleFocus();
+      if (document.visibilityState === "visible") {
+        void handleFocus();
+      }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -108,7 +85,7 @@ export function AuthInitializer() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [fetchAllTrips, fetchActiveTrip, loading]);
+  }, [fetchActiveTrip, fetchAllTrips, loading, syncPendingMutations]);
 
   return null;
 }

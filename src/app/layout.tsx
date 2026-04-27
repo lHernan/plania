@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
 import { I18nProvider } from "@/components/I18nProvider";
 import { AuthInitializer } from "@/components/AuthInitializer";
+import { OfflineStatus } from "@/components/OfflineStatus";
 import { Suspense } from "react";
 import "./globals.css";
 
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <I18nProvider>
           <AuthInitializer />
+          <OfflineStatus />
           <PwaRegister />
           <Suspense fallback={null}>
             {children}

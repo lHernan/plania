@@ -54,6 +54,7 @@ import { Activity, ActivityCategory, CriticalReservation, TripDay, ActivityFile 
 import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 
@@ -824,6 +825,7 @@ export function TripView() {
   const recognitionRef = useRef<any>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const isOnline = useOfflineStore((s) => s.isOnline);
 
   const cancelVoice = () => {
     if (recognitionRef.current) recognitionRef.current.stop();
@@ -834,6 +836,11 @@ export function TripView() {
 
   const handleImportSync = async (textToSync: string) => {
     if (!textToSync.trim() || isImporting) return;
+    if (!isOnline) {
+      showToast("AI import comes back online automatically when you reconnect.", "error");
+      cancelVoice();
+      return;
+    }
     try {
       setIsImporting(true);
       if (voiceState === "preview") setVoiceState("syncing");
