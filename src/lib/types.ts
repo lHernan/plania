@@ -95,6 +95,7 @@ export type TripPlan = {
   startDate?: string;
   endDate?: string;
   createdAt?: string;
+  isFavorite?: boolean;
   days: TripDay[];
   criticalReservations: CriticalReservation[];
   shoppingItems: ShoppingItem[];
@@ -106,6 +107,8 @@ export type TripSummary = {
   name: string;
   startDate?: string;
   endDate?: string;
+  createdAt?: string;
+  isFavorite?: boolean;
   dayCount: number;
   activityCount: number;
 };

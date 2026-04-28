@@ -72,6 +72,49 @@ body {
   letter-spacing: -0.01em;
 }
 
+@media (max-width: 768px) {
+  html[data-platform="ios"] body {
+    line-height: 1.35;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html[data-platform="ios"] .ios-compact-shell {
+    max-width: 46rem;
+    margin-inline: auto;
+  }
+
+  html[data-platform="ios"] .ios-compact-header {
+    height: 3.25rem;
+  }
+
+  html[data-platform="ios"] .ios-compact-gap {
+    gap: 0.75rem;
+  }
+
+  html[data-platform="ios"] .ios-compact-card {
+    padding: 0.875rem;
+  }
+
+  html[data-platform="ios"] .ios-compact-row {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  html[data-platform="ios"] .ios-compact-title {
+    font-size: 0.92rem;
+    line-height: 1.2;
+  }
+
+  html[data-platform="ios"] .ios-compact-meta {
+    font-size: 0.625rem;
+    line-height: 1.1;
+  }
+
+  html[data-platform="ios"] .ios-safe-top {
+    padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+  }
+}
+
 /* Hide scrollbar but keep functionality */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

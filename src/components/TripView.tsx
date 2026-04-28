@@ -1374,11 +1374,11 @@ export function TripView() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 ios-compact-shell">
       {/* COMPACT STICKY HEADER */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
         {/* Top bar: trip selector + controls */}
-        <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
           {/* Left: Trip Switcher */}
           <TripSwitcher />
 
@@ -1422,7 +1422,7 @@ export function TripView() {
         </div>
 
         {/* Date strip */}
-        <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto">
+        <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">
           {activeTrip?.days.map((day) => {
             const isActive = day.id === activeDayId;
             const isToday = day.date === today;
@@ -1463,7 +1463,7 @@ export function TripView() {
       </header>
 
 
-      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
+      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div className="space-y-8">
           {/* DAY INTRO */}

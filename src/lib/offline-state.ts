@@ -14,6 +14,7 @@ export type OfflineMutationOperation = "create" | "update" | "delete";
 
 export type OfflineMutationTarget =
   | "trip"
+  | "trip_favorite"
   | "trip_day"
   | "activity"
   | "activity_state"

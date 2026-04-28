@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import { CloudOff, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { CloudOff } from "lucide-react";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
 export function OfflineStatus() {
   const isOnline = useOfflineStore((s) => s.isOnline);
-  const isSyncing = useOfflineStore((s) => s.isSyncing);
-  const pendingCount = useOfflineStore((s) => s.pendingCount);
   const setOnline = useOfflineStore((s) => s.setOnline);
   const refreshPendingCount = useOfflineStore((s) => s.refreshPendingCount);
   const syncPendingMutations = useItineraryStore((s) => s.syncPendingMutations);
+  const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
     const handleConnectionChange = () => {
@@ -23,6 +23,7 @@ export function OfflineStatus() {
       }
     };
 
+    handleConnectionChange();
     void refreshPendingCount();
     window.addEventListener("online", handleConnectionChange);
     window.addEventListener("offline", handleConnectionChange);
@@ -33,17 +34,32 @@ export function OfflineStatus() {
     };
   }, [refreshPendingCount, setOnline, syncPendingMutations]);
 
-  if (isOnline && !isSyncing && pendingCount === 0) return null;
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShowBanner(!isOnline);
+    }, isOnline ? 0 : 350);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isOnline]);
 
   return (
-    <div className="sticky top-0 z-[120] border-b border-amber-200 bg-amber-50/95 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-amber-900 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <CloudOff size={14} />}
-          <span>{isOnline ? "Syncing changes" : "Offline mode"}</span>
-        </div>
-        {pendingCount > 0 && <span>{pendingCount} pending sync</span>}
-      </div>
-    </div>
+    <AnimatePresence initial={false}>
+      {showBanner ? (
+        <motion.div
+          initial={{ y: -16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -16, opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="sticky top-0 z-[120] border-b border-amber-200 bg-amber-50/95 px-4 pb-2 pt-2 text-[11px] font-bold uppercase tracking-widest text-amber-900 backdrop-blur ios-safe-top"
+        >
+          <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 ios-compact-shell">
+            <CloudOff size={14} />
+            <span>You are offline</span>
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }

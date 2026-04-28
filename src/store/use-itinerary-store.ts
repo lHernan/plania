@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { removeCachedDocument } from "@/lib/offline-documents";
+import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
 import {
   createOfflineId,
   deleteOfflineMutation,
@@ -68,6 +69,7 @@ type TripDb = {
   start_date?: string | null;
   end_date?: string | null;
   created_at?: string | null;
+  is_favorite?: boolean | null;
 };
 
 type TripDayDb = {
@@ -106,6 +108,7 @@ type Store = {
   fetchActiveTrip: (tripId?: string, skipLoading?: boolean) => Promise<void>;
   createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
+  setTripFavorite: (tripId: string) => Promise<void>;
   switchTrip: (tripId: string) => Promise<void>;
   clearData: () => void;
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
@@ -194,6 +197,8 @@ function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
     name: plan.name,
     startDate: plan.startDate,
     endDate: plan.endDate,
+    createdAt: plan.createdAt,
+    isFavorite: plan.isFavorite,
     dayCount: plan.days.length,
     activityCount: plan.days.reduce((total, day) => total + day.activities.length, 0),
   };
@@ -223,6 +228,7 @@ function buildTripPlan(
     startDate: trip.start_date ?? undefined,
     endDate: trip.end_date ?? undefined,
     createdAt: trip.created_at ?? undefined,
+    isFavorite: trip.is_favorite ?? false,
     days: days.map((day) => ({
       id: day.id,
       date: day.date,
@@ -257,6 +263,75 @@ function sortActivities(activities: Activity[]) {
     if (left.sort_order !== right.sort_order) return left.sort_order - right.sort_order;
     return left.time.localeCompare(right.time);
   });
+}
+
+function buildTripSummaryFromDb(
+  trip: TripDb & {
+    trip_days?: { count: number }[];
+    activities?: { count: number }[];
+  }
+): TripSummary {
+  return {
+    id: String(trip.id),
+    name: String(trip.name),
+    startDate: trip.start_date ?? undefined,
+    endDate: trip.end_date ?? undefined,
+    createdAt: trip.created_at ?? undefined,
+    isFavorite: trip.is_favorite ?? false,
+    dayCount: Number(trip.trip_days?.[0]?.count ?? 0),
+    activityCount: Number(trip.activities?.[0]?.count ?? 0),
+  };
+}
+
+function sortTripSummariesForUi(trips: TripSummary[]) {
+  const selection = resolveTripSelection({
+    current_date: getCurrentDateString(),
+    trips: trips
+      .filter((trip) => Boolean(trip.startDate && trip.endDate))
+      .map((trip) => ({
+        id: trip.id,
+        name: trip.name,
+        start_date: trip.startDate as string,
+        end_date: trip.endDate as string,
+        is_favorite: Boolean(trip.isFavorite),
+        created_at: trip.createdAt ?? "",
+      })),
+  });
+
+  const orderedIds = [
+    ...selection.groups.active.map((trip) => trip.id),
+    ...selection.groups.upcoming.map((trip) => trip.id),
+    ...selection.groups.past.map((trip) => trip.id),
+  ];
+  const orderedIdSet = new Set(orderedIds);
+  const orderedTrips = orderedIds
+    .map((tripId) => trips.find((trip) => trip.id === tripId))
+    .filter((trip): trip is TripSummary => Boolean(trip));
+  const unsortedTrips = trips.filter((trip) => !orderedIdSet.has(trip.id));
+
+  return [...orderedTrips, ...unsortedTrips];
+}
+
+function buildFavoriteValue(tripId: string, nextFavorite: boolean, candidateTripId: string) {
+  return nextFavorite ? candidateTripId === tripId : false;
+}
+
+function applyFavoriteSummaryState(trips: TripSummary[], tripId: string, nextFavorite: boolean) {
+  return sortTripSummariesForUi(
+    trips.map((trip) => ({
+      ...trip,
+      isFavorite: buildFavoriteValue(tripId, nextFavorite, trip.id),
+    }))
+  );
+}
+
+function applyFavoritePlanState(plan: TripPlan | null, tripId: string, nextFavorite: boolean) {
+  if (!plan) return null;
+
+  return {
+    ...plan,
+    isFavorite: buildFavoriteValue(tripId, nextFavorite, plan.id),
+  };
 }
 
 function getCurrentUserId() {
@@ -318,9 +393,11 @@ export const useItineraryStore = create<Store>((set, get) => {
     const activeTrip = get().activeTrip;
     if (activeTrip) {
       set((state) => ({
-        trips: state.trips.some((trip) => trip.id === activeTrip.id)
-          ? state.trips.map((trip) => (trip.id === activeTrip.id ? buildTripSummaryFromPlan(activeTrip) : trip))
-          : [buildTripSummaryFromPlan(activeTrip), ...state.trips],
+        trips: sortTripSummariesForUi(
+          state.trips.some((trip) => trip.id === activeTrip.id)
+            ? state.trips.map((trip) => (trip.id === activeTrip.id ? buildTripSummaryFromPlan(activeTrip) : trip))
+            : [buildTripSummaryFromPlan(activeTrip), ...state.trips]
+        ),
       }));
     }
     await persistCacheFromState();
@@ -416,8 +493,6 @@ export const useItineraryStore = create<Store>((set, get) => {
     let tripQuery = supabase.from("trips").select("*");
     if (tripId) {
       tripQuery = tripQuery.eq("id", tripId);
-    } else {
-      tripQuery = tripQuery.order("created_at", { ascending: false }).limit(1);
     }
 
     const { data: trips, error } = await tripQuery;
@@ -428,7 +503,22 @@ export const useItineraryStore = create<Store>((set, get) => {
       return;
     }
 
-    const trip = trips[0] as TripDb;
+    const availableTrips = (trips ?? []) as TripDb[];
+    const selectedTripId = tripId ?? resolveTripSelection({
+      current_date: getCurrentDateString(),
+      trips: availableTrips
+        .filter((trip) => Boolean(trip.start_date && trip.end_date))
+        .map((trip) => ({
+          id: String(trip.id),
+          name: String(trip.name),
+          start_date: String(trip.start_date),
+          end_date: String(trip.end_date),
+          is_favorite: Boolean(trip.is_favorite),
+          created_at: trip.created_at ?? "",
+        })),
+    }).selected_trip_id;
+
+    const trip = availableTrips.find((item) => item.id === selectedTripId) ?? availableTrips[0];
     const [{ data: days }, { data: activities }, { data: reservations }, { data: files }] = await Promise.all([
       supabase.from("trip_days").select("*").eq("trip_id", trip.id).order("date", { ascending: true }),
       supabase.from("activities").select("*").eq("trip_id", trip.id).order("sort_order", { ascending: true }),
@@ -451,9 +541,11 @@ export const useItineraryStore = create<Store>((set, get) => {
     });
 
     set((state) => {
-      const nextTrips = state.trips.some((summary) => summary.id === tripPlan.id)
-        ? state.trips.map((summary) => (summary.id === tripPlan.id ? buildTripSummaryFromPlan(tripPlan) : summary))
-        : [buildTripSummaryFromPlan(tripPlan), ...state.trips];
+      const nextTrips = sortTripSummariesForUi(
+        state.trips.some((summary) => summary.id === tripPlan.id)
+          ? state.trips.map((summary) => (summary.id === tripPlan.id ? buildTripSummaryFromPlan(tripPlan) : summary))
+          : [buildTripSummaryFromPlan(tripPlan), ...state.trips]
+      );
       const nextActiveDayId = tripPlan.days.some((day) => day.id === state.activeDayId)
         ? state.activeDayId
         : tripPlan.days[0]?.id ?? "";
@@ -506,6 +598,28 @@ export const useItineraryStore = create<Store>((set, get) => {
       await supabase.from("critical_reservations").delete().eq("trip_id", tripId);
       await supabase.from("trip_days").delete().eq("trip_id", tripId);
       const { error } = await supabase.from("trips").delete().eq("id", tripId);
+      if (error) throw error;
+      return;
+    }
+
+    if (entry.target === "trip_favorite" && entry.operation === "update") {
+      const tripId = String(resolveMappedId(payload.tripId, idMap));
+      const nextFavorite = Boolean(payload.isFavorite);
+
+      if (nextFavorite) {
+        const { error: clearError } = await supabase
+          .from("trips")
+          .update({ is_favorite: false })
+          .eq("user_id", entry.userId)
+          .eq("is_favorite", true);
+        if (clearError) throw clearError;
+      }
+
+      const { error } = await supabase
+        .from("trips")
+        .update({ is_favorite: nextFavorite })
+        .eq("id", tripId)
+        .eq("user_id", entry.userId);
       if (error) throw error;
       return;
     }
@@ -735,18 +849,14 @@ export const useItineraryStore = create<Store>((set, get) => {
       try {
         const { data, error } = await supabase
           .from("trips")
-          .select("id, name, user_id, start_date, end_date, trip_days(count), activities(count)")
-          .order("created_at", { ascending: false });
+          .select("*, trip_days(count), activities(count)");
         if (error) throw error;
 
-        const trips = (data ?? []).map((trip) => ({
-          id: String(trip.id),
-          name: String(trip.name),
-          startDate: trip.start_date ?? undefined,
-          endDate: trip.end_date ?? undefined,
-          dayCount: Number((trip.trip_days as { count: number }[])[0]?.count ?? 0),
-          activityCount: Number((trip.activities as { count: number }[])[0]?.count ?? 0),
-        }));
+        const trips = sortTripSummariesForUi(
+          (data ?? []).map((trip) =>
+            buildTripSummaryFromDb(trip as TripDb & { trip_days?: { count: number }[]; activities?: { count: number }[] })
+          )
+        );
 
         set({ trips, error: null, hasFetched: true, loading: false });
         await persistCacheFromState();
@@ -790,6 +900,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           startDate: finalStartDate,
           endDate: finalEndDate,
           createdAt: new Date().toISOString(),
+          isFavorite: false,
           days,
           criticalReservations: [],
           shoppingItems: [],
@@ -874,6 +985,54 @@ export const useItineraryStore = create<Store>((set, get) => {
       } catch (error) {
         console.error("Plania: deleteTrip error", error);
         set({ error: error instanceof Error ? error.message : "Failed to delete trip" });
+      }
+    },
+
+    setTripFavorite: async (tripId) => {
+      const userId = getCurrentUserId();
+      if (!userId) return;
+
+      const selectedTrip = get().trips.find((trip) => trip.id === tripId);
+      if (!selectedTrip) return;
+
+      const nextFavorite = !selectedTrip.isFavorite;
+      const previousTrips = get().trips;
+      const previousActiveTrip = get().activeTrip;
+
+      await writeState((state) => ({
+        trips: applyFavoriteSummaryState(state.trips, tripId, nextFavorite),
+        activeTrip: applyFavoritePlanState(state.activeTrip, tripId, nextFavorite),
+        error: null,
+      }));
+
+      if (!isOnline()) {
+        await enqueueMutation("update", "trip_favorite", { tripId, isFavorite: nextFavorite });
+        return;
+      }
+
+      try {
+        if (nextFavorite) {
+          const { error: clearError } = await supabase
+            .from("trips")
+            .update({ is_favorite: false })
+            .eq("user_id", userId)
+            .eq("is_favorite", true);
+          if (clearError) throw clearError;
+        }
+
+        const { error } = await supabase
+          .from("trips")
+          .update({ is_favorite: nextFavorite })
+          .eq("id", tripId)
+          .eq("user_id", userId);
+        if (error) throw error;
+      } catch (error) {
+        set({
+          trips: previousTrips,
+          activeTrip: previousActiveTrip,
+          error: error instanceof Error ? error.message : "Failed to update favorite trip",
+        });
+        await persistCacheFromState();
       }
     },
 
