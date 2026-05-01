@@ -513,7 +513,7 @@ function ActivityEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+        className="relative w-full max-w-2xl bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
         <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-slate-400" /></button>
         <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-slate-400" /></button>
@@ -705,7 +705,7 @@ function ReservationEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+        className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
