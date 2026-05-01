@@ -14,10 +14,10 @@ const INPUT_PLACEHOLDER = "Add things to buy (e.g. Japanese knife, souvenirs, sn
 
 const CATEGORY_KEYWORDS: { category: ShoppingCategory; keywords: string[] }[] = [
   { category: "souvenir", keywords: ["souvenir", "gift", "postcard", "magnet", "keychain"] },
-  { category: "fashion", keywords: ["sneaker", "shoe", "bag", "jacket", "shirt", "jeans", "fashion"] },
+  { category: "fashion", keywords: ["sneaker", "shoe", "bag", "jacket", "shirt", "jeans", "jean", "denim", "fashion", "sock", "onitsuka"] },
   { category: "beauty", keywords: ["skincare", "makeup", "serum", "beauty", "cosmetic", "perfume"] },
   { category: "food", keywords: ["tea", "coffee", "snack", "chocolate", "spice", "food", "sweets"] },
-  { category: "home", keywords: ["knife", "ceramic", "plate", "bowl", "home", "kitchen", "cookware"] },
+  { category: "home", keywords: ["knife", "ceramic", "ceramics", "ceramica", "plate", "bowl", "home", "kitchen", "cookware", "tableware"] },
   { category: "electronics", keywords: ["camera", "headphone", "charger", "console", "electronics", "phone"] },
 ];
 
@@ -26,6 +26,9 @@ const PHRASE_ITEM_MAP: { pattern: RegExp; name: string }[] = [
   { pattern: /\bcuchillo\s+japon(?:e|é)s\b/gi, name: "Japanese Knife" },
   { pattern: /\bim[aá]n(?:es)?\b/gi, name: "Magnets" },
   { pattern: /\bmedias\b/gi, name: "Socks" },
+  { pattern: /\bcer[aÃ¡a]mica\b/gi, name: "Ceramics" },
+  { pattern: /\bjean(?:es)?\b/gi, name: "Jeans" },
+  { pattern: /\bonitsuka\s+tiger\b/gi, name: "Onitsuka Tiger" },
   { pattern: /\bzapatillas\b/gi, name: "Sneakers" },
   { pattern: /\brecuerdos\b/gi, name: "Souvenirs" },
   { pattern: /\bskincare\b/gi, name: "Skincare" },
@@ -33,6 +36,9 @@ const PHRASE_ITEM_MAP: { pattern: RegExp; name: string }[] = [
   { pattern: /\bjapanese\s+knife\b/gi, name: "Japanese Knife" },
   { pattern: /\bmagnet(?:s)?\b/gi, name: "Magnets" },
   { pattern: /\bsock(?:s)?\b/gi, name: "Socks" },
+  { pattern: /\bceramic(?:s)?\b/gi, name: "Ceramics" },
+  { pattern: /\bjean(?:s)?\b/gi, name: "Jeans" },
+  { pattern: /\bonitsuka\s+tiger\b/gi, name: "Onitsuka Tiger" },
   { pattern: /\bsneaker(?:s)?\b/gi, name: "Sneakers" },
   { pattern: /\bsouvenir(?:s)?\b/gi, name: "Souvenirs" },
 ];
@@ -42,8 +48,11 @@ const CITY_HINTS: Record<string, { country: string; items: Record<string, Shoppi
     country: "Japan",
     items: {
       knife: [{ name: "Kappabashi Street", area: "Asakusa" }],
+      ceramics: [{ name: "Kappabashi Street", area: "Asakusa" }],
       skincare: [{ name: "Matsumoto Kiyoshi", area: "Shibuya" }],
       sneakers: [{ name: "ABC-MART Grand Stage", area: "Shibuya" }],
+      onitsuka: [{ name: "Onitsuka Tiger Omotesando", area: "Omotesando" }],
+      jeans: [{ name: "Japan Blue Jeans", area: "Shibuya" }],
       souvenirs: [{ name: "Nakamise Shopping Street", area: "Asakusa" }],
       magnets: [{ name: "Nakamise Shopping Street", area: "Asakusa" }],
       socks: [{ name: "UNIQLO Ginza", area: "Ginza" }],
@@ -64,6 +73,8 @@ const CITY_HINTS: Record<string, { country: string; items: Record<string, Shoppi
       skincare: [{ name: "Olive Young Flagship", area: "Myeongdong" }],
       souvenirs: [{ name: "Insadong Street", area: "Insadong" }],
       sneakers: [{ name: "Musinsa Standard", area: "Hongdae" }],
+      jeans: [{ name: "Musinsa Standard", area: "Hongdae" }],
+      socks: [{ name: "M Playground", area: "Myeongdong" }],
     },
   },
   paris: {
@@ -102,8 +113,8 @@ function inferCategory(name: string): ShoppingCategory {
 
 function inferPriority(name: string) {
   const normalized = normalizeKey(name);
-  if (/(knife|ring|watch|electronics|camera|skincare)/.test(normalized)) return "high" as const;
-  if (/(souvenir|gift|snack|tea|coffee)/.test(normalized)) return "medium" as const;
+  if (/(knife|onitsuka|ring|watch|electronics|camera|skincare|ceramic)/.test(normalized)) return "high" as const;
+  if (/(jean|denim|sock|souvenir|gift|snack|tea|coffee)/.test(normalized)) return "medium" as const;
   return "low" as const;
 }
 
@@ -120,6 +131,20 @@ function inferLocationPreference(name: string) {
     return {
       preferred_cities: ["Seoul"],
       preferred_country: "South Korea",
+    };
+  }
+
+  if (normalized.includes("onitsuka")) {
+    return {
+      preferred_cities: ["Tokyo", "Osaka"],
+      preferred_country: "Japan",
+    };
+  }
+
+  if (normalized.includes("ceramic")) {
+    return {
+      preferred_cities: ["Tokyo"],
+      preferred_country: "Japan",
     };
   }
 
@@ -207,9 +232,14 @@ function parseWishlistInput(input: ShoppingAssistantWishlistInput): ShoppingAssi
 
 function extractKeyTerm(item: ShoppingItem) {
   const normalized = normalizeKey(item.name);
+  if (normalized.includes("onitsuka")) return "onitsuka";
   if (normalized.includes("knife")) return "knife";
+  if (normalized.includes("ceramic")) return "ceramics";
+  if (normalized.includes("jean") || normalized.includes("denim")) return "jeans";
+  if (normalized.includes("sock")) return "socks";
   if (normalized.includes("skincare")) return "skincare";
   if (normalized.includes("sneaker")) return "sneakers";
+  if (normalized.includes("magnet")) return "magnets";
   if (normalized.includes("souvenir") || normalized.includes("gift")) return "souvenirs";
   if (normalized.includes("fashion")) return "fashion";
   return normalized.split(" ")[0] || normalized;
@@ -219,7 +249,7 @@ function findHostOrFallbackPlaces(input: ShoppingAssistantSuggestionInput, item:
   const itemKey = extractKeyTerm(item);
   const hostMatches = (input.candidate_places ?? []).filter((place) => {
     const haystack = normalizeKey(`${place.name} ${place.area ?? ""}`);
-    return haystack.includes(itemKey) || item.category === "souvenir";
+    return haystack.includes(itemKey);
   });
   if (hostMatches.length > 0) return hostMatches.slice(0, 2);
 
@@ -273,20 +303,22 @@ function buildSuggestion(input: ShoppingAssistantSuggestionInput, item: Shopping
     : false;
 
   const places = findHostOrFallbackPlaces(input, item);
-  let confidence = 0.45;
-  if (cityMatches) confidence += 0.25;
-  else if (countryMatches) confidence += 0.15;
-  if (places.length > 0) confidence += 0.2;
-  if (item.priority === "high") confidence += 0.08;
-  if (input.itinerary.some((activity) => normalizeKey(activity.category) === "shopping")) confidence += 0.05;
+  let confidence = 0.18;
+  if (cityMatches) confidence += 0.38;
+  else if (countryMatches) confidence += 0.22;
+  if (places.length > 0) confidence += 0.22;
+  if (item.priority === "high") confidence += 0.14;
+  else if (item.priority === "medium") confidence += 0.08;
+  if (input.itinerary.some((activity) => normalizeKey(activity.category) === "shopping")) confidence += 0.04;
   const placeMentionedInDay = places.some((place) =>
     input.itinerary.some((activity) => normalizeKey(`${activity.location ?? ""} ${activity.title}` as string).includes(normalizeKey(place.name)))
   );
-  if (placeMentionedInDay) confidence += 0.1;
+  if (placeMentionedInDay) confidence += 0.14;
 
   const ignoreKey = `${input.day.date}:${normalizeKey(input.day.city)}:${item.id}`;
   if ((input.ignored_suggestion_keys ?? []).includes(ignoreKey)) return null;
-  if (confidence < 0.7) return null;
+  if (item.category === "souvenir" && !placeMentionedInDay && !cityMatches && !countryMatches) return null;
+  if (confidence < 0.62) return null;
 
   const bestPlace = places[0];
   const contextualReason = bestPlace && placeMentionedInDay

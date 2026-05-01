@@ -12,16 +12,20 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
   const [password, setPassword] = useState("");
   const { signIn, signUp, loading } = useAuthStore();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const formData = new FormData(e.currentTarget);
+    const finalEmail = (formData.get("email") as string) || email;
+    const finalPassword = (formData.get("password") as string) || password;
 
     // Capture current anonymous user ID BEFORE signing in
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     const anonId = currentUser?.is_anonymous ? currentUser.id : null;
 
     const { error } = isLogin
-      ? await signIn(email, password)
-      : await signUp(email, password);
+      ? await signIn(finalEmail, finalPassword)
+      : await signUp(finalEmail, finalPassword);
 
     if (error) {
       onShowToast(error.message);
@@ -82,36 +86,43 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
+                  id="email"
+                  name="email"
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   placeholder="name@example.com"
+                  autoComplete="email"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Password</label>
+              <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
+                  id="password"
+                  name="password"
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   placeholder="••••••••"
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                 />
               </div>
             </div>
 
             <button
+              type="submit"
               disabled={loading}
               className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl py-4 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-6"
             >

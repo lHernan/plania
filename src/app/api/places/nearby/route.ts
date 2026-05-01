@@ -31,13 +31,6 @@ type GeoapifyFeatureCollection = {
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.GEOAPIFY_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "GEOAPIFY_API_KEY is not configured on the server." },
-        { status: 501 },
-      );
-    }
-
     const body = (await request.json()) as NearbyPlacesRequest;
     if (!isFiniteNumber(body.lat) || !isFiniteNumber(body.lon)) {
       return NextResponse.json({ error: "lat/lon are required numbers" }, { status: 400 });
@@ -47,6 +40,14 @@ export async function POST(request: Request) {
     const limit = Math.max(1, Math.min(20, Math.floor(body.limit ?? 12)));
     const categories = (body.categories && body.categories.trim()) || "commercial";
     const name = body.name?.trim();
+
+    if (!apiKey) {
+      return NextResponse.json({
+        places: [],
+        attribution: null,
+        warning: "Nearby place provider is not configured.",
+      });
+    }
 
     const url = new URL("https://api.geoapify.com/v2/places");
     url.searchParams.set("apiKey", apiKey);
@@ -63,10 +64,12 @@ export async function POST(request: Request) {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return NextResponse.json(
-        { error: `Geoapify error (${res.status})`, details: text.slice(0, 300) },
-        { status: 502 },
-      );
+      return NextResponse.json({
+        places: [],
+        attribution: null,
+        warning: `Geoapify error (${res.status})`,
+        details: text.slice(0, 300),
+      });
     }
 
     const data = (await res.json()) as GeoapifyFeatureCollection;

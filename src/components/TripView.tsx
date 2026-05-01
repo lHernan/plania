@@ -100,6 +100,17 @@ async function callShoppingAssistant(payload: Record<string, unknown>) {
 
 const EMPTY_SHOPPING_ITEMS: ShoppingItem[] = [];
 const EMPTY_STRING_LIST: string[] = [];
+const CITY_COUNTRY_MAP: Record<string, string> = {
+  tokyo: "Japan",
+  osaka: "Japan",
+  kyoto: "Japan",
+  nara: "Japan",
+  sapporo: "Japan",
+  fukuoka: "Japan",
+  seoul: "South Korea",
+  busan: "South Korea",
+  incheon: "South Korea",
+};
 
 function shallowEqualShoppingUi(left: ShoppingAssistantResponse["ui"], right: ShoppingAssistantResponse["ui"]) {
   return (
@@ -108,6 +119,14 @@ function shallowEqualShoppingUi(left: ShoppingAssistantResponse["ui"], right: Sh
     left.list_style === right.list_style &&
     left.show_suggestions_card === right.show_suggestions_card
   );
+}
+
+function resolveShoppingDayCountry(city: string, tripName?: string) {
+  const normalizedCity = city.trim().toLowerCase();
+  if (CITY_COUNTRY_MAP[normalizedCity]) return CITY_COUNTRY_MAP[normalizedCity];
+  if (tripName?.includes("Japan")) return "Japan";
+  if (tripName?.includes("Korea")) return "South Korea";
+  return city;
 }
 
 function SortableActivityCard({
@@ -496,6 +515,8 @@ function ActivityEditModal({
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-2xl bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
       >
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-slate-400" /></button>
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-slate-400" /></button>
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
             <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
@@ -1222,7 +1243,7 @@ export function TripView() {
           day: {
             date: activeDay.date,
             city: activeDay.city,
-            country: activeTrip?.name?.includes("Japan") ? "Japan" : activeTrip?.name?.includes("Korea") ? "South Korea" : activeDay.city,
+            country: resolveShoppingDayCountry(activeDay.city, activeTrip?.name),
           },
           itinerary: activeDay.activities,
           shopping_list: shoppingItems,
@@ -1270,19 +1291,25 @@ export function TripView() {
           lon,
           radius_m: 1800,
           limit: 12,
-          categories: "commercial,commercial.supermarket,commercial.shopping_mall,commercial.department_store,commercial.gift_and_souvenir,commercial.clothes,commercial.shoes,commercial.health_and_beauty,commercial.houseware_and_hardware",
         }),
       });
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: "Nearby places failed" }));
-        throw new Error(body.error || "Nearby places failed");
-      }
-
-      const data = (await res.json()) as { places: { name: string; area: string | null }[]; attribution?: string };
-      setNearbyPlaces(Array.isArray(data.places) ? data.places : []);
+      const data = (await res.json()) as {
+        places?: { name: string; area: string | null }[];
+        attribution?: string | null;
+        warning?: string;
+      };
+      const places = Array.isArray(data.places) ? data.places : [];
+      setNearbyPlaces(places);
       setNearbyAttribution(data.attribution ?? null);
-      showToast("Nearby shops loaded.");
+
+      if (places.length > 0) {
+        showToast("Nearby shops loaded.");
+      } else if (data.warning) {
+        showToast("Location enabled. Using itinerary context for shopping suggestions.");
+      } else {
+        showToast("Location enabled. No nearby shops were found.");
+      }
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Unable to load nearby places.", "error");
     } finally {
