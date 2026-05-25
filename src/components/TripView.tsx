@@ -208,11 +208,21 @@ function SortableActivityCard({
             })()}
           </div>
           
-          <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
-            completed ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
-          }`}>
-            {activity.time}
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
+              completed ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
+            }`}>
+              {activity.time}
+            </span>
+            {!completed && activity.timeInferred && (
+              <span 
+                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-[4px] text-[7.5px] font-black uppercase tracking-widest bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30 cursor-help select-none hover:scale-105 active:scale-95 transition-all pointer-events-auto"
+                title={t("confidence_tooltip", { confidence: Math.round((activity.timeConfidence || 0.85) * 100) })}
+              >
+                ✨ {t("suggested_time")}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* MAIN CONTENT */}
@@ -949,7 +959,9 @@ export function TripView() {
           state: "pending",
           sort_order: 999,
           city: "AI Imported",
-          userId: user?.id || ""
+          userId: user?.id || "",
+          timeConfidence: a.time_confidence !== undefined ? a.time_confidence : 1.0,
+          timeInferred: a.time_inferred !== undefined ? a.time_inferred : false
         }));
 
         await addImportedActivities(activeDayId, newOnes);

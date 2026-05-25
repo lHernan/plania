@@ -62,6 +62,8 @@ export type Activity = {
   state: ActivityState;
   sort_order: number;
   files?: ActivityFile[];
+  timeConfidence?: number;
+  timeInferred?: boolean;
 };
 
 export type BookingUrgency = "safe" | "this_week" | "today";

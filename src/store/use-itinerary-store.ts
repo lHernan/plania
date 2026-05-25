@@ -60,6 +60,8 @@ type ActivityDb = {
   priority: Activity["priority"];
   state: ActivityState;
   sort_order: number;
+  time_confidence?: number | null;
+  time_inferred?: boolean | null;
 };
 
 type TripDb = {
@@ -171,6 +173,8 @@ const mapActivityFromDb = (db: ActivityDb): Activity => ({
   priority: db.priority,
   state: db.state,
   sort_order: db.sort_order,
+  timeConfidence: db.time_confidence ?? undefined,
+  timeInferred: db.time_inferred ?? false,
 });
 
 const mapActivityToDb = (activity: Partial<Activity>) => ({
@@ -189,6 +193,8 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   priority: activity.priority,
   state: activity.state,
   sort_order: activity.sort_order,
+  time_confidence: activity.timeConfidence,
+  time_inferred: activity.timeInferred,
 });
 
 function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {

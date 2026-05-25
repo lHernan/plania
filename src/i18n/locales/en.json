@@ -94,5 +94,7 @@
   "offline_ready_short": "Offline Ready",
   "download_offline": "Download Offline",
   "confirm_delete_file": "Delete this file?",
-  "no_attachments_hint": "No files attached yet"
+  "no_attachments_hint": "No files attached yet",
+  "suggested_time": "Suggested",
+  "confidence_tooltip": "Suggested time ({confidence}% confidence)"
 }
