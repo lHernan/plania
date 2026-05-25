@@ -43,7 +43,9 @@ import {
   ShieldCheck,
   ChevronRight,
   ChevronLeft,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -861,6 +863,7 @@ export function TripView() {
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showCompletedDays, setShowCompletedDays] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -1215,6 +1218,31 @@ export function TripView() {
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
+
+  const isTripCurrentlyActive = useMemo(() => {
+    if (!activeTrip || !activeTrip.startDate || !activeTrip.endDate) return false;
+    return activeTrip.startDate <= today && today <= activeTrip.endDate;
+  }, [activeTrip, today]);
+
+  const completedPastDays = useMemo(() => {
+    if (!activeTrip || !isTripCurrentlyActive) return [];
+    return activeTrip.days.filter((day) => {
+      const isPast = day.date < today;
+      if (!isPast) return false;
+      return day.activities.every((a) => a.state === "completed");
+    });
+  }, [activeTrip, today, isTripCurrentlyActive]);
+
+  const visibleDays = useMemo(() => {
+    if (!activeTrip) return [];
+    return activeTrip.days.filter((day) => {
+      const isCompletedPast = completedPastDays.some((d) => d.id === day.id);
+      if (isCompletedPast && !showCompletedDays && day.id !== activeDayId) {
+        return false;
+      }
+      return true;
+    });
+  }, [activeTrip, completedPastDays, showCompletedDays, activeDayId]);
   const jumpToToday = () => {
     if (!activeTrip) return;
     const todayDay = activeTrip.days.find((day) => day.date === today);
@@ -1462,7 +1490,28 @@ export function TripView() {
 
         {/* Date strip */}
         <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">
-          {activeTrip?.days.map((day) => {
+          {completedPastDays.length > 0 && (
+            <button
+              onClick={() => setShowCompletedDays(!showCompletedDays)}
+              className={`snap-center flex flex-col items-center justify-center min-w-[58px] h-[62px] py-1.5 px-2 rounded-2xl border transition-all duration-300 flex-shrink-0 gap-1 select-none hover:scale-[1.02] active:scale-[0.98] ${
+                showCompletedDays
+                  ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 shadow shadow-indigo-500/5"
+                  : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-100"
+              }`}
+            >
+              {showCompletedDays ? <EyeOff size={16} /> : <Eye size={16} />}
+              <span className="text-[7px] font-black uppercase tracking-wider text-center leading-none">
+                {showCompletedDays ? t("hide_past_days") : t("show_past_days")}
+              </span>
+              {completedPastDays.length > 0 && !showCompletedDays && (
+                <span className="text-[8px] font-black leading-none bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1 py-0.5 rounded-md">
+                  {completedPastDays.length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {visibleDays.map((day) => {
             const isActive = day.id === activeDayId;
             const isToday = day.date === today;
             return (

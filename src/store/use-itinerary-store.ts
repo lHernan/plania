@@ -480,9 +480,12 @@ export const useItineraryStore = create<Store>((set, get) => {
       ? normalizeTripPlan(cache.tripPlans[resolvedTripId])
       : null;
     const currentActiveDayId = get().activeDayId;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const todayDay = cachedTrip?.days.find((day) => day.date === todayStr);
+
     const nextActiveDayId = cachedTrip?.days.some((day) => day.id === currentActiveDayId)
       ? currentActiveDayId
-      : cachedTrip?.days[0]?.id ?? "";
+      : todayDay?.id ?? cachedTrip?.days[0]?.id ?? "";
 
     set({
       trips: cache.trips,
@@ -552,9 +555,12 @@ export const useItineraryStore = create<Store>((set, get) => {
           ? state.trips.map((summary) => (summary.id === tripPlan.id ? buildTripSummaryFromPlan(tripPlan) : summary))
           : [buildTripSummaryFromPlan(tripPlan), ...state.trips]
       );
+      const todayStr = new Date().toISOString().split("T")[0];
+      const todayDay = tripPlan.days.find((day) => day.date === todayStr);
+
       const nextActiveDayId = tripPlan.days.some((day) => day.id === state.activeDayId)
         ? state.activeDayId
-        : tripPlan.days[0]?.id ?? "";
+        : todayDay?.id ?? tripPlan.days[0]?.id ?? "";
 
       return {
         activeTrip: tripPlan,

@@ -96,5 +96,7 @@
   "confirm_delete_file": "Delete this file?",
   "no_attachments_hint": "No files attached yet",
   "suggested_time": "Suggested",
-  "confidence_tooltip": "Suggested time ({confidence}% confidence)"
+  "confidence_tooltip": "Suggested time ({confidence}% confidence)",
+  "show_past_days": "Past Days",
+  "hide_past_days": "Hide Past"
 }

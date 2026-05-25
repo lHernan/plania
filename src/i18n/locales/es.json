@@ -95,5 +95,7 @@
   "confirm_delete_file": "Eliminar este archivo?",
   "no_attachments_hint": "Sin archivos adjuntos aun",
   "suggested_time": "Sugerido",
-  "confidence_tooltip": "Hora sugerida ({confidence}% de confianza)"
+  "confidence_tooltip": "Hora sugerida ({confidence}% de confianza)",
+  "show_past_days": "Pasados",
+  "hide_past_days": "Ocultar"
 }
