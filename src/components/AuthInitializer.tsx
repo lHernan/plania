@@ -63,13 +63,16 @@ export function AuthInitializer() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      const currentActiveTrip = useItineraryStore.getState().activeTrip;
+      const activeTripId = currentActiveTrip?.id;
+
       if (navigator.onLine) {
         void fetchAllTrips();
-        void fetchActiveTrip();
+        void fetchActiveTrip(activeTripId);
         void syncPendingMutations();
       } else if (!loading) {
         void fetchAllTrips();
-        void fetchActiveTrip();
+        void fetchActiveTrip(activeTripId);
       }
     };
 

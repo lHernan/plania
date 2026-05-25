@@ -873,19 +873,21 @@ export const useItineraryStore = create<Store>((set, get) => {
     },
 
     fetchActiveTrip: async (tripId, skipLoading = false) => {
+      const resolvedTripId = tripId ?? get().activeTrip?.id;
+
       if (!skipLoading) set({ loading: true, error: null, hasFetched: false });
       else set({ error: null });
 
       if (!isOnline()) {
-        await hydrateFromCache(tripId);
+        await hydrateFromCache(resolvedTripId);
         return;
       }
 
       try {
-        await fetchFreshTrip(tripId);
+        await fetchFreshTrip(resolvedTripId);
       } catch (error) {
         console.error("Plania: fetchActiveTrip error", error);
-        await hydrateFromCache(tripId);
+        await hydrateFromCache(resolvedTripId);
       }
     },
 
@@ -1770,8 +1772,10 @@ export const useItineraryStore = create<Store>((set, get) => {
       useOfflineStore.getState().setSyncing(false);
 
       const activeTripId = get().activeTrip?.id;
-      if (activeTripId && !isOfflineId(activeTripId)) {
-        await get().fetchActiveTrip(activeTripId, true);
+      const nextActiveTripId = activeTripId ? (idMap.get(activeTripId) ?? activeTripId) : undefined;
+
+      if (nextActiveTripId) {
+        await get().fetchActiveTrip(nextActiveTripId, true);
       } else {
         await get().fetchAllTrips();
         await get().fetchActiveTrip(undefined, true);
