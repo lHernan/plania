@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+
 const SYSTEM_PROMPT = [
   "You are an AI assistant integrated into a travel planning application.",
   "Your task is to convert unstructured user text into a structured activity list with realistic, context-aware schedules.",
