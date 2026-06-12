@@ -21,9 +21,11 @@ import type {
   ActivityState,
   CriticalReservation,
   FocusArea,
+  SharedTripSummary,
   ShoppingItem,
   TripDay,
   TripPlan,
+  TripShareUser,
   TripSummary,
 } from "@/lib/types";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -99,6 +101,9 @@ type ReservationDb = {
 type Store = {
   activeTrip: TripPlan | null;
   trips: TripSummary[];
+  sharedTrips: SharedTripSummary[];
+  tripShares: TripShareUser[];
+  sharesLoading: boolean;
   activeDayId: string;
   dayScrollY: Record<string, number>;
   loading: boolean;
@@ -107,6 +112,10 @@ type Store = {
   hasFetched: boolean;
   error: string | null;
   fetchAllTrips: () => Promise<void>;
+  fetchSharedTrips: () => Promise<void>;
+  shareTrip: (tripId: string, email: string) => Promise<{ error?: string }>;
+  fetchTripShares: (tripId: string) => Promise<void>;
+  revokeTripShare: (tripId: string, userId: string) => Promise<void>;
   fetchActiveTrip: (tripId?: string, skipLoading?: boolean) => Promise<void>;
   createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
@@ -832,6 +841,9 @@ export const useItineraryStore = create<Store>((set, get) => {
   return {
     activeTrip: null,
     trips: [],
+    sharedTrips: [],
+    tripShares: [],
+    sharesLoading: false,
     activeDayId: "",
     dayScrollY: {},
     loading: false,
@@ -839,6 +851,83 @@ export const useItineraryStore = create<Store>((set, get) => {
     isOptimizing: false,
     hasFetched: false,
     error: null,
+
+    fetchSharedTrips: async () => {
+      const userId = getCurrentUserId();
+      if (!userId || !isOnline()) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+        
+        const res = await fetch("/api/trips/shared", { headers });
+        if (res.ok) {
+          const data = await res.json();
+          set({ sharedTrips: data.trips ?? [] });
+        }
+      } catch (error) {
+        console.error("Plania: fetchSharedTrips error", error);
+      }
+    },
+
+    shareTrip: async (tripId, email) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+
+        const res = await fetch(`/api/trips/${tripId}/share`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) return { error: data.error ?? "Error al compartir" };
+        return {};
+      } catch {
+        return { error: "Error de conexión" };
+      }
+    },
+
+    fetchTripShares: async (tripId) => {
+      set({ sharesLoading: true });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+
+        const res = await fetch(`/api/trips/${tripId}/shares`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          set({ tripShares: data.shares ?? [], sharesLoading: false });
+        } else {
+          set({ sharesLoading: false });
+        }
+      } catch (error) {
+        console.error("Plania: fetchTripShares error", error);
+        set({ sharesLoading: false });
+      }
+    },
+
+    revokeTripShare: async (tripId, userId) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+
+        const res = await fetch(`/api/trips/${tripId}/shares/${userId}`, {
+          method: "DELETE",
+          headers,
+        });
+        if (res.ok) {
+          set((state) => ({
+            tripShares: state.tripShares.filter((s) => s.userId !== userId),
+          }));
+        }
+      } catch (error) {
+        console.error("Plania: revokeTripShare error", error);
+      }
+    },
 
     fetchAllTrips: async () => {
       const userId = getCurrentUserId();

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronRight, Check, Loader2, MapPin, Plus, Star, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, Loader2, MapPin, Plus, Share2, Star, Trash2, Users, X } from "lucide-react";
 import { getCurrentDateString, resolveTripSelectionFromSummaries } from "@/lib/trip-selection";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
@@ -23,8 +23,10 @@ export function TripSwitcher() {
 
   const {
     trips,
+    sharedTrips,
     activeTrip,
     fetchAllTrips,
+    fetchSharedTrips,
     switchTrip,
     createTrip,
     deleteTrip,
@@ -35,6 +37,12 @@ export function TripSwitcher() {
   useEffect(() => {
     fetchAllTrips();
   }, [fetchAllTrips]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchSharedTrips();
+    }
+  }, [isOpen, fetchSharedTrips]);
 
   useEffect(() => {
     if (isOpen) {
@@ -265,6 +273,64 @@ export function TripSwitcher() {
                 </section>
               ) : null}
             </div>
+
+              {/* SHARED TRIPS SECTION */}
+              {sharedTrips.length > 0 && (
+                <section className="space-y-1.5">
+                  <div className="px-1 flex items-center gap-1.5">
+                    <Share2 size={10} className="text-violet-400" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400 ios-compact-meta">
+                      Compartidos conmigo
+                    </p>
+                  </div>
+                  {sharedTrips.map((trip) => {
+                    const isCurrentTrip = activeTrip?.id === trip.id;
+                    return (
+                      <div key={trip.id} className="relative group">
+                        <button
+                          onClick={() => {
+                            switchTrip(trip.id);
+                            setIsOpen(false);
+                            setShowCreate(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all text-left ios-compact-row ios-compact-gap ${
+                            isCurrentTrip
+                              ? "bg-violet-500 shadow-lg shadow-violet-500/20"
+                              : "bg-slate-50 dark:bg-slate-900 hover:bg-violet-50 dark:hover:bg-violet-950/20"
+                          }`}
+                        >
+                          <div className={`size-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            isCurrentTrip ? "bg-white/20 text-white" : "bg-violet-50 dark:bg-violet-900/30 text-violet-500"
+                          }`}>
+                            {isCurrentTrip ? <Check size={18} /> : <Share2 size={16} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className={`text-sm font-bold truncate ios-compact-title ${
+                                isCurrentTrip ? "text-white" : "text-slate-900 dark:text-white"
+                              }`}>
+                                {trip.name}
+                              </p>
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                                isCurrentTrip
+                                  ? "bg-white/20 text-white"
+                                  : "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300"
+                              }`}>
+                                Compartido
+                              </span>
+                            </div>
+                            <p className={`text-[10px] font-medium mt-0.5 ios-compact-meta ${
+                              isCurrentTrip ? "text-white/70" : "text-slate-400"
+                            }`}>
+                              De: {trip.ownerEmail}
+                            </p>
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </section>
+              )}
 
             <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-800 px-4 pt-3 pb-8">
               {showCreate ? (

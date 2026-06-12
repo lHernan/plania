@@ -45,7 +45,8 @@ import {
   ChevronLeft,
   ArrowRight,
   Eye,
-  EyeOff
+  EyeOff,
+  Share2
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -68,6 +69,7 @@ import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
+import { ShareTripModal } from "@/components/ShareTripModal";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -863,6 +865,9 @@ export function TripView() {
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
+  const sharedTripInfo = isInvitee ? useItineraryStore((s) => s.sharedTrips.find((t) => t.id === activeTrip?.id)) : null;
   const [showCompletedDays, setShowCompletedDays] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -1466,6 +1471,26 @@ export function TripView() {
 
             {user && !user.is_anonymous ? (
               <div className="flex items-center gap-1.5">
+                {activeTrip && (
+                  <div className="hidden sm:flex mr-2">
+                    {isInvitee ? (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-full border border-violet-100 dark:border-violet-800" title="Solo lectura">
+                        <Share2 size={10} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                          De {sharedTripInfo?.ownerEmail || "propietario"}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowShareModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full transition-colors border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
+                      >
+                        <Share2 size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Compartir</span>
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="size-7 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
                   <UserIcon size={12} />
                 </div>
@@ -1540,13 +1565,15 @@ export function TripView() {
             );
           })}
 
-          <button
-            onClick={handleAddDay}
-            className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all flex-shrink-0"
-          >
-            <Plus size={18} />
-            <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
-          </button>
+          {!isInvitee && (
+            <button
+              onClick={handleAddDay}
+              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all flex-shrink-0"
+            >
+              <Plus size={18} />
+              <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1569,34 +1596,38 @@ export function TripView() {
                 <div className="flex items-center gap-2 ml-13">
                   <MapPin size={12} className="text-slate-400" />
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{activeDay.city}</p>
-                  <button 
-                    onClick={() => {
-                      setEditingDay(activeDay);
-                      setEditDayCity(activeDay.city);
-                      setEditDayLabel(activeDay.label);
-                    }}
-                    className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"
-                  >
-                    <Edit2 size={10} />
-                  </button>
+                  {!isInvitee && (
+                    <button 
+                      onClick={() => {
+                        setEditingDay(activeDay);
+                        setEditDayCity(activeDay.city);
+                        setEditDayLabel(activeDay.label);
+                      }}
+                      className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"
+                    >
+                      <Edit2 size={10} />
+                    </button>
+                  )}
                 </div>
               </div>
               
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => {
-                    if (confirm("Delete this entire day and all its activities?")) {
-                      removeTripDay(activeDayId);
-                    }
-                  }}
-                  className="size-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800"
-                  title="Remove Day"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {!isInvitee && (
+                  <button 
+                    onClick={() => {
+                      if (confirm("Delete this entire day and all its activities?")) {
+                        removeTripDay(activeDayId);
+                      }
+                    }}
+                    className="size-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800"
+                    title="Remove Day"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
                 <button 
                   onClick={() => runOptimizeDay(activeDayId)}
-                  disabled={isOptimizing}
+                  disabled={isOptimizing || isInvitee}
                   className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
                 >
                   {isOptimizing ? <div className="size-3 border-2 border-fuchsia-600/20 border-t-fuchsia-600 rounded-full animate-spin" /> : <Sparkles size={12} />}
@@ -2056,14 +2087,16 @@ export function TripView() {
       </div>
 
       {/* Ô×ò THE PRIMARY FAB */}
-      <motion.button
-        whileHover={{ scale: 1.1, rotate: 90 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setShowAdd(true)}
-        className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl flex items-center justify-center z-50 transition-all ring-8 ring-indigo-500/10"
-      >
-        <Plus size={36} />
-      </motion.button>
+      {!isInvitee && (
+        <motion.button
+          whileHover={{ scale: 1.1, rotate: 90 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowAdd(true)}
+          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl flex items-center justify-center z-50 transition-all ring-8 ring-indigo-500/10"
+        >
+          <Plus size={36} />
+        </motion.button>
+      )}
 
       {/* ­ƒì▒ ADD ACTIVITY SHEET / MODAL */}
       <AnimatePresence>
@@ -2304,6 +2337,16 @@ export function TripView() {
         onClose={() => setShowAuthModal(false)} 
         onShowToast={(msg) => showToast(msg)}
       />
+
+      <AnimatePresence>
+        {showShareModal && activeTrip && (
+          <ShareTripModal
+            tripId={activeTrip.id}
+            tripName={activeTrip.name}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {toast && (

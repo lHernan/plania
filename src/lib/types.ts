@@ -188,3 +188,18 @@ export type ShoppingAssistantSuggestionInput = {
 export type ShoppingAssistantRequest =
   | ShoppingAssistantWishlistInput
   | ShoppingAssistantSuggestionInput;
+
+// ─── Viajes Compartidos ──────────────────────────────────────────────────────
+
+/** Un usuario que tiene acceso compartido a un viaje */
+export type TripShareUser = {
+  userId: string;
+  email: string;
+  createdAt: string;
+};
+
+/** Resumen de viaje compartido con el usuario autenticado (incluye info del propietario) */
+export type SharedTripSummary = TripSummary & {
+  ownerEmail: string;
+  ownerId: string;
+};
