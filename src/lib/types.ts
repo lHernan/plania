@@ -98,10 +98,61 @@ export type TripPlan = {
   endDate?: string;
   createdAt?: string;
   isFavorite?: boolean;
+  travelContext?: TravelContext;
   days: TripDay[];
   criticalReservations: CriticalReservation[];
   shoppingItems: ShoppingItem[];
   ignoredShoppingSuggestionKeys: string[];
+};
+
+export type ArrivalTransportMode = "public_transport" | "taxi" | "ride_hailing" | "private_transfer" | "other";
+export type ArrivalPriceBasis = "per_person" | "whole_group" | "per_vehicle";
+
+export type ArrivalOption = {
+  id: string;
+  name: string;
+  mode: ArrivalTransportMode;
+  amount: number;
+  priceBasis: ArrivalPriceBasis;
+  vehicleCapacity?: number;
+  luggageCapacity?: number;
+  currency: string;
+  durationMin: number;
+  transfers?: number;
+  walkingMin?: number;
+  comfortScore?: number;
+  source: string;
+  sourceCheckedAt: string;
+  isEstimate: boolean;
+  notes?: string;
+};
+
+export type TravelContext = {
+  version: 1;
+  shareWithAI?: boolean;
+  travelerCount?: number;
+  luggage?: {
+    carryOnBags?: number;
+    checkedBags?: number;
+  };
+  arrival?: {
+    location?: string;
+    localDate?: string;
+    localTime?: string;
+    timeZone?: string;
+  };
+  hotel?: {
+    name?: string;
+    address?: string;
+    checkIn?: string;
+    checkOut?: string;
+  };
+  preferences?: {
+    minimizeWalking?: boolean;
+    avoidTransfers?: boolean;
+    budgetLevel?: "low" | "medium" | "high";
+  };
+  arrivalOptions?: ArrivalOption[];
 };
 
 export type TripSummary = {
@@ -202,4 +253,56 @@ export type TripShareUser = {
 export type SharedTripSummary = TripSummary & {
   ownerEmail: string;
   ownerId: string;
+};
+
+export type ChatRole = "user" | "assistant";
+
+export type ChatActivityPayload = {
+  dayId: string;
+  city: string;
+  title: string;
+  time: string;
+  durationMin: number;
+  notes?: string;
+  location?: string;
+  mapsUrl?: string;
+  reservationUrl?: string;
+  expectedCost?: number;
+  category: ActivityCategory;
+  priority: Priority;
+  state: ActivityState;
+};
+
+export type ChatActivityPatch = Partial<Pick<
+  Activity,
+  | "title"
+  | "time"
+  | "durationMin"
+  | "notes"
+  | "location"
+  | "mapsUrl"
+  | "reservationUrl"
+  | "expectedCost"
+  | "category"
+  | "priority"
+  | "state"
+>>;
+
+export type ChatReservationPayload = Omit<CriticalReservation, "id" | "userId">;
+
+export type ChatAction =
+  | { type: "add_activity"; payload: ChatActivityPayload }
+  | { type: "patch_activity"; payload: { dayId: string; activityId: string; patch: ChatActivityPatch } }
+  | { type: "update_activity_state"; payload: { dayId: string; activityId: string; state: ActivityState } }
+  | { type: "reorder_activities"; payload: { dayId: string; orderedActivityIds: string[] } }
+  | { type: "add_reservation"; payload: ChatReservationPayload };
+
+export type ChatMessage = {
+  id: string;
+  tripId: string;
+  userId: string;
+  role: ChatRole;
+  content: string;
+  actions?: ChatAction[];
+  createdAt: string;
 };

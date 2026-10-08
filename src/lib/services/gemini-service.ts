@@ -1,137 +1,6 @@
 import { Activity } from "@/lib/types";
-
-interface ProviderConfig {
-  url: string;
-  key: string;
-  models: string;
-}
-
-async function callAI(url: string, key: string, model: string, payload: any) {
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + key
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: payload,
-      temperature: 0.1,
-      max_tokens: 4000
-    })
-  });
-}
-
-async function tryModelsForProvider(config: ProviderConfig, payload: any) {
-  const modelList = config.models.split(",").map(m => m.trim()).filter(Boolean);
-  let lastResponse: Response | null = null;
-
-  for (const model of modelList) {
-    if (!model) continue;
-    try {
-      const res = await callAI(config.url, config.key, model, payload);
-      if (res.ok) {
-        return { success: true, response: res };
-      }
-      lastResponse = res;
-      if (res.status >= 400 && res.status < 500 && ![408, 429].includes(res.status)) {
-        return { success: false, response: res };
-      }
-    } catch (e) {
-      console.error("Fetch error for model " + model + ":", e);
-    }
-  }
-  return { success: false, response: lastResponse };
-}
-
-async function runGeminiPrompt(systemPrompt: string, userPrompt: string) {
-  const payload = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt }
-  ];
-
-  const primaryConfig = {
-    url: process.env.AI_API_URL || "",
-    key: process.env.AI_API_KEY || "",
-    models: process.env.AI_MODEL || "gpt-4o-mini"
-  };
-
-  if (!primaryConfig.key || !primaryConfig.url) {
-    throw new Error("Primary AI configuration missing");
-  }
-
-  let result = await tryModelsForProvider(primaryConfig, payload);
-
-  if (!result.success && result.response && [500, 502, 503, 504, 429].includes(result.response.status)) {
-    const fallbackConfig = {
-      url: process.env.AI_FALLBACK_API_URL || "",
-      key: process.env.AI_FALLBACK_API_KEY || "",
-      models: process.env.AI_FALLBACK_MODEL || ""
-    };
-    if (fallbackConfig.key && fallbackConfig.url && fallbackConfig.models) {
-      result = await tryModelsForProvider(fallbackConfig, payload);
-    }
-  }
-
-  const res = result.response;
-  if (!result.success || !res) {
-    throw new Error("AI Provider error");
-  }
-
-  const data = await res.json();
-  const content =
-    data.choices?.[0]?.message?.content ||
-    data.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "";
-    
-  return content;
-}
-
-async function runGeminiVision(systemPrompt: string, userPrompt: string, imageUri: string) {
-  // Convert URI to base64 if needed, but here we assume the URI is accessible or provided as base64
-  // For simplicity in this implementation, we'll pass the URL directly if it's public
-  // or handle base64 if it's a data URI.
-  
-  const payload = [
-    { role: "system", content: systemPrompt },
-    {
-      role: "user",
-      content: [
-        { type: "text", text: userPrompt },
-        {
-          type: "image_url",
-          image_url: {
-            url: imageUri,
-          },
-        },
-      ],
-    },
-  ];
-
-  const primaryConfig = {
-    url: process.env.AI_API_URL || "",
-    key: process.env.AI_API_KEY || "",
-    models: process.env.AI_MODEL || "gpt-4o-mini"
-  };
-
-  if (!primaryConfig.key || !primaryConfig.url) {
-    throw new Error("Primary AI configuration missing");
-  }
-
-  const result = await tryModelsForProvider(primaryConfig, payload);
-  const res = result.response;
-  if (!result.success || !res) {
-    throw new Error("AI Provider error");
-  }
-
-  const data = await res.json();
-  const content =
-    data.choices?.[0]?.message?.content ||
-    data.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "";
-    
-  return content;
-}
+import { extractJsonArray } from "@/lib/ai/json-response";
+import { runAiPrompt, runAiVision } from "@/lib/ai/provider";
 
 export const geminiService = {
   async detectCodeRegions(imageUri: string): Promise<{ type: string; x: number; y: number; width: number; height: number; label: string }[]> {
@@ -146,12 +15,8 @@ Return ONLY the JSON array.`;
     const userPrompt = "Find all scan codes in this boarding pass.";
 
     try {
-      const result = await runGeminiVision(systemPrompt, userPrompt, imageUri);
-      const jsonStart = result.indexOf("[");
-      const jsonEnd = result.lastIndexOf("]");
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        return JSON.parse(result.slice(jsonStart, jsonEnd + 1));
-      }
+      const result = await runAiVision(systemPrompt, userPrompt, imageUri);
+      return extractJsonArray(result) ?? [];
     } catch (e) {
       console.error("detectCodeRegions failed:", e);
     }
@@ -169,12 +34,8 @@ Example: [["Mercado de África", "Mercado de Nuestra Señora de África"], ["Air
     const userPrompt = JSON.stringify(locations);
 
     try {
-      const result = await runGeminiPrompt(systemPrompt, userPrompt);
-      const jsonStart = result.indexOf("[");
-      const jsonEnd = result.lastIndexOf("]");
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        return JSON.parse(result.slice(jsonStart, jsonEnd + 1));
-      }
+      const result = await runAiPrompt(systemPrompt, userPrompt);
+      return extractJsonArray(result) ?? locations.map(l => [l]);
     } catch (e) {
       console.error("compareLocations failed:", e);
     }
@@ -203,12 +64,8 @@ Do NOT return markdown.`;
     })));
 
     try {
-      const result = await runGeminiPrompt(systemPrompt, userPrompt);
-      const jsonStart = result.indexOf("[");
-      const jsonEnd = result.lastIndexOf("]");
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        return JSON.parse(result.slice(jsonStart, jsonEnd + 1));
-      }
+      const result = await runAiPrompt(systemPrompt, userPrompt);
+      return extractJsonArray(result) ?? [];
     } catch (e) {
       console.error("inferMissingSteps failed:", e);
     }
@@ -241,12 +98,8 @@ Your job is to:
     })));
 
     try {
-      const result = await runGeminiPrompt(systemPrompt, userPrompt);
-      const jsonStart = result.indexOf("[");
-      const jsonEnd = result.lastIndexOf("]");
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        return JSON.parse(result.slice(jsonStart, jsonEnd + 1));
-      }
+      const result = await runAiPrompt(systemPrompt, userPrompt);
+      return extractJsonArray(result) ?? activities;
     } catch (e) {
       console.error("validateTimelineWithAI failed:", e);
     }

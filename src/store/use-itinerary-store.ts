@@ -27,7 +27,9 @@ import type {
   TripPlan,
   TripShareUser,
   TripSummary,
+  TravelContext,
 } from "@/lib/types";
+import { parseTravelContext } from "@/lib/travel-context";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 
@@ -74,6 +76,7 @@ type TripDb = {
   end_date?: string | null;
   created_at?: string | null;
   is_favorite?: boolean | null;
+  travel_context?: unknown;
 };
 
 type TripDayDb = {
@@ -120,6 +123,7 @@ type Store = {
   createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
   setTripFavorite: (tripId: string) => Promise<void>;
+  saveTravelContext: (travelContext: TravelContext | null) => Promise<{ error?: string }>;
   switchTrip: (tripId: string) => Promise<void>;
   clearData: () => void;
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
@@ -132,6 +136,7 @@ type Store = {
   patchActivity: (dayId: string, activityId: string, patch: Partial<Activity>) => Promise<void>;
   removeActivity: (dayId: string, activityId: string) => Promise<void>;
   reorderActivities: (dayId: string, sourceId: string, targetId: string) => Promise<void>;
+  reorderActivitiesToOrder: (dayId: string, orderedActivityIds: string[]) => Promise<void>;
   toggleBooking: (bookingId: string) => Promise<void>;
   duplicateActivity: (dayId: string, activityId: string) => Promise<void>;
   addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId" | "userId">[]) => Promise<void>;
@@ -244,6 +249,7 @@ function buildTripPlan(
     endDate: trip.end_date ?? undefined,
     createdAt: trip.created_at ?? undefined,
     isFavorite: trip.is_favorite ?? false,
+    travelContext: parseTravelContext(trip.travel_context) ?? undefined,
     days: days.map((day) => ({
       id: day.id,
       date: day.date,
@@ -1139,6 +1145,38 @@ export const useItineraryStore = create<Store>((set, get) => {
       }
     },
 
+    saveTravelContext: async (travelContext) => {
+      const activeTrip = get().activeTrip;
+      const userId = getCurrentUserId();
+      if (!activeTrip || !userId || activeTrip.userId !== userId) {
+        return { error: "Only the trip owner can edit its travel context." };
+      }
+      if (!isOnline()) return { error: "Connect to the internet to save travel context." };
+
+      const normalizedContext = travelContext ? parseTravelContext(travelContext) : null;
+      if (travelContext && !normalizedContext) return { error: "Travel context contains invalid values." };
+
+      let updateQuery = supabase
+        .from("trips")
+        .update({ travel_context: normalizedContext })
+        .eq("id", activeTrip.id)
+        .eq("user_id", userId);
+      updateQuery = activeTrip.travelContext
+        ? updateQuery.eq("travel_context", activeTrip.travelContext)
+        : updateQuery.is("travel_context", null);
+
+      const { data, error } = await updateQuery.select("id").maybeSingle();
+      if (error) return { error: error.message };
+      if (!data) return { error: "conflict" };
+
+      await writeState((state) => ({
+        activeTrip: state.activeTrip?.id === activeTrip.id
+          ? { ...state.activeTrip, travelContext: normalizedContext ?? undefined }
+          : state.activeTrip,
+      }));
+      return {};
+    },
+
     switchTrip: async (tripId) => {
       await get().fetchActiveTrip(tripId, true);
     },
@@ -1407,6 +1445,46 @@ export const useItineraryStore = create<Store>((set, get) => {
       const { error } = await supabase
         .from("activities")
         .upsert(orderedActivities.map((activity, index) => ({ id: activity.id, sort_order: index })));
+      if (error) set({ error: error.message });
+    },
+
+    reorderActivitiesToOrder: async (dayId, orderedActivityIds) => {
+      const day = get().activeTrip?.days.find((item) => item.id === dayId);
+      if (!day || orderedActivityIds.length !== day.activities.length) return;
+
+      const activityMap = new Map(day.activities.map((activity) => [activity.id, activity]));
+      if (
+        new Set(orderedActivityIds).size !== day.activities.length ||
+        orderedActivityIds.some((activityId) => !activityMap.has(activityId))
+      ) return;
+
+      const orderedActivities = orderedActivityIds.map((activityId, index) => ({
+        ...activityMap.get(activityId)!,
+        sort_order: index,
+      }));
+
+      await writeState((current) => ({
+        activeTrip: current.activeTrip
+          ? {
+              ...current.activeTrip,
+              days: current.activeTrip.days.map((item) =>
+                item.id === dayId ? { ...item, activities: orderedActivities } : item
+              ),
+            }
+          : null,
+      }));
+
+      if (!isOnline()) {
+        await enqueueMutation("update", "activity_reorder", {
+          dayId,
+          orderedActivityIds,
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("activities")
+        .upsert(orderedActivities.map((activity) => ({ id: activity.id, sort_order: activity.sort_order })));
       if (error) set({ error: error.message });
     },
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock del servidor de Supabase y funciones de Next.js
 vi.mock("@/lib/supabase-server", () => ({
-  getServerSupabase: vi.fn(),
+  getAuthClient: vi.fn(),
   getServiceRoleSupabase: vi.fn(),
 }));
 
@@ -12,7 +12,7 @@ import { POST as ShareTripPOST } from "@/app/api/trips/[tripId]/share/route";
 import { GET as ShareTripGET } from "@/app/api/trips/[tripId]/shares/route";
 import { DELETE as ShareTripDELETE } from "@/app/api/trips/[tripId]/shares/[userId]/route";
 
-import { getServerSupabase, getServiceRoleSupabase } from "@/lib/supabase-server";
+import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
 
 describe("Viajes Compartidos API", () => {
   const mockUser = { id: "user-123", email: "propietario@test.com" };
@@ -24,6 +24,7 @@ describe("Viajes Compartidos API", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 
     mockSupabaseClient = {
       auth: {
@@ -50,7 +51,7 @@ describe("Viajes Compartidos API", () => {
       },
     };
 
-    (getServerSupabase as any).mockResolvedValue(mockSupabaseClient);
+    vi.mocked(getAuthClient).mockReturnValue(mockSupabaseClient);
     (getServiceRoleSupabase as any).mockReturnValue(mockAdminClient);
   });
 
@@ -116,7 +117,11 @@ describe("Viajes Compartidos API", () => {
 
   describe("DELETE /api/trips/[tripId]/shares/[userId]", () => {
     it("debe revocar el acceso de un invitado", async () => {
-      mockSupabaseClient.from().delete.mockResolvedValue({ error: null });
+      mockSupabaseClient.from().delete.mockImplementation(() => ({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      }));
       
       const request = new Request("http://localhost/api", { method: "DELETE" });
       const response = await ShareTripDELETE(request, { 

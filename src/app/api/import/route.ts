@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-
+import { runAiPrompt } from "@/lib/ai/provider";
+import { extractJsonObject } from "@/lib/ai/json-response";
 
 const SYSTEM_PROMPT = [
   "You are an AI assistant integrated into a travel planning application.",
@@ -54,61 +55,6 @@ const SYSTEM_PROMPT = [
   '{"activities":[{"title":"string","category":"string","location":"string","date":"YYYY-MM-DD","time":"HH:mm","duration_minutes":60,"notes":"string","time_confidence":0.85,"time_inferred":true}]}'
 ].join("\n");
 
-interface ProviderConfig {
-  url: string;
-  key: string;
-  models: string; // Comma separated list
-}
-
-async function callAI(url: string, key: string, model: string, payload: any) {
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + key
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: payload,
-      temperature: 0.1,
-      max_tokens: 4000
-    })
-  });
-}
-
-async function tryModelsForProvider(config: ProviderConfig, payload: any) {
-  const modelList = config.models.split(",").map(m => m.trim()).filter(Boolean);
-  let lastResponse: Response | null = null;
-
-  for (const model of modelList) {
-    if (!model) continue;
-    
-    console.log("Attempting request with model: " + model + " (" + config.url + ")");
-    try {
-      const res = await callAI(config.url, config.key, model, payload);
-      
-      if (res.ok) {
-        return { success: true, response: res };
-      }
-
-      lastResponse = res;
-      const errText = await res.clone().text();
-      console.warn("Model " + model + " failed with status " + res.status + ": " + errText);
-
-      // If it's a 4xx error (except 429/408), it's likely a config/auth issue, don't keep trying models for this provider
-      if (res.status >= 400 && res.status < 500 && ![408, 429].includes(res.status)) {
-        return { success: false, response: res };
-      }
-      
-      // If server is busy or error, continue to next model in the list
-    } catch (e) {
-      console.error("Fetch error for model " + model + ":", e);
-    }
-  }
-
-  return { success: false, response: lastResponse };
-}
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -118,70 +64,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
-    const payload = [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: "FALLBACK_DATE: " + fallbackDate + "\n\nTEXT TO PARSE:\n" + text }
-    ];
-
-    // 1. PRIMARY PROVIDER
-    const primaryConfig = {
-      url: process.env.AI_API_URL || "",
-      key: process.env.AI_API_KEY || "",
-      models: process.env.AI_MODEL || "gpt-4o-mini"
-    };
-
-    if (!primaryConfig.key || !primaryConfig.url) {
-      return NextResponse.json({ error: "Primary AI configuration missing (API_URL/KEY)" }, { status: 500 });
+    const content = await runAiPrompt(
+      SYSTEM_PROMPT,
+      "FALLBACK_DATE: " + fallbackDate + "\n\nTEXT TO PARSE:\n" + text,
+    );
+    const parsed = extractJsonObject<{ activities?: unknown }>(content);
+    if (!parsed) {
+      return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
     }
 
-    let result = await tryModelsForProvider(primaryConfig, payload);
+    return NextResponse.json(parsed);
 
-    // 2. FALLBACK PROVIDER (If primary completely failed with recoverable server errors)
-    if (!result.success && result.response && [500, 502, 503, 504, 429].includes(result.response.status)) {
-      const fallbackConfig = {
-        url: process.env.AI_FALLBACK_API_URL || "",
-        key: process.env.AI_FALLBACK_API_KEY || "",
-        models: process.env.AI_FALLBACK_MODEL || ""
-      };
-
-      if (fallbackConfig.key && fallbackConfig.url && fallbackConfig.models) {
-        console.warn("Primary provider exhausted or failed. Switching to FALLBACK provider...");
-        result = await tryModelsForProvider(fallbackConfig, payload);
-      }
-    }
-
-    const res = result.response;
-    if (!result.success || !res) {
-      const errorText = res ? await res.text() : "Unknown error";
-      const status = res ? res.status : 502;
-      console.error("AI Import final failure:", errorText);
-      return NextResponse.json({ error: "AI Provider error (" + status + "): " + errorText }, { status: 502 });
-    }
-
-    const data = await res.json();
-    const content: string =
-      data.choices?.[0]?.message?.content ||
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "";
-
-    const jsonStart = content.indexOf("{");
-    const jsonEnd = content.lastIndexOf("}");
-
-    if (jsonStart === -1 || jsonEnd <= jsonStart) {
-      return NextResponse.json({ error: "AI returned no JSON. Raw: " + content.substring(0, 200) }, { status: 500 });
-    }
-
-    const extracted = content.slice(jsonStart, jsonEnd + 1);
-
-    try {
-      const parsed = JSON.parse(extracted);
-      return NextResponse.json(parsed);
-    } catch {
-      return NextResponse.json({ error: "AI JSON parse failed: " + extracted.substring(0, 200) }, { status: 500 });
-    }
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Import Route Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "AI import failed" }, { status: 500 });
   }
 }
