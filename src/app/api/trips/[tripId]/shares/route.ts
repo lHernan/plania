@@ -46,7 +46,7 @@ export async function GET(
     // Fetch all shares for this trip
     const { data: sharesData, error: sharesError } = await supabase
       .from("trip_shares")
-      .select("id, shared_with, created_at")
+      .select("id, shared_with, created_at, role")
       .eq("trip_id", tripId)
       .order("created_at", { ascending: true });
 
@@ -71,6 +71,7 @@ export async function GET(
     const shares: TripShareUser[] = sharesData.map((row) => ({
       userId: row.shared_with,
       email: userMap.get(row.shared_with) ?? "Usuario desconocido",
+      role: (row.role === "editor" ? "editor" : "viewer") as "viewer" | "editor",
       createdAt: row.created_at,
     }));
 

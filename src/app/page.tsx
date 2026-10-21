@@ -15,8 +15,9 @@ import { format } from "date-fns";
  */
 export default function Home() {
   const { t } = useI18n();
-  const { user } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const { createTrip, loading, activeTrip, hasFetched } = useItineraryStore();
+  const { lang, setLang } = useI18n();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -40,7 +41,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading…</p>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest" suppressHydrationWarning>{t("landing_loading")}</p>
         </div>
       </div>
     );
@@ -48,6 +49,26 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 md:p-6 overflow-hidden relative">
+      {/* Top bar: language selector + logout */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <select
+          aria-label={t("language_selector")}
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+          className="bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-full px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 min-h-[36px]"
+        >
+          <option value="es">{t("lang_es")}</option>
+          <option value="en">{t("lang_en")}</option>
+        </select>
+        {user && !user.is_anonymous && (
+          <button
+            onClick={() => void signOut()}
+            className="bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-full px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-colors min-h-[36px]"
+          >
+            {t("logout")}
+          </button>
+        )}
+      </div>
       {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] size-64 md:size-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] size-64 md:size-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -65,7 +86,7 @@ export default function Home() {
           <div className="space-y-2">
             <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Plania</h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium px-8 leading-relaxed">
-              Your premium adventure starts here. Plan, sync, and explore with AI precision.
+              {t("landing_tagline")}
             </p>
           </div>
         </motion.div>
@@ -78,17 +99,18 @@ export default function Home() {
           className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-2 border-indigo-500/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] rounded-[3rem] p-6 md:p-8"
         >
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500">Quick Start</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500">{t("landing_quick_start")}</h2>
             <Plane size={16} className="text-slate-200 dark:text-slate-800" />
           </div>
 
           <div className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Trip Name</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("landing_trip_name")}</label>
               <input
                 type="text"
-                placeholder="e.g. My Japan Escape 2026"
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-6 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                inputMode="text"
+                placeholder={t("landing_trip_name_placeholder")}
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-6 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 min-h-[48px]"
                 value={quickTripName}
                 onChange={(e) => setQuickTripName(e.target.value)}
               />
@@ -96,21 +118,21 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Start Date</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("landing_start_date")}</label>
                 <input
                   type="date"
                   min={today}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[48px]"
                   value={quickTripStart}
                   onChange={(e) => setQuickTripStart(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">End Date</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("landing_end_date")}</label>
                 <input
                   type="date"
                   min={quickTripStart || today}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[48px]"
                   value={quickTripEnd}
                   onChange={(e) => setQuickTripEnd(e.target.value)}
                 />
@@ -123,12 +145,12 @@ export default function Home() {
                 if (quickTripName.trim()) {
                   createTrip(quickTripName, quickTripStart || undefined, quickTripEnd || undefined);
                 } else {
-                  alert("Please enter a trip name");
+                  alert(t("landing_enter_trip_name"));
                 }
               }}
-              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group disabled:opacity-60"
+              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group disabled:opacity-60 min-h-[48px]"
             >
-              {loading ? "Creating…" : "Create Adventure"}
+              {loading ? t("landing_creating") : t("landing_create_adventure")}
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </button>
           </div>
@@ -144,21 +166,21 @@ export default function Home() {
           {user?.is_anonymous ? (
             <div className="space-y-4">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                Already have an account?
+                {t("landing_have_account")}
               </p>
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="px-8 py-3 rounded-full border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm"
+                className="px-8 py-3 rounded-full border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm min-h-[44px]"
               >
-                Sign In to Sync
+                {t("landing_sign_in_sync")}
               </button>
             </div>
           ) : user ? (
             <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 dark:border-indigo-800/50">
               <p className="text-[10px] font-bold text-slate-500 leading-tight">
                 <CheckCircle2 size={12} className="inline mr-2 text-indigo-500" />
-                Logged in as <span className="text-indigo-600">{user.email}</span>
-                {hasFetched && " · No trips yet — create one above!"}
+                {t("landing_logged_in_as", { email: user.email ?? "" })}
+                {hasFetched && ` ${t("landing_no_trips_yet")}`}
               </p>
             </div>
           ) : null}

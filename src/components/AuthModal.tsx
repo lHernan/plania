@@ -4,20 +4,41 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/use-auth-store";
 import { supabase } from "@/lib/supabase";
-import { X, Mail, Lock, Loader2, ArrowRight } from "lucide-react";
+import { useI18n } from "@/components/I18nProvider";
+import { X, Mail, Lock, Loader2, ArrowRight, KeyRound } from "lucide-react";
 
 export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string) => void }) {
+  const { t } = useI18n();
   const [isLogin, setIsLogin] = useState(true);
+  const [isReset, setIsReset] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { signIn, signUp, loading } = useAuthStore();
+  const { signIn, signUp, resetPassword, loading } = useAuthStore();
+
+  const syncFromForm = (form: HTMLFormElement) => {
+    const fd = new FormData(form);
+    const e = (fd.get("email") as string) || email;
+    const p = (fd.get("password") as string) || password;
+    if (e) setEmail(e);
+    if (p) setPassword(p);
+    return { email: e, password: p };
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const { email: finalEmail, password: finalPassword } = syncFromForm(form);
 
-    const formData = new FormData(e.currentTarget);
-    const finalEmail = (formData.get("email") as string) || email;
-    const finalPassword = (formData.get("password") as string) || password;
+    if (isReset) {
+      const { error } = await resetPassword(finalEmail);
+      if (error) {
+        onShowToast(error.message);
+        return;
+      }
+      onShowToast(t("auth_reset_sent"));
+      setIsReset(false);
+      return;
+    }
 
     // Capture current anonymous user ID BEFORE signing in
     const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -36,7 +57,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
     if (anonId && isLogin) {
       const { data: { user: newUser } } = await supabase.auth.getUser();
       if (newUser && newUser.id !== anonId) {
-        console.log("Plania: Transferring data from", anonId, "→", newUser.id);
+        console.log("Plania: Transferring data from", anonId, "to", newUser.id);
         const { error: rpcError } = await supabase.rpc("transfer_anonymous_data", {
           p_anon_id: anonId,
           p_new_id: newUser.id,
@@ -45,11 +66,23 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
       }
     }
 
-    onShowToast(isLogin ? "Welcome back!" : "Account created successfully!");
+    onShowToast(isLogin ? t("auth_welcome_back") : t("auth_account_created"));
     onClose();
   };
 
   if (!isOpen) return null;
+
+  const title = isReset
+    ? t("auth_reset_title")
+    : isLogin
+    ? t("auth_welcome_back_title")
+    : t("auth_create_account_title");
+
+  const subtitle = isReset
+    ? t("auth_reset_subtitle")
+    : isLogin
+    ? t("auth_login_subtitle")
+    : t("auth_signup_subtitle");
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -60,7 +93,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
       />
-      
+
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -68,25 +101,22 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
         className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden"
       >
         <div className="p-8 md:p-10">
-          <button 
+          <button
             onClick={onClose}
             className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            aria-label={t("cancel")}
           >
             <X size={20} className="text-slate-400" />
           </button>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">
-              {isLogin ? "Welcome Back" : "Create Account"}
-            </h2>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              {isLogin ? "Enter your details to sync trips" : "Save your adventures permanently"}
-            </p>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{title}</h2>
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{subtitle}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("email")}</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
@@ -96,53 +126,84 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[48px]"
                   placeholder="name@example.com"
-                  autoComplete="email"
+                  autoComplete="username"
+                  inputMode="email"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  placeholder="••••••••"
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                />
+            {!isReset && (
+              <div className="space-y-1">
+                <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("password")}</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required={!isReset}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[48px]"
+                    placeholder="••••••••"
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl py-4 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-6"
+              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl py-4 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-6 min-h-[48px]"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
-                  {isLogin ? "Login" : "Sign Up"}
+                  {isReset ? t("auth_send_reset") : isLogin ? t("auth_login") : t("auth_sign_up")}
                   <ArrowRight size={18} />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-            <button 
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors"
-            >
-              {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
-            </button>
-          </div>
+          {isLogin && !isReset && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setIsReset(true)}
+                className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors inline-flex items-center gap-1"
+              >
+                <KeyRound size={12} /> {t("auth_forgot_password")}
+              </button>
+            </div>
+          )}
+
+          {isReset && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setIsReset(false)}
+                className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors"
+              >
+                {t("auth_back_to_login")}
+              </button>
+            </div>
+          )}
+
+          {!isReset && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors"
+              >
+                {isLogin ? t("auth_no_account") : t("auth_have_account")}
+              </button>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

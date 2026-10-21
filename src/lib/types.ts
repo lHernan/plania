@@ -243,9 +243,25 @@ export type ShoppingAssistantRequest =
 // ─── Viajes Compartidos ──────────────────────────────────────────────────────
 
 /** Un usuario que tiene acceso compartido a un viaje */
+export type TripShareRole = "viewer" | "editor";
+
+export type TripShareLink = {
+  id: string;
+  tripId: string;
+  token: string;
+  role: TripShareRole;
+  email: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  acceptedBy: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+};
+
 export type TripShareUser = {
   userId: string;
   email: string;
+  role: TripShareRole;
   createdAt: string;
 };
 

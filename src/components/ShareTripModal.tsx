@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -21,6 +22,7 @@ import {
   CheckCircle2,
   UserX,
   AlertCircle,
+  Copy,
 } from "lucide-react";
 import type { TripShareUser } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
@@ -38,7 +40,12 @@ interface ShareTripModalProps {
 }
 
 export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProps) {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"viewer" | "editor">("viewer");
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [shareStatus, setShareStatus] = useState<ShareStatus>({ type: "idle" });
   const [shares, setShares] = useState<TripShareUser[]>([]);
   const [sharesLoading, setSharesLoading] = useState(true);
@@ -72,7 +79,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setShareStatus({ type: "error", message: "Ingresa un email válido" });
+      setShareStatus({ type: "error", message: t("share_invalid_email") });
       return;
     }
 
@@ -85,10 +92,10 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch(`/api/trips/${tripId}/share`, {
+      const res = await fetch(`/api/trips/${tripId}/share-link`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ email: trimmedEmail }),
+        body: JSON.stringify({ email: trimmedEmail, role, expiresInDays: 30 }),
       });
 
       const data = await res.json();
@@ -96,20 +103,74 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
       if (res.ok) {
         setShareStatus({
           type: "success",
-          message: `Viaje compartido con ${trimmedEmail}. Se le enviará una notificación por email.`,
+          message: t("share_invite_sent", { email: trimmedEmail }),
         });
+        if (data.url) setShareLink(data.url);
         setEmail("");
         void fetchShares();
       } else {
-        setShareStatus({ type: "error", message: data.error ?? "Error al compartir" });
+        setShareStatus({ type: "error", message: data.error ?? t("share_error_generic") });
       }
     } catch {
-      setShareStatus({ type: "error", message: "Error de conexión. Intenta de nuevo." });
+      setShareStatus({ type: "error", message: t("share_error_connection") });
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: "viewer" | "editor") => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+      const res = await fetch(`/api/trips/${tripId}/shares/${userId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        setShares((prev) => prev.map((s) => (s.userId === userId ? { ...s, role: newRole } : s)));
+      }
+    } catch {
+      // non-fatal
+    }
+  };
+
+  const handleCreateLink = async () => {
+    setLinkLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+      const res = await fetch(`/api/trips/${tripId}/share-link`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ role, expiresInDays: 30 }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setShareLink(data.url);
+      } else {
+        setShareStatus({ type: "error", message: data.error ?? t("share_error_generic") });
+      }
+    } catch {
+      setShareStatus({ type: "error", message: t("share_error_connection") });
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select
     }
   };
 
   const handleRevoke = async (userId: string, userEmail: string) => {
-    if (!confirm(`¿Revocar acceso de ${userEmail}?`)) return;
+    if (!confirm(t("share_revoke_confirm", { email: userEmail }))) return;
 
     setRevokingId(userId);
     try {
@@ -162,7 +223,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
               <Share2 size={18} className="text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">Compartir viaje</h2>
+              <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">{t("share_title")}</h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[200px]">{tripName}</p>
             </div>
           </div>
@@ -178,33 +239,45 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
           {/* Share form */}
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
-              <Mail size={11} /> Invitar por email
+              <Mail size={11} /> {t("share_invite_by_email")}
             </label>
-            <form onSubmit={handleShare} className="flex gap-2">
-              <input
-                id="share-trip-email"
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (shareStatus.type !== "idle") setShareStatus({ type: "idle" });
-                }}
-                placeholder="amigo@email.com"
-                className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
-                disabled={shareStatus.type === "loading"}
-              />
-              <button
-                type="submit"
-                disabled={shareStatus.type === "loading" || !email.trim()}
-                className="px-5 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {shareStatus.type === "loading" ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Share2 size={14} />
-                )}
-                <span className="hidden sm:inline">Compartir</span>
-              </button>
+            <form onSubmit={handleShare} className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  id="share-trip-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (shareStatus.type !== "idle") setShareStatus({ type: "idle" });
+                  }}
+                  placeholder={t("share_email_placeholder")}
+                  className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-base font-medium outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 min-h-[44px]"
+                  disabled={shareStatus.type === "loading"}
+                />
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as "viewer" | "editor")}
+                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/30 min-h-[44px]"
+                  disabled={shareStatus.type === "loading"}
+                  aria-label="Permission"
+                >
+                  <option value="viewer">{t("share_role_viewer")}</option>
+                  <option value="editor">{t("share_role_editor")}</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={shareStatus.type === "loading" || !email.trim()}
+                  className="px-5 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 min-h-[44px]"
+                >
+                  {shareStatus.type === "loading" ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Share2 size={14} />
+                  )}
+                  <span className="hidden sm:inline">{t("share_send")}</span>
+                </button>
+              </div>
             </form>
 
             {/* Status feedback */}
@@ -236,10 +309,46 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
             </AnimatePresence>
           </div>
 
+          {/* Shareable link */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
+              {t("share_link_section")}
+            </label>
+            {!shareLink ? (
+              <button
+                type="button"
+                onClick={handleCreateLink}
+                disabled={linkLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all min-h-[44px] disabled:opacity-50"
+              >
+                {linkLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+                {t("share_create_link")}
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={shareLink}
+                  className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-medium text-slate-600 dark:text-slate-300 outline-none min-h-[44px]"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all min-h-[44px] flex items-center gap-1.5"
+                >
+                  {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            )}
+            <p className="text-[10px] font-medium text-slate-400 leading-relaxed">
+              {t("share_link_note")}
+            </p>
+          </div>
+
           {/* Current shares list */}
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
-              <Users size={11} /> Personas con acceso
+              <Users size={11} /> {t("share_people_with_access")}
             </label>
 
             {sharesLoading ? (
@@ -250,7 +359,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
               <div className="py-6 text-center rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800">
                 <UserX size={24} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  Nadie tiene acceso aún
+                  {t("share_no_access_yet")}
                 </p>
               </div>
             ) : (
@@ -280,12 +389,21 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                           })}
                         </p>
                       </div>
+                      <select
+                        value={share.role}
+                        onChange={(e) => handleRoleChange(share.userId, e.target.value as "viewer" | "editor")}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 outline-none min-h-[32px]"
+                        aria-label="Role"
+                      >
+                        <option value="viewer">{t("share_role_viewer")}</option>
+                        <option value="editor">{t("share_role_editor")}</option>
+                      </select>
                       <button
                         onClick={() => handleRevoke(share.userId, share.email)}
                         disabled={revokingId === share.userId}
                         className="size-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all disabled:opacity-50"
-                        aria-label={`Revocar acceso de ${share.email}`}
-                        title="Revocar acceso"
+                        aria-label={t("share_revoke_confirm", { email: share.email })}
+                        title={t("share_revoke_access")}
                       >
                         {revokingId === share.userId ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -304,7 +422,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
         {/* Footer note */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <p className="text-[10px] font-medium text-slate-400 text-center leading-relaxed">
-            Los usuarios invitados pueden <span className="font-bold text-slate-500">visualizar</span> el viaje pero no pueden editarlo ni eliminarlo.
+            {t("share_footer_note")}
           </p>
         </div>
       </motion.div>

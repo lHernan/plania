@@ -24,6 +24,8 @@ export async function POST(
     const { tripId } = await context.params;
     const body = await request.json().catch(() => ({}));
     const email: unknown = body?.email;
+    const role: unknown = body?.role;
+    const normalizedRole = role === "editor" ? "editor" : "viewer";
 
     if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400 });
@@ -85,7 +87,7 @@ export async function POST(
     // Insert the share (UNIQUE constraint handles duplicates)
     const { error: shareError } = await supabase
       .from("trip_shares")
-      .insert({ trip_id: tripId, shared_with: targetUser.id });
+      .insert({ trip_id: tripId, shared_with: targetUser.id, role: normalizedRole });
 
     if (shareError) {
       if (shareError.code === "23505") {

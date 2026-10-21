@@ -116,9 +116,10 @@ type Store = {
   error: string | null;
   fetchAllTrips: () => Promise<void>;
   fetchSharedTrips: () => Promise<void>;
-  shareTrip: (tripId: string, email: string) => Promise<{ error?: string }>;
+    shareTrip: (tripId: string, email: string, role?: "viewer" | "editor") => Promise<{ error?: string }>;
   fetchTripShares: (tripId: string) => Promise<void>;
-  revokeTripShare: (tripId: string, userId: string) => Promise<void>;
+    revokeTripShare: (tripId: string, userId: string) => Promise<void>;
+    updateTripShareRole: (tripId: string, userId: string, role: "viewer" | "editor") => Promise<void>;
   fetchActiveTrip: (tripId?: string, skipLoading?: boolean) => Promise<void>;
   createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
@@ -876,7 +877,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       }
     },
 
-    shareTrip: async (tripId, email) => {
+    shareTrip: async (tripId, email, role = "viewer") => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -887,7 +888,7 @@ export const useItineraryStore = create<Store>((set, get) => {
         const res = await fetch(`/api/trips/${tripId}/share`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, role }),
         });
         const data = await res.json();
         if (!res.ok) return { error: data.error ?? "Error al compartir" };
@@ -913,6 +914,31 @@ export const useItineraryStore = create<Store>((set, get) => {
       } catch (error) {
         console.error("Plania: fetchTripShares error", error);
         set({ sharesLoading: false });
+      }
+    },
+
+    updateTripShareRole: async (tripId, userId, role) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+
+        const res = await fetch(`/api/trips/${tripId}/shares/${userId}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ role }),
+        });
+        if (res.ok) {
+          set((state) => ({
+            tripShares: state.tripShares.map((s) =>
+              s.userId === userId ? { ...s, role } : s
+            ),
+          }));
+        }
+      } catch (error) {
+        console.error("Plania: updateTripShareRole error", error);
       }
     },
 

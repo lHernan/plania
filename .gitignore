@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling / agent state
+.atl/
+
+# local audit roadmap (not shipped)
+TRAVEL_COPILOT_ROADMAP.md

@@ -74,6 +74,7 @@ import { ChatFab } from "@/components/ChatFab";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TravelContextEditor } from "@/components/TravelContextEditor";
 import { ArrivalAssistant } from "@/components/ArrivalAssistant";
+import { CityPaymentGuideCard } from "@/components/CityPaymentGuideCard";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -1582,6 +1583,7 @@ export function TripView() {
       </header>
 
       {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+      {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
 
       <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}

@@ -13,6 +13,7 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   initialize: () => Promise<void>;
 };
 
@@ -102,6 +103,15 @@ export const useAuthStore = create<AuthState>((set) => {
         }
       }
 
+      set({ loading: false });
+      return { error };
+    },
+
+    resetPassword: async (email) => {
+      set({ loading: true });
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: typeof window !== "undefined" ? `${window.location.origin}/` : undefined,
+      });
       set({ loading: false });
       return { error };
     },

@@ -59,3 +59,54 @@ export async function DELETE(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ tripId: string; userId: string }> }
+) {
+  try {
+    const { tripId, userId } = await context.params;
+    const body = await request.json().catch(() => ({}));
+    const role: unknown = body?.role;
+    const normalizedRole = role === "editor" ? "editor" : "viewer";
+
+    const supabase = getAuthClient(request);
+
+    const { data: { user: caller }, error: authError } = await supabase.auth.getUser();
+    if (authError || !caller) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select("id, user_id")
+      .eq("id", tripId)
+      .single();
+
+    if (tripError || !trip) {
+      return NextResponse.json({ error: "Viaje no encontrado" }, { status: 404 });
+    }
+
+    if (trip.user_id !== caller.id) {
+      return NextResponse.json(
+        { error: "Solo el propietario puede cambiar permisos" },
+        { status: 403 }
+      );
+    }
+
+    const { error: updateError } = await supabase
+      .from("trip_shares")
+      .update({ role: normalizedRole })
+      .eq("trip_id", tripId)
+      .eq("shared_with", userId);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, role: normalizedRole });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Error desconocido";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
