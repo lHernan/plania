@@ -83,14 +83,14 @@ import { PackingListCard } from "@/components/PackingListCard";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-  reservation: { icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+  reservation: { icon: CheckCircle2, color: "text-emerald-900", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
   transport: { icon: Plane, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
   hotel: { icon: Bed, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20" },
   food: { icon: Utensils, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20" },
   shopping: { icon: ShoppingBag, color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
   photos: { icon: Camera, color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-900/20" },
-  nightlife: { icon: Music, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
-  other: { icon: Info, color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800" },
+  nightlife: { icon: Music, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/20" },
+  other: { icon: Info, color: "text-stone-500", bg: "bg-stone-100 dark:bg-stone-800" },
 };
 
 const getCategoryStyle = (category: string) =>
@@ -183,8 +183,8 @@ function SortableActivityCard({
       layout
       className={`group premium-card overflow-hidden transition-all duration-500 ease-in-out ${
         completed 
-          ? "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200/40" 
-          : "border-white/20 shadow-lg hover:shadow-indigo-500/5 cursor-pointer"
+          ? "bg-stone-50/50 dark:bg-stone-900/40 border-stone-200/40" 
+          : "border-white/20 shadow-lg hover:shadow-emerald-900/5 cursor-pointer"
       }`}
       onClick={onEdit}
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
@@ -200,11 +200,11 @@ function SortableActivityCard({
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-white dark:bg-slate-900"
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-white dark:bg-stone-900"
         >
           <div className="grid grid-cols-2 gap-1 px-1">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="size-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+              <div key={i} className="size-1 rounded-full bg-stone-300 dark:bg-stone-600" />
             ))}
           </div>
         </div>
@@ -213,7 +213,7 @@ function SortableActivityCard({
         <div className="flex flex-col items-center gap-2 shrink-0 ml-4 md:ml-6 pointer-events-none">
           <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${
             completed 
-              ? "bg-slate-200 dark:bg-slate-800 text-slate-400" 
+              ? "bg-stone-200 dark:bg-stone-800 text-stone-400" 
               : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color} shadow-sm group-hover:scale-110`
           }`}>
             {(() => {
@@ -224,7 +224,7 @@ function SortableActivityCard({
           
           <div className="flex flex-col items-center gap-1">
             <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
-              completed ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
+              completed ? "text-stone-400" : "text-stone-900 dark:text-stone-100"
             }`}>
               {activity.time}
             </span>
@@ -244,26 +244,26 @@ function SortableActivityCard({
           <div className="flex items-center gap-2 mb-1">
              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
                 completed 
-                  ? "bg-slate-100 dark:bg-slate-800 text-slate-400" 
+                  ? "bg-stone-100 dark:bg-stone-800 text-stone-400" 
                   : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color}`
              }`}>
               {t(activity.category)}
             </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest tabular-nums">
+            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest tabular-nums">
               ┬À {activity.durationMin}{t("mins_short")}
             </span>
           </div>
           
           <h4
             className={`text-base font-extrabold leading-tight transition-all truncate ${
-              completed ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"
+              completed ? "text-stone-400 line-through" : "text-stone-900 dark:text-white"
             }`}
           >
             {activity.title}
           </h4>
           
           <div className="flex items-center gap-1.5 mt-2">
-            <MapPin size={12} className={completed ? "text-slate-300" : "text-slate-400 shrink-0"} />
+            <MapPin size={12} className={completed ? "text-stone-300" : "text-stone-400 shrink-0"} />
             {activity.location ? (
               <button 
                 onClick={(e) => {
@@ -271,13 +271,13 @@ function SortableActivityCard({
                   const url = activity.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location as string)}`;
                   window.open(url, "_blank");
                 }}
-                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-slate-300" : "text-indigo-500 dark:text-indigo-400 hover:text-indigo-600"}`}
+                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-stone-300" : "text-emerald-800 dark:text-emerald-700 hover:text-emerald-900"}`}
               >
                 {activity.location}
                 <ExternalLink size={10} className="shrink-0" />
               </button>
             ) : (
-              <span className={`text-xs font-medium truncate ${completed ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
+              <span className={`text-xs font-medium truncate ${completed ? "text-stone-300" : "text-stone-500 dark:text-stone-400"}`}>
                 {t("location_pending")}
               </span>
             )}
@@ -295,10 +295,10 @@ function SortableActivityCard({
             className={`size-12 md:size-10 rounded-[1.2rem] md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2 ${
               completed 
                 ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
-                : "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95"
+                : "border-stone-200 dark:border-stone-800 hover:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 active:scale-95"
             }`}
           >
-            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-slate-300 md:text-slate-200"} />
+            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-stone-300 md:text-stone-200"} />
           </button>
         </div>
       </div>
@@ -389,7 +389,7 @@ function ActivityFilesSection({
     if (status === "failed") return { label: t("offline_failed"), tone: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" };
     return {
       label: isOnline ? t("offline_not_cached") : t("offline_unavailable"),
-      tone: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+      tone: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300",
     };
   };
 
@@ -407,13 +407,13 @@ function ActivityFilesSection({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+        <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-1">
           <FileText size={12} /> {t("attachments")}
         </label>
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={loading}
-          className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 disabled:opacity-50 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full transition-all"
+          className="text-[10px] font-black uppercase tracking-widest text-emerald-800 hover:text-emerald-900 disabled:opacity-50 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded-full transition-all"
         >
           <Plus size={12} /> {t("add_file")}
         </button>
@@ -431,7 +431,7 @@ function ActivityFilesSection({
         {files.map((file) => (
           <div
             key={file.id}
-            className="group relative bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
+            className="group relative bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-100 dark:border-stone-800 flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
           >
             <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
               file.fileType === "pdf" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
@@ -440,13 +440,13 @@ function ActivityFilesSection({
             </div>
             
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 dark:text-white truncate pr-6" title={file.fileName}>
+              <p className="text-xs font-bold text-stone-900 dark:text-white truncate pr-6" title={file.fileName}>
                 {file.fileName}
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => handlePreview(file)}
-                  className="text-[10px] font-bold text-indigo-500 hover:underline uppercase tracking-wider"
+                  className="text-[10px] font-bold text-emerald-800 hover:underline uppercase tracking-wider"
                 >
                   {t("view_file")}
                 </button>
@@ -459,7 +459,7 @@ function ActivityFilesSection({
             <button
               onClick={() => handleOfflineDownload(file)}
               disabled={offlineStatuses[file.id] === "pending" || !isOnline}
-              className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+              className="shrink-0 rounded-full border border-stone-200 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-stone-500 transition-all hover:border-emerald-200 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:text-stone-300"
             >
               {offlineStatuses[file.id] === "available" ? t("offline_ready_short") : t("download_offline")}
             </button>
@@ -471,7 +471,7 @@ function ActivityFilesSection({
                   deleteFile(file.id);
                 }
               }}
-              className="absolute top-2 right-2 p-1 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-2 right-2 p-1 text-stone-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
             >
               <Trash2 size={12} />
             </button>
@@ -479,8 +479,8 @@ function ActivityFilesSection({
         ))}
         
         {files.length === 0 && !loading && (
-          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-stone-100 dark:border-stone-800">
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
               {t("no_attachments_hint")}
             </p>
           </div>
@@ -488,7 +488,7 @@ function ActivityFilesSection({
 
         {loading && (
           <div className="col-span-full py-6 flex items-center justify-center">
-            <Loader2 size={20} className="text-indigo-500 animate-spin" />
+            <Loader2 size={20} className="text-emerald-800 animate-spin" />
           </div>
         )}
       </div>
@@ -528,7 +528,7 @@ function ActivityEditModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+        className="absolute inset-0 bg-stone-950/60 backdrop-blur-xl"
       />
       
       <motion.div
@@ -537,13 +537,13 @@ function ActivityEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
+        className="relative w-full max-w-2xl bg-white dark:bg-stone-950 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-slate-400" /></button>
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-slate-400" /></button>
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-stone-400" /></button>
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-stone-400" /></button>
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
+            <div className="w-12 h-1.5 rounded-full bg-stone-200 dark:bg-stone-800" />
           </div>
 
           <div className="space-y-8">
@@ -552,7 +552,7 @@ function ActivityEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-stone-900 dark:text-white placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
                 placeholder={t("adventure_title_placeholder")}
               />
             </div>
@@ -569,8 +569,8 @@ function ActivityEditModal({
                     onClick={() => setLocalCategory(cat)}
                     className={`snap-center flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border ${
                       isSel 
-                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-white dark:ring-offset-slate-950` 
-                        : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100"
+                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-emerald-800/20 ring-offset-2 ring-offset-white dark:ring-offset-stone-950` 
+                        : "bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-500 hover:bg-stone-100"
                     }`}
                   >
                     <Icon size={14} strokeWidth={isSel ? 3 : 2} />
@@ -582,64 +582,64 @@ function ActivityEditModal({
 
             {/* Time & Duration */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
+              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
                 <input
                   type="time"
                   value={localTime}
                   onChange={(e) => setLocalTime(e.target.value)}
-                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
                 />
               </div>
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">{t("duration_mins")}</label>
+              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 block">{t("duration_mins")}</label>
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
                     value={localDuration}
                     onChange={(e) => setLocalDuration(parseInt(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
                   />
-                  <span className="text-[10px] font-black text-slate-300">{t("mins_short")}</span>
+                  <span className="text-[10px] font-black text-stone-300">{t("mins_short")}</span>
                 </div>
               </div>
             </div>
 
             {/* Location & Cost */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
+              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
                 <input
                   type="text"
                   value={localLocation}
                   onChange={(e) => setLocalLocation(e.target.value)}
                   placeholder={t("location_placeholder")}
-                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
                 />
               </div>
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
+              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-slate-400">$</span>
+                  <span className="text-xl font-black text-stone-400">$</span>
                   <input
                     type="number"
                     value={localCost}
                     onChange={(e) => setLocalCost(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
                   />
                 </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 relative">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
+            <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800 relative">
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
 
               <textarea
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
                 placeholder={t("notes_placeholder")}
-                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-slate-900 dark:text-white leading-relaxed"
+                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-stone-900 dark:text-white leading-relaxed"
               />
             </div>
 
@@ -653,7 +653,7 @@ function ActivityEditModal({
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-stone-100 dark:border-stone-800/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
            <button 
              onClick={() => { onDelete(); onClose(); }}
              className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
@@ -662,7 +662,7 @@ function ActivityEditModal({
            </button>
            <button 
              onClick={() => { onDuplicate(); onClose(); }}
-             className="size-14 shrink-0 rounded-[1.5rem] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 items-center justify-center hover:bg-indigo-100 transition-colors hidden md:flex"
+             className="size-14 shrink-0 rounded-[1.5rem] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 items-center justify-center hover:bg-emerald-50 transition-colors hidden md:flex"
            >
              <Plus size={24} />
            </button>
@@ -679,7 +679,7 @@ function ActivityEditModal({
                 });
                 onClose();
              }}
-             className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+             className="flex-1 rounded-[1.5rem] bg-stone-900 dark:bg-white text-white dark:text-stone-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
              {t("save_changes")}
            </button>
@@ -720,7 +720,7 @@ function ReservationEditModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+        className="absolute inset-0 bg-stone-950/60 backdrop-blur-xl"
       />
       
       <motion.div
@@ -729,11 +729,11 @@ function ReservationEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
+        className="relative w-full max-w-lg bg-white dark:bg-stone-950 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
+            <div className="w-12 h-1.5 rounded-full bg-stone-200 dark:bg-stone-800" />
           </div>
 
           <div className="space-y-6">
@@ -741,66 +741,66 @@ function ReservationEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-stone-900 dark:text-white placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
                 placeholder={t("reservation_title_placeholder")}
                 autoFocus
               />
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
+            <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
               <input
                 type="date"
                 min={todayStr}
                 value={localDate}
                 onChange={(e) => setLocalDate(e.target.value)}
                 onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
+              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
                 <input
                   type="date"
                   min={todayStr}
                   value={localDeadline}
                   onChange={(e) => setLocalDeadline(e.target.value)}
                   onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
                 />
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
+              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-slate-400">$</span>
+                  <span className="text-xl font-black text-stone-400">$</span>
                   <input
                     type="number"
                     value={localPrice}
                     onChange={(e) => setLocalPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
+            <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
               <input
                 type="url"
                 value={localLink}
                 onChange={(e) => setLocalLink(e.target.value)}
                 placeholder="https://..."
-                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
               />
             </div>
           </div>
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-stone-100 dark:border-stone-800/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
            {!isNew && (
              <button 
                onClick={() => { onDelete(); onClose(); }}
@@ -819,7 +819,7 @@ function ReservationEditModal({
                   price: localPrice
                 });
              }}
-             className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+             className="flex-1 rounded-[1.5rem] bg-stone-900 dark:bg-white text-white dark:text-stone-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
              {t("save_reservation")}
            </button>
@@ -1460,10 +1460,10 @@ export function TripView() {
 
   if (!isMounted || (loading && !activeTrip)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
         <div className="flex flex-col items-center gap-4">
-          <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading\u2026</p>
+          <div className="size-12 border-4 border-emerald-900/20 border-t-emerald-900 rounded-full animate-spin" />
+          <p className="text-sm font-bold text-stone-400 uppercase tracking-widest">Loading\u2026</p>
         </div>
       </div>
     );
@@ -1471,16 +1471,16 @@ export function TripView() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-8 text-center">
         <div className="premium-card p-12 max-w-md">
           <div className="size-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Info className="text-rose-600" size={32} />
           </div>
-          <h2 className="text-xl font-black text-slate-900 mb-2">{t("connection_issue")}</h2>
-          <p className="text-slate-500 text-sm mb-8">{error}</p>
+          <h2 className="text-xl font-black text-stone-900 mb-2">{t("connection_issue")}</h2>
+          <p className="text-stone-500 text-sm mb-8">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold"
+            className="w-full bg-stone-900 text-white rounded-2xl py-4 font-bold"
           >
             {t("retry_connection")}
           </button>
@@ -1490,7 +1490,7 @@ export function TripView() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 ios-compact-shell">
+    <main className="min-h-screen bg-stone-50 dark:bg-stone-950 pb-32 ios-compact-shell">
       {activeTripIsDraft && (
         <div className="sticky top-0 z-50 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
@@ -1512,7 +1512,7 @@ export function TripView() {
         </div>
       )}
       {/* COMPACT STICKY HEADER */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-stone-950/80 backdrop-blur-xl border-b border-stone-200/50 dark:border-stone-800/50">
         {/* Top bar: trip selector + controls */}
         <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
           {/* Left: Trip Switcher */}
@@ -1521,7 +1521,7 @@ export function TripView() {
           {/* Right: user controls */}
           <div className="flex items-center gap-2">
             {/* Language toggle */}
-            <div className="flex items-center rounded-full bg-slate-100 p-0.5 dark:bg-slate-800">
+            <div className="flex items-center rounded-full bg-stone-100 p-0.5 dark:bg-stone-800">
               {(["es", "en"] as const).map((code) => (
                 <button
                   key={code}
@@ -1529,8 +1529,8 @@ export function TripView() {
                   onClick={() => setLang(code)}
                   className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
                     lang === code
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      ? "bg-emerald-900 text-white shadow-sm"
+                      : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
                   }`}
                 >
                   {code === "es" ? "ES" : "EN"}
@@ -1543,7 +1543,7 @@ export function TripView() {
                 {activeTrip && (
                   <div className="hidden sm:flex mr-2">
                     {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-full border border-violet-100 dark:border-violet-800" title="Solo lectura">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full border border-purple-100 dark:border-purple-800" title="Solo lectura">
                         <Share2 size={10} />
                         <span className="text-[9px] font-black uppercase tracking-widest">
                           De {sharedTripInfo?.ownerEmail || "propietario"}
@@ -1552,7 +1552,7 @@ export function TripView() {
                     ) : (
                       <button
                         onClick={() => setShowShareModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full transition-colors border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
+                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-900 dark:text-emerald-700 rounded-full transition-colors border border-transparent hover:border-emerald-100 dark:hover:border-emerald-800"
                       >
                         <Share2 size={12} />
                         <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Compartir</span>
@@ -1560,12 +1560,12 @@ export function TripView() {
                     )}
                   </div>
                 )}
-                <div className="size-7 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
+                <div className="size-7 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-800 border border-emerald-100 dark:border-emerald-800">
                   <UserIcon size={12} />
                 </div>
                 <button
                   onClick={() => authSignOut()}
-                  className="size-7 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                  className="size-7 rounded-full bg-stone-50 dark:bg-stone-800 flex items-center justify-center text-stone-400 hover:text-rose-500 transition-colors"
                 >
                   <LogOut size={12} />
                 </button>
@@ -1573,7 +1573,7 @@ export function TripView() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-800 transition-all shadow-md shadow-emerald-900/20"
               >
                 <ShieldCheck size={10} />
                 <span>Save</span>
@@ -1589,8 +1589,8 @@ export function TripView() {
               onClick={() => setShowCompletedDays(!showCompletedDays)}
               className={`snap-center flex flex-col items-center justify-center min-w-[58px] h-[62px] py-1.5 px-2 rounded-2xl border transition-all duration-300 flex-shrink-0 gap-1 select-none hover:scale-[1.02] active:scale-[0.98] ${
                 showCompletedDays
-                  ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 shadow shadow-indigo-500/5"
-                  : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-100"
+                  ? "bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-700 shadow shadow-emerald-900/5"
+                  : "bg-stone-50/50 dark:bg-stone-900/40 border-stone-100 dark:border-stone-800 text-stone-400 dark:text-stone-500 hover:bg-stone-100"
               }`}
             >
               {showCompletedDays ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1598,7 +1598,7 @@ export function TripView() {
                 {showCompletedDays ? t("hide_past_days") : t("show_past_days")}
               </span>
               {completedPastDays.length > 0 && !showCompletedDays && (
-                <span className="text-[8px] font-black leading-none bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1 py-0.5 rounded-md">
+                <span className="text-[8px] font-black leading-none bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-1 py-0.5 rounded-md">
                   {completedPastDays.length}
                 </span>
               )}
@@ -1614,21 +1614,21 @@ export function TripView() {
                 onClick={() => setActiveDay(day.id)}
                 className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-all duration-300 relative border flex-shrink-0 ${
                   isActive
-                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-lg -translate-y-0.5"
-                    : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:bg-slate-50"
+                    ? "bg-stone-900 dark:bg-white text-white dark:text-stone-900 border-stone-900 dark:border-white shadow-lg -translate-y-0.5"
+                    : "bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 hover:bg-stone-50"
                 }`}
               >
-                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-indigo-400" : "text-slate-400"}`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-emerald-700" : "text-stone-400"}`}>
                   {format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
                 <span className="text-base font-black tracking-tight leading-none">
                   {format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
-                  <div className="absolute top-1.5 right-1.5 size-1 rounded-full bg-indigo-500" />
+                  <div className="absolute top-1.5 right-1.5 size-1 rounded-full bg-emerald-800" />
                 )}
                 {isActive && (
-                  <motion.div layoutId="date-active" className="absolute -bottom-0.5 size-1 bg-indigo-400 rounded-full shadow shadow-indigo-400/50" />
+                  <motion.div layoutId="date-active" className="absolute -bottom-0.5 size-1 bg-emerald-700 rounded-full shadow shadow-emerald-700/50" />
                 )}
               </button>
             );
@@ -1637,7 +1637,7 @@ export function TripView() {
           {!isInvitee && (
             <button
               onClick={handleAddDay}
-              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all flex-shrink-0"
+              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-dashed border-emerald-200 dark:border-emerald-800 text-emerald-800 hover:bg-emerald-50 transition-all flex-shrink-0"
             >
               <Plus size={18} />
               <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
@@ -1654,27 +1654,27 @@ export function TripView() {
 
       {activeTrip && budgetSummary.total > 0 ? (
         <div className="max-w-7xl mx-auto px-5 pt-4">
-          <div className="rounded-3xl border border-indigo-100 dark:border-indigo-900/60 bg-white/80 dark:bg-slate-900/60 p-5 shadow-sm space-y-3">
+          <div className="rounded-3xl border border-emerald-100 dark:border-emerald-900/60 bg-white/80 dark:bg-stone-900/60 p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-300">{t("trip_budget_title")}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-900 dark:text-emerald-700">{t("trip_budget_title")}</p>
               {tripMapUrl ? (
                 <a
                   href={tripMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-700 hover:underline"
                 >
                   {t("trip_map_view")}
                 </a>
               ) : null}
             </div>
             <div className="space-y-2">
-              <p className="text-2xl font-black text-slate-900 dark:text-white">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-slate-400">est.</span>
+              <p className="text-2xl font-black text-stone-900 dark:text-white">
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-stone-400">est.</span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {budgetSummary.perDay.map((d) => (
-                  <span key={d.date} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+                  <span key={d.date} className="text-[10px] font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 rounded-full px-2 py-1">
                     {d.date}: {d.total.toFixed(2)}
                   </span>
                 ))}
@@ -1690,7 +1690,7 @@ export function TripView() {
             href={tripMapUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline px-1"
+            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-700 hover:underline px-1"
           >
             {t("trip_map_view")}
           </a>
@@ -1705,16 +1705,16 @@ export function TripView() {
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                  <div className="size-10 rounded-2xl bg-emerald-900 flex items-center justify-center text-white shadow-lg shadow-emerald-900/20">
                     <CalendarDays size={20} />
                   </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  <h2 className="text-xl font-black text-stone-900 dark:text-white">
                     {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
                   </h2>
                 </div>
                 <div className="flex items-center gap-2 ml-13">
-                  <MapPin size={12} className="text-slate-400" />
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{activeDay.city}</p>
+                  <MapPin size={12} className="text-stone-400" />
+                  <p className="text-xs font-bold text-stone-500 uppercase tracking-widest">{activeDay.city}</p>
                   {!isInvitee && (
                     <button 
                       onClick={() => {
@@ -1722,7 +1722,7 @@ export function TripView() {
                         setEditDayCity(activeDay.city);
                         setEditDayLabel(activeDay.label);
                       }}
-                      className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"
+                      className="p-1 text-stone-300 hover:text-emerald-800 transition-colors"
                     >
                       <Edit2 size={10} />
                     </button>
@@ -1738,7 +1738,7 @@ export function TripView() {
                         removeTripDay(activeDayId);
                       }
                     }}
-                    className="size-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800"
+                    className="size-8 rounded-xl bg-stone-50 dark:bg-stone-900 text-stone-400 hover:text-rose-500 flex items-center justify-center transition-all border border-stone-100 dark:border-stone-800"
                     title="Remove Day"
                   >
                     <Trash2 size={14} />
@@ -1754,24 +1754,24 @@ export function TripView() {
                 </button>
                 <button 
                   onClick={jumpToToday}
-                  className="px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100/50"
+                  className="px-4 py-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-700 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-all border border-emerald-100/50"
                 >
                   {t("today")}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-12 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-center space-y-4">
-              <div className="size-16 bg-slate-50 dark:bg-slate-900 rounded-3xl flex items-center justify-center mx-auto text-slate-300">
+            <div className="p-12 rounded-[3rem] border-2 border-dashed border-stone-200 dark:border-stone-800 text-center space-y-4">
+              <div className="size-16 bg-stone-50 dark:bg-stone-900 rounded-3xl flex items-center justify-center mx-auto text-stone-300">
                 <CalendarDays size={32} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">No days found</h3>
-                <p className="text-sm text-slate-400">Add your first destination to start planning.</p>
+                <h3 className="text-lg font-black text-stone-900 dark:text-white">No days found</h3>
+                <p className="text-sm text-stone-400">Add your first destination to start planning.</p>
               </div>
               <button 
                 onClick={handleAddDay}
-                className="px-6 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-500/20"
+                className="px-6 py-3 rounded-2xl bg-emerald-900 text-white font-bold text-sm shadow-xl shadow-emerald-900/20"
               >
                 Add Day 1
               </button>
@@ -1780,46 +1780,46 @@ export function TripView() {
 
           {activeDay && (
             <div className="grid grid-cols-2 gap-4">
-                <div className="premium-card p-5 border-l-4 border-l-indigo-500">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
+                <div className="premium-card p-5 border-l-4 border-l-emerald-800">
+                    <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
                     <div className="flex items-end justify-between">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white">{completion.dayPct}%</span>
-                        <CheckCircle2 size={24} className="text-indigo-500 mb-1" />
+                        <span className="text-2xl font-black text-stone-900 dark:text-white">{completion.dayPct}%</span>
+                        <CheckCircle2 size={24} className="text-emerald-800 mb-1" />
                     </div>
-                    <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
+                    <div className="w-full h-1 bg-stone-100 dark:bg-stone-800 rounded-full mt-3 overflow-hidden">
                         <motion.div 
                           initial={{ width: 0 }}
                           animate={{ width: `${completion.dayPct}%` }}
-                          className="h-full bg-indigo-500 rounded-full"
+                          className="h-full bg-emerald-800 rounded-full"
                         />
                     </div>
                 </div>
-                <div className="premium-card p-5 border-l-4 border-l-violet-500">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
+                <div className="premium-card p-5 border-l-4 border-l-purple-500">
+                    <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
                     <div className="flex items-end justify-between">
-                        <span className="text-xl font-black text-slate-900 dark:text-white">
+                        <span className="text-xl font-black text-stone-900 dark:text-white">
                           {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
                         </span>
-                        <CreditCard size={24} className="text-violet-500 mb-1" />
+                        <CreditCard size={24} className="text-purple-500 mb-1" />
                     </div>
-                    <p className="text-[10px] font-bold text-slate-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
+                    <p className="text-[10px] font-bold text-stone-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
                 </div>
             </div>
           )}
 
           {shoppingUi.show_suggestions_card && visibleShoppingSuggestions.length > 0 && (
-            <div className="premium-card p-6 border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-900">
+            <div className="premium-card p-6 border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-stone-900">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600">Good opportunity today</p>
-                  <h3 className="mt-2 text-lg font-black text-slate-900 dark:text-white">
+                  <h3 className="mt-2 text-lg font-black text-stone-900 dark:text-white">
                     {visibleShoppingSuggestions[0].title}
                   </h3>
-                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
                     {visibleShoppingSuggestions[0].reason}
                   </p>
                   {visibleShoppingSuggestions[0].location_suggestions[0] && (
-                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-stone-400">
                       {visibleShoppingSuggestions[0].location_suggestions[0].name}
                       {visibleShoppingSuggestions[0].location_suggestions[0].area ? ` · ${visibleShoppingSuggestions[0].location_suggestions[0].area}` : ""}
                     </p>
@@ -1836,7 +1836,7 @@ export function TripView() {
                 </button>
                 <button
                   onClick={() => void handleIgnoreShoppingSuggestion(visibleShoppingSuggestions[0])}
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  className="rounded-2xl border border-stone-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300"
                 >
                   Ignore
                 </button>
@@ -1851,7 +1851,7 @@ export function TripView() {
             >
               <div className="space-y-10 relative">
                 {/* Visual Timeline Line */}
-                <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-slate-100 dark:bg-slate-800 hidden md:block" />
+                <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-stone-100 dark:bg-stone-800 hidden md:block" />
 
                 <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
                   <motion.div
@@ -1872,8 +1872,8 @@ export function TripView() {
                     {sortedActivities.some(a => a.state !== "completed") && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/50" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{t("scheduled_adventure")}</h3>
+                           <div className="size-2 rounded-full bg-emerald-800 shadow-lg shadow-emerald-900/50" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">{t("scheduled_adventure")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
@@ -1888,7 +1888,7 @@ export function TripView() {
                                  />
                                  <button
                                    onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
+                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-emerald-900 text-white flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-colors"
                                    title="Comentarios"
                                  >
                                    <MessageCircle size={12} />
@@ -1903,8 +1903,8 @@ export function TripView() {
                     {sortedActivities.some(a => a.state === "completed") && (
                       <div className="space-y-4 opacity-70">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-slate-300" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">{t("memory_lane")}</h3>
+                           <div className="size-2 rounded-full bg-stone-300" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">{t("memory_lane")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
@@ -1919,7 +1919,7 @@ export function TripView() {
                                />
                                <button
                                  onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
+                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-emerald-900 text-white flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-colors"
                                  title="Comentarios"
                                >
                                  <MessageCircle size={12} />
@@ -1932,13 +1932,13 @@ export function TripView() {
 
                      {sortedActivities.length === 0 && (
                       <div className="py-24 text-center">
-                        <div className="size-24 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
-                          <Plane className="text-slate-200" size={40} />
+                        <div className="size-24 bg-white dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
+                          <Plane className="text-stone-200" size={40} />
                         </div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                        <h3 className="text-xl font-black text-stone-900 dark:text-white">
                           {t("where_to_first")}
                         </h3>
-                        <p className="text-slate-500 text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
+                        <p className="text-stone-500 text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
                           {t("empty_itinerary_hint")}
                         </p>
                       </div>
@@ -1954,7 +1954,7 @@ export function TripView() {
         <aside className="space-y-10">
           <div className="premium-card p-6 border-fuchsia-200/60 shadow-fuchsia-500/5">
             <div className="flex items-center justify-between gap-3 mb-5">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
+              <h3 className="text-lg font-black text-stone-900 dark:text-white flex items-center gap-3">
                 <ShoppingBag className="text-fuchsia-500" size={22} />
                 Shopping List
               </h3>
@@ -1969,12 +1969,12 @@ export function TripView() {
                   value={shoppingInput}
                   onChange={(e) => setShoppingInput(e.target.value)}
                   placeholder={shoppingUi.input_placeholder}
-                  className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition-all focus:ring-4 focus:ring-fuchsia-500/10 dark:border-slate-800 dark:bg-slate-950/50 dark:text-white"
+                  className="flex-1 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium outline-none transition-all focus:ring-4 focus:ring-fuchsia-500/10 dark:border-stone-800 dark:bg-stone-950/50 dark:text-white"
                 />
                 <button
                   onClick={() => void handleAddShoppingItems()}
                   disabled={shoppingLoading || !shoppingInput.trim()}
-                  className="rounded-2xl bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 dark:bg-white dark:text-slate-900"
+                  className="rounded-2xl bg-stone-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 dark:bg-white dark:text-stone-900"
                 >
                   {shoppingLoading ? "Adding" : "Add"}
                 </button>
@@ -1984,12 +1984,12 @@ export function TripView() {
                 <button
                   onClick={() => void handleEnableDeviceLocation()}
                   disabled={nearbyLoading}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-fuchsia-200 hover:text-fuchsia-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300"
+                  className="rounded-2xl border border-stone-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-stone-600 transition-all hover:border-fuchsia-200 hover:text-fuchsia-600 disabled:opacity-50 dark:border-stone-800 dark:bg-stone-950/50 dark:text-stone-300"
                 >
                   {nearbyLoading ? "Locating" : deviceLocation ? "Refresh nearby" : "Use my location"}
                 </button>
                 {nearbyAttribution && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-stone-400">
                     {nearbyAttribution}
                   </span>
                 )}
@@ -1997,7 +1997,7 @@ export function TripView() {
 
               <div className="space-y-2">
                 {sortedShoppingItems.length === 0 && (
-                  <div className="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:border-slate-800">
+                  <div className="rounded-2xl border-2 border-dashed border-stone-200 px-4 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:border-stone-800">
                     No shopping items yet
                   </div>
                 )}
@@ -2010,7 +2010,7 @@ export function TripView() {
                       className={`rounded-2xl border px-4 py-3 transition-all ${
                         isSelected
                           ? "border-fuchsia-300 bg-fuchsia-50/60 dark:border-fuchsia-700 dark:bg-fuchsia-900/10"
-                          : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/50"
+                          : "border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950/50"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -2018,16 +2018,16 @@ export function TripView() {
                           type="checkbox"
                           checked={item.status === "purchased"}
                           onChange={() => void toggleShoppingItemStatus(item.id)}
-                          className="mt-1 size-4 rounded border-slate-300 accent-fuchsia-500"
+                          className="mt-1 size-4 rounded border-stone-300 accent-fuchsia-500"
                         />
                         <button
                           onClick={() => setSelectedShoppingItemId(isSelected ? null : item.id)}
                           className="flex-1 text-left"
                         >
-                          <p className={`text-sm font-black ${item.status === "purchased" ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
+                          <p className={`text-sm font-black ${item.status === "purchased" ? "text-stone-400 line-through" : "text-stone-900 dark:text-white"}`}>
                             {item.name}
                           </p>
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
                             {item.category}
                             {item.preferred_cities?.length ? ` · Best in ${item.preferred_cities.join(", ")}` : ""}
                           </p>
@@ -2040,13 +2040,13 @@ export function TripView() {
                                 void updateShoppingItem(item.id, { name: nextName.trim() });
                               }
                             }}
-                            className="text-slate-300 hover:text-indigo-500 transition-colors"
+                            className="text-stone-300 hover:text-emerald-800 transition-colors"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
                             onClick={() => void removeShoppingItem(item.id)}
-                            className="text-slate-300 hover:text-rose-500 transition-colors"
+                            className="text-stone-300 hover:text-rose-500 transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -2060,17 +2060,17 @@ export function TripView() {
           </div>
 
           {/* TICKET-STYLE RESERVATIONS */}
-          <div className="premium-card bg-slate-900 dark:bg-white p-6 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 size-32 bg-indigo-500/10 blur-3xl rounded-full translate-x-12 -translate-y-12" />
+          <div className="premium-card bg-stone-900 dark:bg-white p-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 size-32 bg-emerald-800/10 blur-3xl rounded-full translate-x-12 -translate-y-12" />
             
             <div className="flex items-center justify-between mb-6 relative z-10">
-              <h3 className="text-lg font-black text-white dark:text-slate-900 flex items-center gap-3">
-                <CreditCard className="text-indigo-400" size={24} />
+              <h3 className="text-lg font-black text-white dark:text-stone-900 flex items-center gap-3">
+                <CreditCard className="text-emerald-700" size={24} />
                 {t("critical_reservations")}
               </h3>
               <button
                 onClick={() => setShowAddReservation(true)}
-                className="size-8 rounded-xl bg-white/10 dark:bg-slate-900/10 text-white dark:text-slate-900 hover:bg-white/20 dark:hover:bg-slate-900/20 flex items-center justify-center transition-all"
+                className="size-8 rounded-xl bg-white/10 dark:bg-stone-900/10 text-white dark:text-stone-900 hover:bg-white/20 dark:hover:bg-stone-900/20 flex items-center justify-center transition-all"
               >
                 <Plus size={18} />
               </button>
@@ -2078,7 +2078,7 @@ export function TripView() {
 
             <div className="space-y-4 relative z-10">
               {(activeTrip?.criticalReservations.length === 0) && (
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center py-4">{t("no_reservations_yet")}</p>
+                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 text-center py-4">{t("no_reservations_yet")}</p>
               )}
               {(activeTrip?.criticalReservations ?? []).map((booking) => {
                 const isBooked = booking.status === "booked";
@@ -2088,15 +2088,15 @@ export function TripView() {
                     onClick={() => setEditingReservation(booking)}
                     className={`rounded-2xl p-4 transition-all border cursor-pointer ${
                       isBooked
-                        ? "bg-slate-800/50 dark:bg-slate-50 border-transparent opacity-50 ring-1 ring-slate-700 dark:ring-slate-200"
-                        : "bg-slate-800 dark:bg-slate-50 border-indigo-500/30 dark:border-indigo-200/50 shadow-lg hover:translate-y-[-2px]"
+                        ? "bg-stone-800/50 dark:bg-stone-50 border-transparent opacity-50 ring-1 ring-stone-700 dark:ring-stone-200"
+                        : "bg-stone-800 dark:bg-stone-50 border-emerald-800/30 dark:border-emerald-200/50 shadow-lg hover:translate-y-[-2px]"
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                            isBooked ? "bg-slate-700 text-slate-400" : "bg-indigo-500 text-white"
+                            isBooked ? "bg-stone-700 text-stone-400" : "bg-emerald-800 text-white"
                           }`}>
                             {t(booking.status)}
                           </span>
@@ -2104,10 +2104,10 @@ export function TripView() {
                             <span className="text-[8px] font-black text-rose-400 animate-pulse">{t("critical")}</span>
                           )}
                         </div>
-                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-slate-500 line-through" : "text-white dark:text-slate-900"}`}>
+                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-stone-500 line-through" : "text-white dark:text-stone-900"}`}>
                           {booking.title}
                         </h4>
-                        <p className="text-[10px] font-medium text-slate-400">
+                        <p className="text-[10px] font-medium text-stone-400">
                           {booking.reservationDate}
                         </p>
                       </div>
@@ -2116,7 +2116,7 @@ export function TripView() {
                         checked={isBooked}
                         onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleBooking(booking.id)}
-                        className="size-6 rounded-full border-2 border-slate-700 dark:border-slate-300 checked:bg-indigo-500 checked:border-indigo-500 transition-all cursor-pointer accent-indigo-500"
+                        className="size-6 rounded-full border-2 border-stone-700 dark:border-stone-300 checked:bg-emerald-800 checked:border-emerald-800 transition-all cursor-pointer accent-emerald-800"
                       />
                     </div>
                   </div>
@@ -2126,9 +2126,9 @@ export function TripView() {
           </div>
 
           {/* PRO AI IMPORT SECTION */}
-          <div className="premium-card p-6 bg-linear-to-br from-indigo-500/5 to-violet-500/5 border-indigo-500/20">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4 flex items-center gap-3">
-              <Sparkles className="text-indigo-500" size={22} />
+          <div className="premium-card p-6 bg-linear-to-br from-emerald-800/5 to-purple-500/5 border-emerald-800/20">
+            <h3 className="text-lg font-black text-stone-900 dark:text-white mb-4 flex items-center gap-3">
+              <Sparkles className="text-emerald-800" size={22} />
               AI Power Import
             </h3>
             <div className="relative mb-4">
@@ -2136,25 +2136,25 @@ export function TripView() {
                 value={importText}
                 onChange={(e) => handleImportTextChange(e.target.value)}
                 placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
-                className={`w-full h-40 bg-white/50 dark:bg-slate-950/50 border ${voiceState === 'listening' ? 'border-red-400 dark:border-red-500 ring-4 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} rounded-3xl p-5 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none outline-none shadow-sm`}
+                className={`w-full h-40 bg-white/50 dark:bg-stone-950/50 border ${voiceState === 'listening' ? 'border-red-400 dark:border-red-500 ring-4 ring-red-500/10' : 'border-stone-200 dark:border-stone-800'} rounded-3xl p-5 text-sm font-medium focus:ring-4 focus:ring-emerald-800/10 transition-all resize-none outline-none shadow-sm`}
               />
               
               <div className="absolute bottom-4 right-4 flex items-center gap-2">
                 {voiceState === "preview" && (
-                  <div className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full shadow-lg animate-in slide-in-from-bottom-2">
+                  <div className="flex items-center gap-2 bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-3 py-1.5 rounded-full shadow-lg animate-in slide-in-from-bottom-2">
                     <Loader2 size={14} className="animate-spin" />
                     <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
-                    <button onClick={cancelVoice} className="hover:bg-slate-700 dark:hover:bg-slate-200 p-0.5 rounded-full transition-colors">
+                    <button onClick={cancelVoice} className="hover:bg-stone-700 dark:hover:bg-stone-200 p-0.5 rounded-full transition-colors">
                       <X size={12} />
                     </button>
-                    <button onClick={cancelVoice} className="hover:bg-slate-700 dark:hover:bg-slate-200 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
+                    <button onClick={cancelVoice} className="hover:bg-stone-700 dark:hover:bg-stone-200 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
                       <Edit2 size={12} />
                     </button>
                   </div>
                 )}
 
                 {isSpeechSupported && voiceState === "idle" && (
-                  <button onClick={startListening} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all">
+                  <button onClick={startListening} className="p-2 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all">
                     <Mic size={20} />
                   </button>
                 )}
@@ -2166,11 +2166,11 @@ export function TripView() {
                 )}
 
                 {voiceState === "syncing" && (
-                  <Loader2 size={24} className="text-indigo-500 animate-spin" />
+                  <Loader2 size={24} className="text-emerald-800 animate-spin" />
                 )}
                 
                 {voiceState === "idle" && !isSpeechSupported && (
-                  <Bot className="text-slate-200" size={24} />
+                  <Bot className="text-stone-200" size={24} />
                 )}
               </div>
             </div>
@@ -2178,8 +2178,8 @@ export function TripView() {
             <button
               className={`w-full rounded-[1.5rem] px-5 py-4 text-xs font-black transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 ${
                 isImporting || voiceState === 'syncing'
-                  ? "bg-slate-800 dark:bg-slate-200 text-white/50 dark:text-slate-900/50 cursor-wait" 
-                  : "bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
+                  ? "bg-stone-800 dark:bg-stone-200 text-white/50 dark:text-stone-900/50 cursor-wait" 
+                  : "bg-stone-900 dark:bg-white text-white dark:text-stone-900 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
               }`}
               disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
               onClick={() => handleImportSync(importText)}
@@ -2189,28 +2189,28 @@ export function TripView() {
           </div>
 
           {/* AI OPTIMIZER CARD */}
-          <div className="premium-card p-8 border-2 border-indigo-500/30 shadow-indigo-500/5">
+          <div className="premium-card p-8 border-2 border-emerald-800/30 shadow-emerald-900/5">
              <div className="flex items-center justify-between mb-8">
                 <div className="space-y-1">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">{t("day_genius")}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("ai_route_optimization")}</p>
+                  <h3 className="text-lg font-black text-stone-900 dark:text-white">{t("day_genius")}</h3>
+                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">{t("ai_route_optimization")}</p>
                 </div>
-                <Bot className="text-indigo-500" size={32} />
+                <Bot className="text-emerald-800" size={32} />
              </div>
 
-             <button className="w-full rounded-[1.5rem] bg-indigo-600 px-6 py-4 text-xs font-black text-white shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 transition-all tracking-widest uppercase mb-8">
+             <button className="w-full rounded-[1.5rem] bg-emerald-900 px-6 py-4 text-xs font-black text-white shadow-xl shadow-emerald-900/30 hover:bg-emerald-800 transition-all tracking-widest uppercase mb-8">
                 {t("run_optimizer")}
              </button>
 
              <div className="space-y-4">
                 {suggestions.map((s) => (
-                  <div key={s.id} className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:scale-105">
-                     <div className="size-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 shrink-0">
+                  <div key={s.id} className="flex gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-900 border border-stone-100 dark:border-stone-800 shadow-sm transition-all hover:scale-105">
+                     <div className="size-8 rounded-xl bg-white dark:bg-stone-800 flex items-center justify-center text-emerald-800 shrink-0">
                         <Sparkles size={16} />
                      </div>
                      <div className="space-y-1">
-                        <p className="text-xs font-black text-slate-900 dark:text-white tracking-tight">{s.title}</p>
-                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed">{s.reason}</p>
+                        <p className="text-xs font-black text-stone-900 dark:text-white tracking-tight">{s.title}</p>
+                        <p className="text-[10px] text-stone-400 font-medium leading-relaxed">{s.reason}</p>
                      </div>
                   </div>
                 ))}
@@ -2225,7 +2225,7 @@ export function TripView() {
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowAdd(true)}
-          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl flex items-center justify-center z-50 transition-all ring-8 ring-indigo-500/10"
+          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow-2xl flex items-center justify-center z-50 transition-all ring-8 ring-emerald-800/10"
         >
           <Plus size={36} />
         </motion.button>
@@ -2248,61 +2248,61 @@ export function TripView() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAdd(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+              className="absolute inset-0 bg-stone-950/60 backdrop-blur-xl"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 40 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 40 }}
               transition={{ type: "spring", damping: 20 }}
-              className="relative w-full max-w-lg premium-card p-10 bg-white dark:bg-slate-900 border-indigo-500/20 shadow-indigo-500/10"
+              className="relative w-full max-w-lg premium-card p-10 bg-white dark:bg-stone-900 border-emerald-800/20 shadow-emerald-900/10"
             >
               <div className="flex items-center gap-4 mb-8">
-                <div className="size-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white">
+                <div className="size-12 rounded-2xl bg-emerald-900 flex items-center justify-center text-white">
                   <Plus size={24} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white">{t("new_activity")}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Day {activeIndex + 1} ┬À {activeDay?.city}</p>
+                  <h3 className="text-2xl font-black text-stone-900 dark:text-white">{t("new_activity")}</h3>
+                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Day {activeIndex + 1} ┬À {activeDay?.city}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">
                     {t("title")}
                   </label>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50"
+                    className="w-full rounded-2xl border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50"
                     placeholder={t("title_placeholder")}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("time")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">{t("time")}</label>
                   <input
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-black focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50 tabular-nums"
+                    className="w-full rounded-2xl border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-black focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50 tabular-nums"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("location")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">{t("location")}</label>
                   <input
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50"
+                    className="w-full rounded-2xl border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50"
                     placeholder={t("location_placeholder")}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("notes")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">{t("notes")}</label>
                   <textarea
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
-                    className="w-full rounded-[1.5rem] border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50 min-h-[120px] resize-none"
+                    className="w-full rounded-[1.5rem] border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50 min-h-[120px] resize-none"
                     placeholder={t("notes_placeholder")}
                   />
                 </div>
@@ -2310,13 +2310,13 @@ export function TripView() {
 
               <div className="mt-10 flex gap-4">
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black text-xs uppercase tracking-widest text-slate-500"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-stone-100 dark:bg-stone-800 font-black text-xs uppercase tracking-widest text-stone-500"
                   onClick={() => setShowAdd(false)}
                 >
                   {t("cancel")}
                 </button>
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-emerald-900 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
                   onClick={() => {
                     if (!newTitle.trim() || !activeDay) return;
                     addActivity({
@@ -2422,32 +2422,32 @@ export function TripView() {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setEditingDay(null)}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-stone-950/40 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-8"
+              className="relative w-full max-w-sm bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-8"
             >
-              <h2 className="text-xl font-black text-slate-900 dark:text-white mb-6">Edit Day</h2>
+              <h2 className="text-xl font-black text-stone-900 dark:text-white mb-6">Edit Day</h2>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Destination City</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Destination City</label>
                   <input 
                     type="text" 
                     value={editDayCity}
                     onChange={(e) => setEditDayCity(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-emerald-800 transition-all"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Day Label</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Day Label</label>
                   <input 
                     type="text" 
                     value={editDayLabel}
                     onChange={(e) => setEditDayLabel(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-emerald-800 transition-all"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -2456,13 +2456,13 @@ export function TripView() {
                       await updateTripDay(editingDay.id, { city: editDayCity, label: editDayLabel });
                       setEditingDay(null);
                     }}
-                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20"
+                    className="flex-1 bg-emerald-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-800 transition-all shadow-xl shadow-emerald-900/20"
                   >
                     Save Changes
                   </button>
                   <button 
                     onClick={() => setEditingDay(null)}
-                    className="px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    className="px-6 py-4 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-500 font-bold text-xs uppercase tracking-widest hover:bg-stone-200 transition-all"
                   >
                     Cancel
                   </button>
@@ -2507,7 +2507,7 @@ export function TripView() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
-              toast.type === "success" ? "bg-slate-900 text-white" : "bg-rose-500 text-white"
+              toast.type === "success" ? "bg-stone-900 text-white" : "bg-rose-500 text-white"
             }`}
           >
             {toast.msg}
