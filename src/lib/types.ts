@@ -245,6 +245,16 @@ export type ShoppingAssistantRequest =
 /** Un usuario que tiene acceso compartido a un viaje */
 export type TripShareRole = "viewer" | "editor";
 
+export type ActivityComment = {
+  id: string;
+  activityId: string;
+  tripId: string;
+  userId: string;
+  userEmail?: string;
+  content: string;
+  createdAt: string;
+};
+
 export type TripShareLink = {
   id: string;
   tripId: string;

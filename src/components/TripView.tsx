@@ -46,7 +46,8 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  Share2
+  Share2,
+  MessageCircle
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -71,6 +72,7 @@ import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
+import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { ChatFab } from "@/components/ChatFab";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TravelContextEditor } from "@/components/TravelContextEditor";
@@ -874,6 +876,7 @@ export function TripView() {
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   const savingDraftRef = useRef(false);
 
   // Auto-save draft when user logs in
@@ -1854,20 +1857,27 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state !== "completed")
                             .map((activity) => (
-                              <div key={activity.id} className="relative group">
-                                <SortableActivityCard
-                                  dayId={activeDayId}
-                                  activity={activity}
-                                  onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                  onEdit={() => setEditingActivityId(activity.id)}
-                                />
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* COMPLETED SECTION */}
+                               <div key={activity.id} className="relative group">
+                                 <SortableActivityCard
+                                   dayId={activeDayId}
+                                   activity={activity}
+                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                   onEdit={() => setEditingActivityId(activity.id)}
+                                 />
+                                 <button
+                                   onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                                   className="absolute top-2 right-2 size-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-indigo-500 transition-colors"
+                                   title="Comentarios"
+                                 >
+                                   <MessageCircle size={12} />
+                                 </button>
+                               </div>
+                             ))}
+                         </div>
+                       </div>
+                     )}
+ 
+                     {/* COMPLETED SECTION */}
                     {sortedActivities.some(a => a.state === "completed") && (
                       <div className="space-y-4 opacity-70">
                         <div className="flex items-center gap-3 ml-2">
@@ -1878,20 +1888,27 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
-                              <div key={activity.id} className="relative group">
-                                <SortableActivityCard
-                                  dayId={activeDayId}
-                                  activity={activity}
-                                  onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                  onEdit={() => setEditingActivityId(activity.id)}
-                                />
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
+                             <div key={activity.id} className="relative group">
+                               <SortableActivityCard
+                                 dayId={activeDayId}
+                                 activity={activity}
+                                 onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                 onEdit={() => setEditingActivityId(activity.id)}
+                               />
+                               <button
+                                 onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                                 className="absolute top-2 right-2 size-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-indigo-500 transition-colors"
+                                 title="Comentarios"
+                               >
+                                 <MessageCircle size={12} />
+                               </button>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
 
-                    {sortedActivities.length === 0 && (
+                     {sortedActivities.length === 0 && (
                       <div className="py-24 text-center">
                         <div className="size-24 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
                           <Plane className="text-slate-200" size={40} />
@@ -2446,6 +2463,17 @@ export function TripView() {
             tripId={activeTrip.id}
             tripName={activeTrip.name}
             onClose={() => setShowShareModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {commentActivity && activeTrip && (
+          <ActivityCommentsModal
+            tripId={activeTrip.id}
+            activityId={commentActivity.id}
+            activityTitle={commentActivity.title}
+            onClose={() => setCommentActivity(null)}
           />
         )}
       </AnimatePresence>
