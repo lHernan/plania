@@ -14,7 +14,7 @@ const QUICK_PROMPTS = [
 ];
 
 export function ChatPanel({ tripId }: { tripId: string }) {
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const {
@@ -42,7 +42,7 @@ export function ChatPanel({ tripId }: { tripId: string }) {
     const message = input.trim();
     if (!message || sending) return;
     setInput("");
-    await sendMessage(tripId, message);
+    await sendMessage(tripId, message, lang);
   };
 
   return (

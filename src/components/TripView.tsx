@@ -37,7 +37,6 @@ import {
   Edit2,
   X,
   Loader2,
-  Globe,
   User as UserIcon,
   LogOut,
   ShieldCheck,
@@ -78,6 +77,9 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { TravelContextEditor } from "@/components/TravelContextEditor";
 import { ArrivalAssistant } from "@/components/ArrivalAssistant";
 import { CityPaymentGuideCard } from "@/components/CityPaymentGuideCard";
+import { CurrencyConverter } from "@/components/CurrencyConverter";
+import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
+import { PackingListCard } from "@/components/PackingListCard";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -902,11 +904,13 @@ export function TripView() {
 
   const tripMapUrl = useMemo(() => {
     if (!activeTrip) return null;
-    const locations = activeTrip.days.flatMap((day) =>
-      day.activities.map((a) => a.location).filter(Boolean) as string[]
-    );
+    const day = activeTrip.days.find((d) => d.id === activeDayId) ?? activeTrip.days[0];
+    if (!day) return null;
+    const locations = day.activities
+      .map((a) => a.location)
+      .filter(Boolean) as string[];
     return buildTripMapUrl(locations);
-  }, [activeTrip]);
+  }, [activeTrip, activeDayId]);
   const [showCompletedDays, setShowCompletedDays] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -983,7 +987,8 @@ export function TripView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: textToSync,
-          fallbackDate: activeDay?.date || new Date().toISOString()
+          fallbackDate: activeDay?.date || new Date().toISOString(),
+          lang,
         })
       });
       
@@ -1515,17 +1520,22 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex items-center gap-2">
-            {/* Language picker ÔÇö hidden on smallest screens */}
-            <div className="hidden xs:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-              <Globe size={10} className="text-slate-400" />
-              <select
-                value={lang}
-                onChange={(e) => setLang(e.target.value)}
-                className="bg-transparent text-[9px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none"
-              >
-                <option value="en">EN</option>
-                <option value="es">ES</option>
-              </select>
+            {/* Language toggle */}
+            <div className="flex items-center rounded-full bg-slate-100 p-0.5 dark:bg-slate-800">
+              {(["es", "en"] as const).map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setLang(code)}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
+                    lang === code
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  }`}
+                >
+                  {code === "es" ? "ES" : "EN"}
+                </button>
+              ))}
             </div>
 
             {user && !user.is_anonymous ? (
@@ -1638,8 +1648,11 @@ export function TripView() {
 
       {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
       {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
+      {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
 
-      {activeTrip && (budgetSummary.total > 0 || tripMapUrl) ? (
+      {activeTrip && budgetSummary.total > 0 ? (
         <div className="max-w-7xl mx-auto px-5 pt-4">
           <div className="rounded-3xl border border-indigo-100 dark:border-indigo-900/60 bg-white/80 dark:bg-slate-900/60 p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -1655,23 +1668,32 @@ export function TripView() {
                 </a>
               ) : null}
             </div>
-            {budgetSummary.total > 0 ? (
-              <div className="space-y-2">
-                <p className="text-2xl font-black text-slate-900 dark:text-white">
-                  {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-slate-400">est.</span>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {budgetSummary.perDay.map((d) => (
-                    <span key={d.date} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-                      {d.date}: {d.total.toFixed(2)}
-                    </span>
-                  ))}
-                </div>
+            <div className="space-y-2">
+              <p className="text-2xl font-black text-slate-900 dark:text-white">
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-slate-400">est.</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {budgetSummary.perDay.map((d) => (
+                  <span key={d.date} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+                    {d.date}: {d.total.toFixed(2)}
+                  </span>
+                ))}
               </div>
-            ) : (
-              <p className="text-xs text-slate-400">{t("trip_no_locations")}</p>
-            )}
+            </div>
           </div>
+        </div>
+      ) : null}
+
+      {activeTrip && budgetSummary.total === 0 && tripMapUrl ? (
+        <div className="max-w-7xl mx-auto px-5 pt-4">
+          <a
+            href={tripMapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline px-1"
+          >
+            {t("trip_map_view")}
+          </a>
         </div>
       ) : null}
 
@@ -1723,7 +1745,7 @@ export function TripView() {
                   </button>
                 )}
                 <button 
-                  onClick={() => runOptimizeDay(activeDayId)}
+                  onClick={() => runOptimizeDay(activeDayId, lang)}
                   disabled={isOptimizing || isInvitee}
                   className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
                 >

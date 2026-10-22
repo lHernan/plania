@@ -332,3 +332,34 @@ export type ChatMessage = {
   actions?: ChatAction[];
   createdAt: string;
 };
+
+// ─── Packing List ────────────────────────────────────────────────────────────
+
+export type PackingItemStatus = "pending" | "packed";
+
+export type PackingItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  reason: string;
+  status: PackingItemStatus;
+};
+
+export type PackingCategory = {
+  name: string;
+  items: PackingItem[];
+};
+
+export type WeatherSummary = {
+  city: string;
+  tempMinC: number;
+  tempMaxC: number;
+  rainProbabilityMax: number;
+};
+
+export type PackingList = {
+  tripId: string;
+  generatedAt: string;
+  weatherSummaries: WeatherSummary[];
+  categories: PackingCategory[];
+};

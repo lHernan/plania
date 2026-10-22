@@ -1,6 +1,7 @@
 "use client";
 
-import { CreditCard, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, CreditCard, ExternalLink } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { findCityPaymentGuide, type PaymentGuideMode } from "@/lib/city-payment-guides";
 
@@ -14,6 +15,7 @@ function checkedDate(sources: Array<{ checkedAt: string }>) {
 export function CityPaymentGuideCard({ city }: { city: string }) {
   const { t } = useI18n();
   const guide = findCityPaymentGuide(city);
+  const [open, setOpen] = useState(false);
 
   const normalizedCity = (city ?? "").trim();
   if (!normalizedCity || normalizedCity.toLowerCase() === "new destination") {
@@ -23,16 +25,28 @@ export function CityPaymentGuideCard({ city }: { city: string }) {
   return (
     <section className="mx-auto mt-5 w-full max-w-7xl px-5">
       <div className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-5 shadow-sm dark:border-violet-900/60 dark:from-violet-950/30 dark:to-slate-950 sm:p-6">
-        <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex w-full items-start gap-3 text-left"
+        >
           <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white">
             <CreditCard size={19} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">{t("payment_guide_title")}</p>
             <h2 className="mt-1 text-base font-black text-slate-900 dark:text-white">{guide ? `${guide.city}, ${guide.country}` : city}</h2>
+          </div>
+          <ChevronDown
+            size={18}
+            className={`mt-3 shrink-0 text-violet-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
 
+        {open && (
+          <div className="mt-4 pl-[52px]">
             {guide ? (
-              <div className="mt-4 space-y-4">
+              <div className="space-y-4">
                 {MODES.map((mode) => {
                   const facts = guide.facts.filter((fact) => fact.mode === mode);
                   if (facts.length === 0) return null;
@@ -63,13 +77,13 @@ export function CityPaymentGuideCard({ city }: { city: string }) {
                 })}
               </div>
             ) : (
-              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
                 <p className="text-sm font-bold text-amber-900 dark:text-amber-200">{t("payment_guide_unverified", { city })}</p>
                 <p className="mt-1 text-xs leading-relaxed text-amber-800/80 dark:text-amber-300/80">{t("payment_guide_no_assumptions")}</p>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

@@ -14,7 +14,7 @@ type ChatStore = {
   open: () => void;
   close: () => void;
   loadMessages: (tripId: string) => Promise<void>;
-  sendMessage: (tripId: string, content: string) => Promise<void>;
+  sendMessage: (tripId: string, content: string, lang?: string) => Promise<void>;
   clear: () => void;
 };
 
@@ -53,7 +53,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  sendMessage: async (tripId, content) => {
+  sendMessage: async (tripId, content, lang) => {
     const trimmedContent = content.trim();
     if (!trimmedContent || get().sending) return;
 
@@ -77,7 +77,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const response = await fetch("/api/chat", {
         method: "POST",
         headers,
-        body: JSON.stringify({ tripId, content: trimmedContent }),
+        body: JSON.stringify({ tripId, content: trimmedContent, lang }),
       });
       const data = await response.json() as { message?: ChatMessage; error?: string };
       if (!response.ok || !data.message) throw new Error(data.error ?? "Unable to send message");
