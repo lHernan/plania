@@ -3,6 +3,7 @@ import { extractJsonObject } from "@/lib/ai/json-response";
 import { runAiPrompt } from "@/lib/ai/provider";
 import { buildTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
+import { findCityPaymentGuide } from "@/lib/city-payment-guides";
 import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
 import type {
   ActivityCategory,
@@ -360,14 +361,22 @@ async function loadTripContext(access: Awaited<ReturnType<typeof authorizeTrip>>
 }
 
 function systemPrompt(context: TripContext) {
+  const paymentGuides = Array.from(new Set(context.days.map((day) => day.city)))
+    .map((city) => findCityPaymentGuide(city))
+    .filter((guide) => guide !== undefined);
+
   return `You are Plania, a practical travel planning agent. Help the traveler plan and track the trip using the supplied context.
 
 Current trip context:
 ${JSON.stringify(buildTripContext(context))}
 
+Source-verified transport payment guides for cities in this itinerary:
+${JSON.stringify(paymentGuides)}
+
 Rules:
 - Give concise, useful answers grounded in this trip. Do not invent bookings, opening hours, prices, or live facts.
 - If information is missing, say so and make a clearly labeled suggestion.
+- For contactless payment, tickets, validation, transfers, cash, or group purchase questions, use only a matching verified payment-guide entry above. If there is no matching city/topic entry, state that Plania has no verified guide for it and do not answer from general model knowledge.
 - This assistant is currently read-only. Never return actions that modify the itinerary or reservations.
 - Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}
 `;

@@ -55,6 +55,10 @@ type KvRecord = {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+function resetDbPromise() {
+  dbPromise = null;
+}
+
 function openDb() {
   if (dbPromise) return dbPromise;
 
@@ -73,20 +77,43 @@ function openDb() {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onclose = () => resetDbPromise();
+      database.onversionchange = () => {
+        database.close();
+        resetDbPromise();
+      };
+      resolve(database);
+    };
+    request.onerror = () => {
+      resetDbPromise();
+      reject(request.error);
+    };
+    request.onblocked = () => {
+      // Another tab is blocking; reset so we can retry later.
+      resetDbPromise();
+    };
   });
 
   return dbPromise;
 }
 
-function withStore<T>(
+async function withStoreOnce<T>(
   storeName: string,
   mode: IDBTransactionMode,
   executor: (store: IDBObjectStore) => unknown
-) {
-  return openDb().then((database) => new Promise<T | undefined>((resolve, reject) => {
-    const transaction = database.transaction(storeName, mode);
+): Promise<T | undefined> {
+  const database = await openDb();
+  return new Promise<T | undefined>((resolve, reject) => {
+    let transaction: IDBTransaction;
+    try {
+      transaction = database.transaction(storeName, mode);
+    } catch (e) {
+      resetDbPromise();
+      reject(e);
+      return;
+    }
     const store = transaction.objectStore(storeName);
     const request = executor(store) as IDBRequest<T> | void;
 
@@ -97,7 +124,24 @@ function withStore<T>(
       transaction.oncomplete = () => resolve(undefined);
       transaction.onerror = () => reject(transaction.error);
     }
-  }));
+    transaction.onabort = () => reject(new Error("IDB transaction aborted"));
+  });
+}
+
+function withStore<T>(
+  storeName: string,
+  mode: IDBTransactionMode,
+  executor: (store: IDBObjectStore) => unknown
+): Promise<T | undefined> {
+  return withStoreOnce<T>(storeName, mode, executor).catch(async (error) => {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes("closing") || msg.includes("InvalidState") || msg.includes("aborted")) {
+      resetDbPromise();
+      // Retry once with a fresh connection.
+      return withStoreOnce<T>(storeName, mode, executor);
+    }
+    throw error;
+  });
 }
 
 function tripCacheKey(userId: string) {
@@ -141,6 +185,32 @@ export async function loadOfflineTripCache(userId: string) {
     store.get(tripCacheKey(userId))
   );
   return (record?.value as OfflineTripCache | undefined) ?? null;
+}
+
+export async function clearOfflineAuthCache() {
+  await withStore<KvRecord>(KV_STORE, "readwrite", (store) =>
+    store.delete(AUTH_CACHE_KEY)
+  );
+}
+
+export async function clearOfflineTripCache(userId: string) {
+  await withStore<KvRecord>(KV_STORE, "readwrite", (store) =>
+    store.delete(tripCacheKey(userId))
+  );
+}
+
+export async function clearAllOfflineData() {
+  // Wipe the whole IndexedDB database so no stale auth/trip cache survives.
+  return new Promise<void>((resolve) => {
+    try {
+      const req = window.indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+      req.onblocked = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
 }
 
 export async function enqueueOfflineMutation(entry: OfflineMutationQueueEntry) {

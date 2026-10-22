@@ -1,0 +1,212 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { Sparkles, ArrowRight, Loader2, CheckCircle2, AlertCircle, Calendar, Clock } from "lucide-react";
+import { useAuthStore } from "@/store/use-auth-store";
+import { useItineraryStore } from "@/store/use-itinerary-store";
+import { AuthModal } from "@/components/AuthModal";
+import { useI18n } from "@/components/I18nProvider";
+
+type ShareInfo = {
+  tripId: string;
+  tripName: string;
+  startDate?: string;
+  endDate?: string;
+  role: "viewer" | "editor";
+  email: string | null;
+  accepted: boolean;
+};
+
+type TripData = {
+  trip: { id: string; name: string; startDate?: string; endDate?: string };
+  role: "viewer" | "editor";
+  days: Array<{ id: string; date: string; city: string; label: string }>;
+  activities: Array<{ id: string; day_id: string; title: string; time: string; duration_min?: number; location?: string; category?: string }>;
+  reservations: Array<{ id: string; title: string; reservation_date?: string; booking_deadline?: string; status?: string }>;
+};
+
+export default function SharePage() {
+  const { t } = useI18n();
+  const params = useParams<{ token: string }>();
+  const router = useRouter();
+  const token = params?.token;
+  const { user } = useAuthStore();
+  const { switchTrip } = useItineraryStore();
+
+  const [info, setInfo] = useState<ShareInfo | null>(null);
+  const [tripData, setTripData] = useState<TripData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [infoRes, tripRes] = await Promise.all([
+          fetch(`/api/share/${token}`),
+          fetch(`/api/share/${token}/trip`),
+        ]);
+        const infoData = await infoRes.json();
+        const tripDataRes = tripRes.ok ? await tripRes.json() : null;
+        if (cancelled) return;
+        if (!infoRes.ok) {
+          setError(infoData.error ?? "Enlace no válido");
+        } else {
+          setInfo(infoData as ShareInfo);
+          if (tripDataRes) setTripData(tripDataRes as TripData);
+        }
+      } catch {
+        if (!cancelled) setError("Error de conexión");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const handleAccept = async () => {
+    if (!token) return;
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    setAccepting(true);
+    try {
+      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+      const res = await fetch(`/api/share/${token}/accept`, { method: "POST", headers });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.tripId) await switchTrip(data.tripId);
+        router.push("/trips");
+      } else {
+        setError(data.error ?? "No se pudo aceptar");
+      }
+    } catch {
+      setError("Error de conexión");
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="size-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !info) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
+        <div className="max-w-md w-full text-center space-y-4">
+          <AlertCircle className="mx-auto text-rose-500" size={40} />
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{error ?? "Enlace no válido"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activitiesByDay = new Map<string, TripData["activities"]>();
+  if (tripData) {
+    for (const a of tripData.activities) {
+      const list = activitiesByDay.get(a.day_id) ?? [];
+      list.push(a);
+      activitiesByDay.set(a.day_id, list);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-2 border-indigo-500/10 rounded-[2.5rem] p-6 md:p-8 space-y-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="size-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center">
+              <Sparkles className="text-indigo-500" size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white truncate">{info.tripName}</h1>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                {info.role === "editor" ? "Editor" : "Viewer"} · {info.startDate ?? ""}{info.endDate ? ` → ${info.endDate}` : ""}
+              </p>
+            </div>
+          </div>
+
+          {info.accepted && (
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+              <CheckCircle2 size={16} /> Already accepted
+            </div>
+          )}
+
+          <button
+            onClick={handleAccept}
+            disabled={accepting}
+            className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 min-h-[48px]"
+          >
+            {accepting ? <Loader2 className="animate-spin" size={18} /> : (
+              <>
+                {user ? "Accept & open trip" : "Sign in to accept"}
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+        </motion.div>
+
+        {/* Read-only itinerary */}
+        {tripData && tripData.days.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-4"
+          >
+            {tripData.days.map((day) => {
+              const acts = activitiesByDay.get(day.id) ?? [];
+              return (
+                <div key={day.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-3xl p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} className="text-indigo-500" />
+                    <h2 className="text-sm font-black text-slate-900 dark:text-white">
+                      {day.date} {day.city ? `· ${day.city}` : ""}
+                    </h2>
+                    {day.label && <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{day.label}</span>}
+                  </div>
+                  {acts.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Sin actividades</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {acts.map((a) => (
+                        <li key={a.id} className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-4 py-3">
+                          <Clock size={12} className="mt-0.5 text-slate-400 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{a.title}</p>
+                            <p className="text-[10px] font-medium text-slate-400">
+                              {a.time}{a.duration_min ? ` · ${a.duration_min} min` : ""}{a.location ? ` · ${a.location}` : ""}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+      </div>
+
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onShowToast={() => {}} />
+    </main>
+  );
+}
