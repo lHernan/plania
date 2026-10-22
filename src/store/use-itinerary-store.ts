@@ -1441,7 +1441,6 @@ export const useItineraryStore = create<Store>((set, get) => {
     },
 
     clearData: () => {
-      const userId = getCurrentUserId();
       set({
         activeTrip: null,
         activeTripIsDraft: false,
@@ -1451,9 +1450,6 @@ export const useItineraryStore = create<Store>((set, get) => {
         loading: false,
         error: null,
       });
-      if (userId) {
-        void clearOfflineTripCache(userId).catch(() => {});
-      }
     },
 
     addTripDay: async (date, city, label) => {

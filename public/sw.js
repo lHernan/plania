@@ -4,7 +4,11 @@ const DOCUMENTS_META_KEY = "/__offline-documents__/meta";
 const MAX_CACHED_DOCUMENTS = 40;
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches.open("pages-v1").then((cache) =>
+      cache.addAll(["/"]).catch(() => {})
+    ).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {

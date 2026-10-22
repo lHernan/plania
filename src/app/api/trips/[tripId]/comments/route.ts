@@ -14,9 +14,11 @@ export async function GET(
       return NextResponse.json({ error: "activityId requerido" }, { status: 400 });
     }
 
+    const authHeader = request.headers.get("Authorization");
     const supabase = getAuthClient(request);
     const { data: { user: caller }, error: authError } = await supabase.auth.getUser();
     if (authError || !caller) {
+      console.log("[comments GET] 401 - authHeader present:", !!authHeader, "authError:", authError?.message);
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
@@ -31,9 +33,27 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const adminSupabase = getServiceRoleSupabase();
-    const { data: usersData } = await adminSupabase.auth.admin.listUsers();
-    const emailMap = new Map((usersData?.users ?? []).map((u) => [u.id, u.email ?? ""]));
+    const emailMap = new Map<string, string>();
+    emailMap.set(caller.id, caller.email ?? "");
+    const otherIds = [...new Set((data ?? []).map((r) => r.user_id))].filter((uid) => uid !== caller.id);
+    if (otherIds.length > 0) {
+      try {
+        const adminSupabase = getServiceRoleSupabase();
+        const results = await Promise.all(
+          otherIds.map(async (uid) => {
+            try {
+              const { data: u } = await adminSupabase.auth.admin.getUserById(uid);
+              return [uid, u?.user?.email ?? ""] as const;
+            } catch {
+              return [uid, ""] as const;
+            }
+          })
+        );
+        for (const [uid, email] of results) emailMap.set(uid, email);
+      } catch {
+        // service role unavailable; leave emails empty for others
+      }
+    }
 
     const comments: ActivityComment[] = (data ?? []).map((row) => ({
       id: row.id,
@@ -66,9 +86,11 @@ export async function POST(
       return NextResponse.json({ error: "activityId y content requeridos" }, { status: 400 });
     }
 
+    const authHeader = request.headers.get("Authorization");
     const supabase = getAuthClient(request);
     const { data: { user: caller }, error: authError } = await supabase.auth.getUser();
     if (authError || !caller) {
+      console.log("[comments POST] 401 - authHeader present:", !!authHeader, "authError:", authError?.message);
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 

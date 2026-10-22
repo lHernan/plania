@@ -27,12 +27,24 @@ export function ActivityCommentsModal({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Wait for the auth session to be available (it may load after mount).
+      let session: { access_token: string } | null = null;
+      for (let i = 0; i < 20 && !cancelled; i++) {
+        session = (await import("@/store/use-auth-store")).useAuthStore.getState().session;
+        if (session?.access_token) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (cancelled) return;
       try {
-        const res = await fetch(`/api/trips/${tripId}/comments?activityId=${activityId}`);
+        const headers: HeadersInit = {};
+        if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+        const res = await fetch(`/api/trips/${tripId}/comments?activityId=${activityId}`, { headers });
         const data = await res.json();
+        console.log("[comments] GET", res.status, data);
         if (!cancelled && res.ok) setComments(data.comments ?? []);
-      } catch {
-        // non-fatal
+        else if (!cancelled) console.error("[comments] GET failed", data);
+      } catch (e) {
+        console.error("[comments] GET error", e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -44,7 +56,7 @@ export function ActivityCommentsModal({
     if (!text.trim()) return;
     setSending(true);
     try {
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const session = (await import("@/store/use-auth-store")).useAuthStore.getState().session;
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
       const res = await fetch(`/api/trips/${tripId}/comments`, {
@@ -53,6 +65,7 @@ export function ActivityCommentsModal({
         body: JSON.stringify({ activityId, content: text.trim() }),
       });
       const data = await res.json();
+      console.log("[comments] POST", res.status, data);
       if (res.ok && data.comment) {
         setComments((prev) => [...prev, data.comment]);
         setText("");
@@ -66,7 +79,7 @@ export function ActivityCommentsModal({
 
   const handleDelete = async (commentId: string) => {
     try {
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const session = (await import("@/store/use-auth-store")).useAuthStore.getState().session;
       const headers: HeadersInit = {};
       if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
       const res = await fetch(`/api/trips/${tripId}/comments/${commentId}`, { method: "DELETE", headers });

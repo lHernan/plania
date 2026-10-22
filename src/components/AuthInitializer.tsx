@@ -6,6 +6,10 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
+function isOffline() {
+  return typeof navigator !== "undefined" && !navigator.onLine;
+}
+
 export function AuthInitializer() {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,6 +41,11 @@ export function AuthInitializer() {
     previousUserId.current = currentUserId;
 
     if (!currentUserId) {
+      // When offline, Supabase may temporarily report no session while our
+      // own cache still holds valid auth+trip data.  Don't wipe state or
+      // redirect — the user should keep viewing cached trips.
+      if (isOffline()) return;
+
       clearData();
       if (pathname !== "/") router.push("/");
       return;
@@ -61,6 +70,9 @@ export function AuthInitializer() {
 
   useEffect(() => {
     if (initialized && hasFetched && !loading && !activeTrip && pathname === "/trips") {
+      // When offline, stay on /trips — the landing page is useless without
+      // connectivity and the cache may still be hydrating the active trip.
+      if (isOffline()) return;
       router.push("/");
     }
   }, [activeTrip, hasFetched, initialized, loading, pathname, router]);

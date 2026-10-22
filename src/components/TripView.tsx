@@ -1866,7 +1866,7 @@ export function TripView() {
                                  />
                                  <button
                                    onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                   className="absolute top-2 right-2 size-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-indigo-500 transition-colors"
+                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
                                    title="Comentarios"
                                  >
                                    <MessageCircle size={12} />
@@ -1897,7 +1897,7 @@ export function TripView() {
                                />
                                <button
                                  onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                 className="absolute top-2 right-2 size-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-indigo-500 transition-colors"
+                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
                                  title="Comentarios"
                                >
                                  <MessageCircle size={12} />
