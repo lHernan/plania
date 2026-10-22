@@ -270,6 +270,11 @@
   "landing_clone_success": "Viaje clonado! Abrilo desde tus viajes.",
   "landing_clone_error": "No se pudo clonar el viaje. Intenta de nuevo.",
   "landing_template_loaded": "Plantilla cargada. Inicia sesion para guardarla y editarla.",
+  "trip_budget_title": "Presupuesto",
+  "trip_budget_total": "Total estimado",
+  "trip_budget_per_day": "Por dia",
+  "trip_map_view": "Ver en mapa",
+  "trip_no_locations": "Sin ubicaciones para mostrar",
 
   "share_title": "Compartir viaje",
   "share_invite_by_email": "Invitar por email",

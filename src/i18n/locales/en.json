@@ -270,6 +270,11 @@
   "landing_use_template": "Use as template",
   "landing_clone_success": "Trip cloned! Open it from your trips.",
   "landing_template_loaded": "Template loaded. Sign in to save and edit it.",
+  "trip_budget_title": "Budget",
+  "trip_budget_total": "Total estimated",
+  "trip_budget_per_day": "Per day",
+  "trip_map_view": "View on map",
+  "trip_no_locations": "No locations to show",
   "landing_clone_error": "Could not clone the trip. Try again.",
 
   "share_title": "Share trip",

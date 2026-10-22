@@ -49,6 +49,7 @@ import {
   Share2
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
@@ -885,6 +886,24 @@ export function TripView() {
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
   const sharedTrips = useItineraryStore((s) => s.sharedTrips);
   const sharedTripInfo = isInvitee ? sharedTrips.find((t) => t.id === activeTrip?.id) ?? null : null;
+
+  const budgetSummary = useMemo(() => {
+    if (!activeTrip) return { total: 0, perDay: [] as { date: string; total: number }[] };
+    const perDay = activeTrip.days.map((day) => ({
+      date: day.date,
+      total: day.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0),
+    }));
+    const total = perDay.reduce((sum, d) => sum + d.total, 0);
+    return { total, perDay };
+  }, [activeTrip]);
+
+  const tripMapUrl = useMemo(() => {
+    if (!activeTrip) return null;
+    const locations = activeTrip.days.flatMap((day) =>
+      day.activities.map((a) => a.location).filter(Boolean) as string[]
+    );
+    return buildTripMapUrl(locations);
+  }, [activeTrip]);
   const [showCompletedDays, setShowCompletedDays] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -1616,6 +1635,42 @@ export function TripView() {
 
       {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
       {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+
+      {activeTrip && (budgetSummary.total > 0 || tripMapUrl) ? (
+        <div className="max-w-7xl mx-auto px-5 pt-4">
+          <div className="rounded-3xl border border-indigo-100 dark:border-indigo-900/60 bg-white/80 dark:bg-slate-900/60 p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-300">{t("trip_budget_title")}</p>
+              {tripMapUrl ? (
+                <a
+                  href={tripMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  {t("trip_map_view")}
+                </a>
+              ) : null}
+            </div>
+            {budgetSummary.total > 0 ? (
+              <div className="space-y-2">
+                <p className="text-2xl font-black text-slate-900 dark:text-white">
+                  {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-slate-400">est.</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {budgetSummary.perDay.map((d) => (
+                    <span key={d.date} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+                      {d.date}: {d.total.toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">{t("trip_no_locations")}</p>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
