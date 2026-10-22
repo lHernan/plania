@@ -145,7 +145,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
 
     return {
       label: isOnline ? "Not cached yet" : "Offline unavailable",
-      tone: "bg-white/10 text-slate-200 border-white/10",
+      tone: "bg-white/10 text-stone-200 border-white/10",
     };
   })();
 
@@ -328,7 +328,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
       >
         {/* Background Gradients for depth */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-1/4 -left-1/4 size-[100%] bg-indigo-500/10 rounded-full blur-[120px]" />
+          <div className="absolute -top-1/4 -left-1/4 size-[100%] bg-emerald-500/10 rounded-full blur-[120px]" />
           <div className="absolute -bottom-1/4 -right-1/4 size-[100%] bg-rose-500/10 rounded-full blur-[120px]" />
         </div>
 
@@ -341,7 +341,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
         </button>
 
         {/* Swipe Indicator */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/20 rounded-full z-[110]" />
+        <div className="absolute top-4 left-1/2 -transtone-x-1/2 w-12 h-1.5 bg-white/20 rounded-full z-[110]" />
 
         <motion.div
           style={{ y, opacity, scale }}
@@ -351,18 +351,18 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
           className="relative w-full max-w-md aspect-[3/5] md:aspect-[3/4]"
         >
           {/* THE CARD */}
-          <div className="w-full h-full bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl border border-white/5 relative group">
+          <div className="w-full h-full bg-stone-900 rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl border border-white/5 relative group">
             
             {/* CARD HEADER */}
             <div className="p-8 pb-4 flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Reservation</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Reservation</p>
                 <h3 className="text-xl font-black text-white truncate w-48">{activityTitle}</h3>
                 <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${offlineBadge.tone}`}>
                   {offlineBadge.label}
                 </span>
               </div>
-              <div className="size-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+              <div className="size-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
                 {file.fileType === "pdf" ? <FileText size={24} /> : <QrCode size={24} />}
               </div>
             </div>
@@ -388,14 +388,14 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                 {offlineMessage ? (
                   <div className="max-w-[18rem] space-y-3 px-6 text-center">
                     <p className="text-sm font-black text-white">{offlineMessage}</p>
-                    <p className="text-xs font-medium text-slate-400">
+                    <p className="text-xs font-medium text-stone-400">
                       Open it once while connected or use Download for offline before you travel.
                     </p>
                   </div>
                 ) : isRendering || isAiScanning ? (
                   <div className="flex flex-col items-center gap-3">
-                    <Loader2 size={32} className="text-indigo-500 animate-spin" />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    <Loader2 size={32} className="text-emerald-500 animate-spin" />
+                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
                       {isAiScanning ? "AI Analyzing..." : "Optimizing PDF..."}
                     </p>
                   </div>
@@ -430,8 +430,8 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                           }`}
                           style={{
                             transform: isQrZoomed 
-                              ? `scale(5) translate(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`
-                              : 'scale(1) translate(0, 0)',
+                              ? `scale(5) transtone(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`
+                              : 'scale(1) transtone(0, 0)',
                             transformOrigin: 'center'
                           }}
                         />
@@ -453,7 +453,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                         <div className="absolute inset-0 bg-black/60 pointer-events-none" />
                         {tempFocusArea && (
                           <div 
-                            className="absolute border-2 border-indigo-500 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"
+                            className="absolute border-2 border-emerald-500 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"
                             style={{
                               left: `${tempFocusArea.x * 100}%`,
                               top: `${tempFocusArea.y * 100}%`,
@@ -462,7 +462,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                             }}
                           >
                             <div className="absolute -top-6 left-0 right-0 text-center">
-                              <span className="bg-indigo-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full">QR Area</span>
+                              <span className="bg-emerald-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full">QR Area</span>
                             </div>
                           </div>
                         )}
@@ -480,7 +480,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           onClick={(e) => { e.stopPropagation(); setZoomPosition("ai"); setIsQrZoomed(true); }}
-                          className="bg-indigo-500 hover:bg-indigo-600 border border-white/20 px-6 py-3 rounded-full flex items-center gap-2 text-white font-black text-xs transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] uppercase tracking-[0.15em]"
+                          className="bg-emerald-500 hover:bg-emerald-600 border border-white/20 px-6 py-3 rounded-full flex items-center gap-2 text-white font-black text-xs transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] uppercase tracking-[0.15em]"
                         >
                           <QrCode size={16} /> Scan Focus
                         </motion.button>
@@ -498,7 +498,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           onClick={(e) => { e.stopPropagation(); runAiDeepScan(); }}
-                          className="bg-indigo-500 hover:bg-indigo-600 border border-white/20 px-5 py-3 rounded-full flex items-center gap-2 text-white font-black text-[10px] transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] uppercase tracking-[0.15em]"
+                          className="bg-emerald-500 hover:bg-emerald-600 border border-white/20 px-5 py-3 rounded-full flex items-center gap-2 text-white font-black text-[10px] transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] uppercase tracking-[0.15em]"
                         >
                           <Sparkles size={14} className="animate-pulse" /> AI Scan
                         </motion.button>
@@ -532,7 +532,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
 
             {/* Selection Controls Footer (Selecting Mode) */}
             {isSelectingArea && (
-              <div className="px-8 pb-8 flex justify-center gap-4 z-[30] bg-slate-900">
+              <div className="px-8 pb-8 flex justify-center gap-4 z-[30] bg-stone-900">
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsSelectingArea(false); }}
                   className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black py-4 rounded-3xl transition-all uppercase tracking-widest text-[10px]"
@@ -541,7 +541,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                 </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleSaveFocusArea(); }}
-                  className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-black py-4 rounded-3xl transition-all shadow-lg shadow-indigo-500/30 uppercase tracking-widest text-[10px]"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-3xl transition-all shadow-lg shadow-emerald-500/30 uppercase tracking-widest text-[10px]"
                 >
                   Save Area
                 </button>
@@ -564,18 +564,18 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                   <div className="bg-white p-4 rounded-3xl shadow-inner-lg">
                     {/* For now we just show the content or a re-generated QR if we had a lib, 
                         but we'll just show a "QR detected" message and rely on the zoomed image */}
-                    <div className="size-32 bg-slate-100 rounded-2xl flex items-center justify-center border-2 border-slate-200">
-                      <QrCode size={48} className="text-slate-900" />
+                    <div className="size-32 bg-stone-100 rounded-2xl flex items-center justify-center border-2 border-stone-200">
+                      <QrCode size={48} className="text-stone-900" />
                     </div>
                   </div>
                 ) : (
                   <div className="text-center space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Scan code not detected</p>
-                    <p className="text-xs text-slate-400">{offlineMessage ?? "Use full preview for scanning"}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Scan code not detected</p>
+                    <p className="text-xs text-stone-400">{offlineMessage ?? "Use full preview for scanning"}</p>
                   </div>
                 )}
                 
-                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                <p className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
                   {offlineStatus === "available" ? "Ready offline" : "Tap card to view original"}
                 </p>
               </div>
@@ -595,7 +595,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
               void openDocumentInNewTab(file.fileUrl);
             }}
             disabled={!isOnline && offlineStatus !== "available"}
-            className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-100 active:scale-95 transition-all shadow-xl"
+            className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-stone-100 active:scale-95 transition-all shadow-xl"
           >
             <ExternalLink size={18} /> {file.fileType === "pdf" ? "Open PDF" : "Open Original"}
           </button>
@@ -672,7 +672,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                       alt="QR Zoom" 
                       className="w-full h-full object-contain transition-transform duration-300"
                       style={{
-                        transform: `scale(5) translate(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`,
+                        transform: `scale(5) transtone(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`,
                         transformOrigin: "center"
                       }}
                     />
@@ -684,7 +684,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                 <p className="text-white font-black uppercase tracking-[0.3em] text-xs animate-pulse">
                   {zoomPosition === "qr" ? "QR Scan Focus" : zoomPosition === "top" ? "Barcode Focus" : "Ready for Scanning"}
                 </p>
-                <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Tap to close</p>
+                <p className="text-stone-500 text-[10px] uppercase tracking-widest font-bold">Tap to close</p>
               </div>
 
               <div className="absolute bottom-12 flex gap-4">
@@ -697,7 +697,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                 {qrPos && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); setZoomPosition("qr"); }}
-                    className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${zoomPosition === "qr" ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white/10 text-white border-white/20'}`}
+                    className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${zoomPosition === "qr" ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white/10 text-white border-white/20'}`}
                   >
                     QR
                   </button>

@@ -90,17 +90,17 @@ export function ActivityCommentsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md" onClick={onClose}>
+    <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center p-4 bg-stone-950/60 backdrop-blur-md" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl max-h-[80dvh] flex flex-col overflow-hidden"
+        className="w-full max-w-md bg-white dark:bg-stone-900 rounded-[2rem] shadow-2xl max-h-[80dvh] flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 dark:border-stone-800">
           <div className="flex items-center gap-2">
-            <MessageCircle size={16} className="text-indigo-500" />
-            <h2 className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[220px]">{activityTitle}</h2>
+            <MessageCircle size={16} className="text-emerald-500" />
+            <h2 className="text-sm font-black text-stone-900 dark:text-white truncate max-w-[220px]">{activityTitle}</h2>
           </div>
-          <button onClick={onClose} className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+          <button onClick={onClose} className="size-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400">
             <X size={16} />
           </button>
         </div>
@@ -108,42 +108,42 @@ export function ActivityCommentsModal({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {loading ? (
             <div className="flex justify-center py-6">
-              <Loader2 size={20} className="text-indigo-500 animate-spin" />
+              <Loader2 size={20} className="text-emerald-500 animate-spin" />
             </div>
           ) : comments.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6">Sin comentarios aún</p>
+            <p className="text-xs text-stone-400 text-center py-6">Sin comentarios aún</p>
           ) : (
             comments.map((c) => (
-              <div key={c.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-4 py-3 space-y-1">
+              <div key={c.id} className="bg-stone-50 dark:bg-stone-800/50 rounded-2xl px-4 py-3 space-y-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 truncate">{c.userEmail || "Usuario"}</p>
+                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 truncate">{c.userEmail || "Usuario"}</p>
                   {user && user.id === c.userId && (
-                    <button onClick={() => handleDelete(c.id)} className="text-slate-300 hover:text-rose-500">
+                    <button onClick={() => handleDelete(c.id)} className="text-stone-300 hover:text-rose-500">
                       <Trash2 size={12} />
                     </button>
                   )}
                 </div>
-                <p className="text-sm text-slate-800 dark:text-slate-100">{c.content}</p>
-                <p className="text-[9px] text-slate-400">{new Date(c.createdAt).toLocaleString()}</p>
+                <p className="text-sm text-stone-800 dark:text-stone-100">{c.content}</p>
+                <p className="text-[9px] text-stone-400">{new Date(c.createdAt).toLocaleString()}</p>
               </div>
             ))
           )}
         </div>
 
         {user && !user.is_anonymous && (
-          <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+          <div className="px-5 py-4 border-t border-stone-100 dark:border-stone-800 flex gap-2">
             <input
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
               placeholder="Escribe un comentario..."
-              className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/30 min-h-[40px]"
+              className="flex-1 bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500/30 min-h-[40px]"
             />
             <button
               onClick={handleSend}
               disabled={sending || !text.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest disabled:opacity-50 min-h-[40px] flex items-center gap-1"
+              className="px-4 py-2 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest disabled:opacity-50 min-h-[40px] flex items-center gap-1"
             >
               {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             </button>

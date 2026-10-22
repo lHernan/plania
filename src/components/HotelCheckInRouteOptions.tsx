@@ -82,50 +82,50 @@ export function HotelCheckInRouteOptions({ stop, isCurrentDay }: { stop: HotelAr
             : "";
 
   return (
-    <section className={`rounded-2xl border p-4 ${isCurrentDay ? "border-sky-400 bg-sky-50/80 dark:border-sky-700 dark:bg-sky-950/30" : "border-sky-100 bg-white/80 dark:border-sky-900/60 dark:bg-slate-900/70"}`}>
+    <section className={`rounded-2xl border p-4 ${isCurrentDay ? "border-sky-400 bg-sky-50/80 dark:border-sky-700 dark:bg-sky-950/30" : "border-sky-100 bg-white/80 dark:border-sky-900/60 dark:bg-stone-900/70"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300">{formatLocalDate(stop.date)} · {t("arrival_checkin_event")}{isCurrentDay ? ` · ${t("arrival_selected_day")}` : ""}</p>
-          <h3 className="mt-1 truncate text-sm font-black text-slate-800 dark:text-white">{stop.destination}</h3>
-          <p className="mt-1 text-xs text-slate-500">{stop.title}</p>
+          <h3 className="mt-1 truncate text-sm font-black text-stone-800 dark:text-white">{stop.destination}</h3>
+          <p className="mt-1 text-xs text-stone-500">{stop.title}</p>
           {stop.checkInTime ? (
-            <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            <p className="mt-2 text-xs font-semibold text-stone-600 dark:text-stone-300">
               {t(stop.checkInSource === "itinerary" ? "arrival_checkin_from_itinerary" : "arrival_checkin_from_context", {
                 time: stop.checkInTime,
                 title: stop.title,
               })}
             </p>
           ) : (
-            <p className="mt-2 text-xs text-slate-500">{t("arrival_activity_time_not_policy", { time: stop.scheduledTime })}</p>
+            <p className="mt-2 text-xs text-stone-500">{t("arrival_activity_time_not_policy", { time: stop.scheduledTime })}</p>
           )}
         </div>
       </div>
 
       {origin && !editingOrigin ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
           <MapPin size={13} className="text-sky-600" />
           <span>{t("hotel_route_origin")}: {origin}</span>
-          {originSourceLabel ? <span className="text-slate-400">({originSourceLabel})</span> : null}
+          {originSourceLabel ? <span className="text-stone-400">({originSourceLabel})</span> : null}
           <button type="button" onClick={() => { setOriginDraft(origin); setEditingOrigin(true); }} className="font-bold text-sky-700 underline dark:text-sky-300">{t("hotel_route_change_origin")}</button>
         </div>
       ) : (
         <form onSubmit={saveManualOrigin} className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="min-w-[180px] flex-1 text-xs font-bold text-slate-600 dark:text-slate-300">
+          <label className="min-w-[180px] flex-1 text-xs font-bold text-stone-600 dark:text-stone-300">
             {t("hotel_route_origin")}
             <input
               value={originDraft}
               onChange={(event) => setOriginDraft(event.target.value)}
               placeholder={t("hotel_route_origin_placeholder")}
               maxLength={240}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950"
+              className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm dark:border-stone-800 dark:bg-stone-950"
             />
           </label>
-          <button type="submit" className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-white dark:bg-slate-700">{t("hotel_route_save_origin")}</button>
+          <button type="submit" className="rounded-xl bg-stone-800 px-3 py-2 text-xs font-bold text-white dark:bg-stone-700">{t("hotel_route_save_origin")}</button>
           <button type="button" onClick={useCurrentLocation} disabled={locating} className="flex items-center gap-1.5 rounded-xl border border-sky-200 px-3 py-2 text-xs font-bold text-sky-700 disabled:opacity-50 dark:border-sky-800 dark:text-sky-300">
             <Navigation size={13} /> {locating ? t("hotel_route_locating") : t("hotel_route_use_current")}
           </button>
           {error ? <p role="alert" className="w-full text-xs font-semibold text-rose-600">{error}</p> : null}
-          <p className="w-full text-[10px] text-slate-400">{t("hotel_route_location_not_saved")}</p>
+          <p className="w-full text-[10px] text-stone-400">{t("hotel_route_location_not_saved")}</p>
         </form>
       )}
 
@@ -136,7 +136,7 @@ export function HotelCheckInRouteOptions({ stop, isCurrentDay }: { stop: HotelAr
             return href ? (
               <a key={mode} href={href} target="_blank" rel="noopener noreferrer" className="flex min-h-16 items-start gap-2 rounded-xl border border-sky-100 p-3 transition hover:border-sky-300 hover:bg-sky-50 dark:border-sky-900/60 dark:hover:bg-sky-950/30">
                 <Icon size={16} className="mt-0.5 shrink-0 text-sky-700 dark:text-sky-300" />
-                <span><strong className="block text-xs font-black text-slate-800 dark:text-white">{t(titleKey)}</strong><span className="mt-1 block text-[10px] leading-relaxed text-slate-500">{t(detailKey)}</span></span>
+                <span><strong className="block text-xs font-black text-stone-800 dark:text-white">{t(titleKey)}</strong><span className="mt-1 block text-[10px] leading-relaxed text-stone-500">{t(detailKey)}</span></span>
               </a>
             ) : null;
           })}
