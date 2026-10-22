@@ -158,7 +158,7 @@ type Store = {
   deleteActivityFile: (fileId: string) => Promise<void>;
   setFileFocusArea: (fileId: string, focusArea: FocusArea | null) => Promise<void>;
   setIsImporting: (status: boolean) => void;
-  optimizeDay: (dayId: string) => Promise<void>;
+  optimizeDay: (dayId: string, lang?: string) => Promise<void>;
   syncPendingMutations: () => Promise<void>;
 };
 
@@ -1441,7 +1441,6 @@ export const useItineraryStore = create<Store>((set, get) => {
     },
 
     clearData: () => {
-      const userId = getCurrentUserId();
       set({
         activeTrip: null,
         activeTripIsDraft: false,
@@ -1451,9 +1450,6 @@ export const useItineraryStore = create<Store>((set, get) => {
         loading: false,
         error: null,
       });
-      if (userId) {
-        void clearOfflineTripCache(userId).catch(() => {});
-      }
     },
 
     addTripDay: async (date, city, label) => {
@@ -2118,7 +2114,7 @@ export const useItineraryStore = create<Store>((set, get) => {
 
     setIsImporting: (status) => set({ isImporting: status }),
 
-    optimizeDay: async (dayId) => {
+    optimizeDay: async (dayId, lang) => {
       const activeTrip = get().activeTrip;
       const day = activeTrip?.days.find((item) => item.id === dayId);
       if (!activeTrip || !day) return;
@@ -2136,7 +2132,7 @@ export const useItineraryStore = create<Store>((set, get) => {
         const response = await fetch("/api/optimize-day", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: day.date, activities: day.activities }),
+          body: JSON.stringify({ date: day.date, activities: day.activities, lang }),
         });
 
         if (!response.ok) throw new Error(await response.text());

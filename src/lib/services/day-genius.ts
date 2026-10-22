@@ -2,9 +2,9 @@ import { Activity } from "@/lib/types";
 import { geminiService } from "./gemini-service";
 
 export const dayGeniusService = {
-  async optimizeDay(date: string, activities: Activity[]): Promise<Activity[]> {
+  async optimizeDay(date: string, activities: Activity[], lang?: string): Promise<Activity[]> {
     const normalized = await this.normalizeActivities(activities);
-    const enriched = await this.enrichActivities(normalized);
+    const enriched = await this.enrichActivities(normalized, lang);
     const routed = this.optimizeRoute(enriched);
     const validated = await this.validateAndFixTimeline(routed);
     return validated;
@@ -66,7 +66,7 @@ export const dayGeniusService = {
     return merged;
   },
 
-  async enrichActivities(activities: Activity[]): Promise<Activity[]> {
+  async enrichActivities(activities: Activity[], lang?: string): Promise<Activity[]> {
     let enriched = [...activities];
 
     // Rule-based: Airport
@@ -114,7 +114,7 @@ export const dayGeniusService = {
     }
 
     // Call Gemini to suggest missing steps
-    const suggestions = await geminiService.inferMissingSteps(enriched);
+    const suggestions = await geminiService.inferMissingSteps(enriched, lang);
     
     // Add suggestions as new items
     if (suggestions.length > 0) {

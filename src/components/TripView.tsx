@@ -37,7 +37,6 @@ import {
   Edit2,
   X,
   Loader2,
-  Globe,
   User as UserIcon,
   LogOut,
   ShieldCheck,
@@ -46,9 +45,11 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  Share2
+  Share2,
+  MessageCircle
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
 import { optimizeDay } from "@/lib/ai/optimizer";
@@ -70,11 +71,15 @@ import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
+import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { ChatFab } from "@/components/ChatFab";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TravelContextEditor } from "@/components/TravelContextEditor";
 import { ArrivalAssistant } from "@/components/ArrivalAssistant";
 import { CityPaymentGuideCard } from "@/components/CityPaymentGuideCard";
+import { CurrencyConverter } from "@/components/CurrencyConverter";
+import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
+import { PackingListCard } from "@/components/PackingListCard";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -873,6 +878,7 @@ export function TripView() {
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   const savingDraftRef = useRef(false);
 
   // Auto-save draft when user logs in
@@ -885,6 +891,26 @@ export function TripView() {
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
   const sharedTrips = useItineraryStore((s) => s.sharedTrips);
   const sharedTripInfo = isInvitee ? sharedTrips.find((t) => t.id === activeTrip?.id) ?? null : null;
+
+  const budgetSummary = useMemo(() => {
+    if (!activeTrip) return { total: 0, perDay: [] as { date: string; total: number }[] };
+    const perDay = activeTrip.days.map((day) => ({
+      date: day.date,
+      total: day.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0),
+    }));
+    const total = perDay.reduce((sum, d) => sum + d.total, 0);
+    return { total, perDay };
+  }, [activeTrip]);
+
+  const tripMapUrl = useMemo(() => {
+    if (!activeTrip) return null;
+    const day = activeTrip.days.find((d) => d.id === activeDayId) ?? activeTrip.days[0];
+    if (!day) return null;
+    const locations = day.activities
+      .map((a) => a.location)
+      .filter(Boolean) as string[];
+    return buildTripMapUrl(locations);
+  }, [activeTrip, activeDayId]);
   const [showCompletedDays, setShowCompletedDays] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -961,7 +987,8 @@ export function TripView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: textToSync,
-          fallbackDate: activeDay?.date || new Date().toISOString()
+          fallbackDate: activeDay?.date || new Date().toISOString(),
+          lang,
         })
       });
       
@@ -1493,17 +1520,22 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex items-center gap-2">
-            {/* Language picker ÔÇö hidden on smallest screens */}
-            <div className="hidden xs:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-              <Globe size={10} className="text-slate-400" />
-              <select
-                value={lang}
-                onChange={(e) => setLang(e.target.value)}
-                className="bg-transparent text-[9px] font-bold text-slate-500 uppercase cursor-pointer outline-none appearance-none"
-              >
-                <option value="en">EN</option>
-                <option value="es">ES</option>
-              </select>
+            {/* Language toggle */}
+            <div className="flex items-center rounded-full bg-slate-100 p-0.5 dark:bg-slate-800">
+              {(["es", "en"] as const).map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setLang(code)}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
+                    lang === code
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  }`}
+                >
+                  {code === "es" ? "ES" : "EN"}
+                </button>
+              ))}
             </div>
 
             {user && !user.is_anonymous ? (
@@ -1616,6 +1648,54 @@ export function TripView() {
 
       {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
       {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
+      {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
+
+      {activeTrip && budgetSummary.total > 0 ? (
+        <div className="max-w-7xl mx-auto px-5 pt-4">
+          <div className="rounded-3xl border border-indigo-100 dark:border-indigo-900/60 bg-white/80 dark:bg-slate-900/60 p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-300">{t("trip_budget_title")}</p>
+              {tripMapUrl ? (
+                <a
+                  href={tripMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  {t("trip_map_view")}
+                </a>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <p className="text-2xl font-black text-slate-900 dark:text-white">
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-slate-400">est.</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {budgetSummary.perDay.map((d) => (
+                  <span key={d.date} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+                    {d.date}: {d.total.toFixed(2)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTrip && budgetSummary.total === 0 && tripMapUrl ? (
+        <div className="max-w-7xl mx-auto px-5 pt-4">
+          <a
+            href={tripMapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline px-1"
+          >
+            {t("trip_map_view")}
+          </a>
+        </div>
+      ) : null}
 
       <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
@@ -1665,7 +1745,7 @@ export function TripView() {
                   </button>
                 )}
                 <button 
-                  onClick={() => runOptimizeDay(activeDayId)}
+                  onClick={() => runOptimizeDay(activeDayId, lang)}
                   disabled={isOptimizing || isInvitee}
                   className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
                 >
@@ -1799,20 +1879,27 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state !== "completed")
                             .map((activity) => (
-                              <div key={activity.id} className="relative group">
-                                <SortableActivityCard
-                                  dayId={activeDayId}
-                                  activity={activity}
-                                  onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                  onEdit={() => setEditingActivityId(activity.id)}
-                                />
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* COMPLETED SECTION */}
+                               <div key={activity.id} className="relative group">
+                                 <SortableActivityCard
+                                   dayId={activeDayId}
+                                   activity={activity}
+                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                   onEdit={() => setEditingActivityId(activity.id)}
+                                 />
+                                 <button
+                                   onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
+                                   title="Comentarios"
+                                 >
+                                   <MessageCircle size={12} />
+                                 </button>
+                               </div>
+                             ))}
+                         </div>
+                       </div>
+                     )}
+ 
+                     {/* COMPLETED SECTION */}
                     {sortedActivities.some(a => a.state === "completed") && (
                       <div className="space-y-4 opacity-70">
                         <div className="flex items-center gap-3 ml-2">
@@ -1823,20 +1910,27 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
-                              <div key={activity.id} className="relative group">
-                                <SortableActivityCard
-                                  dayId={activeDayId}
-                                  activity={activity}
-                                  onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                  onEdit={() => setEditingActivityId(activity.id)}
-                                />
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
+                             <div key={activity.id} className="relative group">
+                               <SortableActivityCard
+                                 dayId={activeDayId}
+                                 activity={activity}
+                                 onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                 onEdit={() => setEditingActivityId(activity.id)}
+                               />
+                               <button
+                                 onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
+                                 title="Comentarios"
+                               >
+                                 <MessageCircle size={12} />
+                               </button>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
 
-                    {sortedActivities.length === 0 && (
+                     {sortedActivities.length === 0 && (
                       <div className="py-24 text-center">
                         <div className="size-24 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
                           <Plane className="text-slate-200" size={40} />
@@ -2391,6 +2485,17 @@ export function TripView() {
             tripId={activeTrip.id}
             tripName={activeTrip.name}
             onClose={() => setShowShareModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {commentActivity && activeTrip && (
+          <ActivityCommentsModal
+            tripId={activeTrip.id}
+            activityId={commentActivity.id}
+            activityTitle={commentActivity.title}
+            onClose={() => setCommentActivity(null)}
           />
         )}
       </AnimatePresence>

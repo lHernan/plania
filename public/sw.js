@@ -4,7 +4,11 @@ const DOCUMENTS_META_KEY = "/__offline-documents__/meta";
 const MAX_CACHED_DOCUMENTS = 40;
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches.open("pages-v1").then((cache) =>
+      cache.addAll(["/"]).catch(() => {})
+    ).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -28,10 +32,52 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const requestUrl = new URL(event.request.url);
+
+  // Cache-first for immutable Next.js static assets.
+  if (requestUrl.pathname.startsWith("/_next/static/")) {
+    event.respondWith(handleStaticAssetRequest(event.request));
+    return;
+  }
+
+  // Network-first for navigations (HTML), with cache fallback.
+  if (event.request.mode === "navigate") {
+    event.respondWith(handleNavigationRequest(event.request));
+    return;
+  }
+
   if (!shouldHandleDocumentRequest(event.request, requestUrl)) return;
 
   event.respondWith(handleDocumentRequest(event.request));
 });
+
+async function handleStaticAssetRequest(request) {
+  const cache = await caches.open("static-assets-v1");
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch {
+    return cached || new Response("", { status: 503 });
+  }
+}
+
+async function handleNavigationRequest(request) {
+  const cache = await caches.open("pages-v1");
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) await cache.put(request, networkResponse.clone());
+    return networkResponse;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    // Fallback to cached root
+    const rootCached = await cache.match("/");
+    if (rootCached) return rootCached;
+    return new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
+  }
+}
 
 function shouldHandleDocumentRequest(request, url) {
   const pathname = url.pathname.toLowerCase();

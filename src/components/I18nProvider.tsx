@@ -21,10 +21,8 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     const saved = localStorage.getItem("app_lang");
     if (saved && (saved === "en" || saved === "es")) {
       setLangState(saved);
-    } else {
-      const browserLang = navigator.language.toLowerCase();
-      setLangState(browserLang.startsWith("es") ? "es" : "en");
     }
+    // No saved preference → keep "es" (the initial state)
   }, []);
 
   const setLang = (newLang: string) => {

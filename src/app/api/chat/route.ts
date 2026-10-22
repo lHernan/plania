@@ -360,10 +360,14 @@ async function loadTripContext(access: Awaited<ReturnType<typeof authorizeTrip>>
   return context;
 }
 
-function systemPrompt(context: TripContext) {
+function systemPrompt(context: TripContext, lang?: string) {
   const paymentGuides = Array.from(new Set(context.days.map((day) => day.city)))
     .map((city) => findCityPaymentGuide(city))
     .filter((guide) => guide !== undefined);
+
+  const langRule = lang === "es"
+    ? "- IMPORTANT: Always reply in Spanish."
+    : "- Reply in English.";
 
   return `You are Plania, a practical travel planning agent. Help the traveler plan and track the trip using the supplied context.
 
@@ -378,6 +382,7 @@ Rules:
 - If information is missing, say so and make a clearly labeled suggestion.
 - For contactless payment, tickets, validation, transfers, cash, or group purchase questions, use only a matching verified payment-guide entry above. If there is no matching city/topic entry, state that Plania has no verified guide for it and do not answer from general model knowledge.
 - This assistant is currently read-only. Never return actions that modify the itinerary or reservations.
+${langRule}
 - Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}
 `;
 }
@@ -407,9 +412,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { tripId?: unknown; content?: unknown };
+    const body = await request.json() as { tripId?: unknown; content?: unknown; lang?: unknown };
     const tripId = typeof body.tripId === "string" ? body.tripId : "";
     const content = typeof body.content === "string" ? body.content.trim().slice(0, 2_000) : "";
+    const lang = typeof body.lang === "string" ? body.lang : "en";
     if (!tripId || !content) return NextResponse.json({ error: "tripId and content are required" }, { status: 400 });
 
     const access = await authorizeTrip(request, tripId);
@@ -442,7 +448,7 @@ export async function POST(request: Request) {
       .slice(-20)
       .map((message) => `${message.role}: ${message.content}`)
       .join("\n");
-    const raw = await runAiPrompt(systemPrompt(context), `${historyPrompt}\nuser: ${content}`);
+    const raw = await runAiPrompt(systemPrompt(context, lang), `${historyPrompt}\nuser: ${content}`);
     const parsed = extractJsonObject<{ reply?: unknown; actions?: unknown[] }>(raw);
     const result = normalizeAgentResponse(parsed, context, false);
 

@@ -43,8 +43,12 @@ Example: [["Mercado de África", "Mercado de Nuestra Señora de África"], ["Air
     return locations.map(l => [l]);
   },
 
-  async inferMissingSteps(activities: Activity[]): Promise<{ title: string; category: string; notes: string }[]> {
+  async inferMissingSteps(activities: Activity[], lang?: string): Promise<{ title: string; category: string; notes: string }[]> {
     if (!activities.length) return [];
+
+    const langRule = lang === "es"
+      ? "IMPORTANT: All title and notes values MUST be written in Spanish."
+      : "Write all title and notes values in English.";
 
     const systemPrompt = `You are an intelligent travel assistant.
 Review the following list of activities for a day.
@@ -54,6 +58,7 @@ Return ONLY a valid JSON array of objects.
 Format: [{"title": "string", "category": "string", "notes": "string"}]
 category MUST be one of: food, shopping, sightseeing, hotel, transport, reservation, photos, nightlife, other.
 If no steps are missing, return an empty array [].
+${langRule}
 Do NOT return markdown.`;
 
     const userPrompt = JSON.stringify(activities.map(a => ({

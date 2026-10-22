@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
 import { extractJsonObject } from "@/lib/ai/json-response";
 
-const SYSTEM_PROMPT = [
+function buildSystemPrompt(lang: string) {
+  const langRule = lang === "es"
+    ? '- IMPORTANT: All "title" and "notes" values MUST be written in Spanish.'
+    : '- Write all "title" and "notes" values in English.';
+
+  return [
   "You are an AI assistant integrated into a travel planning application.",
   "Your task is to convert unstructured user text into a structured activity list with realistic, context-aware schedules.",
   "",
@@ -51,21 +56,24 @@ const SYSTEM_PROMPT = [
   '- "time_inferred" must be a boolean (true if the time was inferred/suggested, false if the user explicitly provided it).',
   "- If multiple distinct intents exist in the input text, return multiple array items.",
   "",
+  langRule,
+  "",
   "OUTPUT: Return ONLY a raw JSON object with NO markdown formatting, NO code blocks. EXACTLY this shape:",
   '{"activities":[{"title":"string","category":"string","location":"string","date":"YYYY-MM-DD","time":"HH:mm","duration_minutes":60,"notes":"string","time_confidence":0.85,"time_inferred":true}]}'
 ].join("\n");
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { text, fallbackDate } = body;
+    const { text, fallbackDate, lang } = body;
 
     if (!text) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
     const content = await runAiPrompt(
-      SYSTEM_PROMPT,
+      buildSystemPrompt(lang || "en"),
       "FALLBACK_DATE: " + fallbackDate + "\n\nTEXT TO PARSE:\n" + text,
     );
     const parsed = extractJsonObject<{ activities?: unknown }>(content);
