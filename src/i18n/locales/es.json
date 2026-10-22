@@ -263,6 +263,13 @@
   "landing_sign_in_sync": "Inicia sesion para sincronizar",
   "landing_logged_in_as": "Conectado como {email}",
   "landing_no_trips_yet": "Aun no hay viajes — crea uno arriba!",
+  "landing_create_from_scratch": "Crear desde cero",
+  "landing_examples_title": "Viajes de ejemplo",
+  "landing_examples_subtitle": "Usa un viaje real como plantilla. Clonalo y hazlo tuyo.",
+  "landing_use_template": "Usar como plantilla",
+  "landing_clone_success": "Viaje clonado! Abrilo desde tus viajes.",
+  "landing_clone_error": "No se pudo clonar el viaje. Intenta de nuevo.",
+  "landing_template_loaded": "Plantilla cargada. Inicia sesion para guardarla y editarla.",
 
   "share_title": "Compartir viaje",
   "share_invite_by_email": "Invitar por email",

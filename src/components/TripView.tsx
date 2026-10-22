@@ -865,14 +865,26 @@ export function TripView() {
     updateTripDay,
     createTrip,
     deleteActivityFile,
-    hasFetched
+    hasFetched,
+    activeTripIsDraft,
+    saveDraft
   } = useItineraryStore();
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const savingDraftRef = useRef(false);
+
+  // Auto-save draft when user logs in
+  useEffect(() => {
+    if (activeTripIsDraft && user && !user.is_anonymous && !savingDraftRef.current) {
+      savingDraftRef.current = true;
+      void saveDraft().finally(() => { savingDraftRef.current = false; });
+    }
+  }, [activeTripIsDraft, user, saveDraft]);
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
-  const sharedTripInfo = isInvitee ? useItineraryStore((s) => s.sharedTrips.find((t) => t.id === activeTrip?.id)) : null;
+  const sharedTrips = useItineraryStore((s) => s.sharedTrips);
+  const sharedTripInfo = isInvitee ? sharedTrips.find((t) => t.id === activeTrip?.id) ?? null : null;
   const [showCompletedDays, setShowCompletedDays] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -1452,6 +1464,26 @@ export function TripView() {
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 ios-compact-shell">
+      {activeTripIsDraft && (
+        <div className="sticky top-0 z-50 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+            Estás viendo un viaje de ejemplo. Inicia sesión para guardarlo y editarlo.
+          </p>
+          <button
+            onClick={async () => {
+              if (!user || user.is_anonymous) {
+                setShowAuthModal(true);
+                return;
+              }
+              const res = await saveDraft();
+              if (res.error) alert(res.error);
+            }}
+            className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-700 transition-all min-h-[36px]"
+          >
+            Guardar
+          </button>
+        </div>
+      )}
       {/* COMPACT STICKY HEADER */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
         {/* Top bar: trip selector + controls */}

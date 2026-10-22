@@ -13,6 +13,7 @@ import {
   listOfflineMutations,
   loadOfflineTripCache,
   saveOfflineTripCache,
+  clearOfflineTripCache,
   type OfflineMutationQueueEntry,
 } from "@/lib/offline-state";
 import type {
@@ -103,6 +104,7 @@ type ReservationDb = {
 
 type Store = {
   activeTrip: TripPlan | null;
+  activeTripIsDraft: boolean;
   trips: TripSummary[];
   sharedTrips: SharedTripSummary[];
   tripShares: TripShareUser[];
@@ -121,7 +123,10 @@ type Store = {
     revokeTripShare: (tripId: string, userId: string) => Promise<void>;
     updateTripShareRole: (tripId: string, userId: string, role: "viewer" | "editor") => Promise<void>;
   fetchActiveTrip: (tripId?: string, skipLoading?: boolean) => Promise<void>;
-  createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
+    createTrip: (name: string, startDate?: string, endDate?: string) => Promise<void>;
+    cloneTrip: (template: TripPlan, name?: string, startDate?: string) => Promise<void>;
+    loadTemplate: (template: TripPlan) => void;
+    saveDraft: () => Promise<{ error?: string }>;
   deleteTrip: (tripId: string) => Promise<void>;
   setTripFavorite: (tripId: string) => Promise<void>;
   saveTravelContext: (travelContext: TravelContext | null) => Promise<{ error?: string }>;
@@ -513,17 +518,19 @@ export const useItineraryStore = create<Store>((set, get) => {
     });
   };
 
-  const fetchFreshTrip = async (tripId?: string) => {
-    const userId = getCurrentUserId();
+    const fetchFreshTrip = async (tripId?: string) => {
+      const userId = getCurrentUserId();
     let tripQuery = supabase.from("trips").select("*");
     if (tripId) {
       tripQuery = tripQuery.eq("id", tripId);
+    } else if (userId) {
+      tripQuery = tripQuery.eq("user_id", userId);
     }
 
     const { data: trips, error } = await tripQuery;
     if (error) throw error;
 
-    if (!trips || trips.length === 0) {
+      if (!trips || trips.length === 0) {
       set({ activeTrip: null, activeDayId: "", loading: false, hasFetched: true });
       return;
     }
@@ -847,6 +854,7 @@ export const useItineraryStore = create<Store>((set, get) => {
 
   return {
     activeTrip: null,
+    activeTripIsDraft: false,
     trips: [],
     sharedTrips: [],
     tripShares: [],
@@ -1002,6 +1010,11 @@ export const useItineraryStore = create<Store>((set, get) => {
     fetchActiveTrip: async (tripId, skipLoading = false) => {
       const resolvedTripId = tripId ?? get().activeTrip?.id;
 
+      // Draft (unsaved template) trips are not in the database; skip fetching.
+      if (get().activeTripIsDraft && resolvedTripId === get().activeTrip?.id) {
+        return;
+      }
+
       if (!skipLoading) set({ loading: true, error: null, hasFetched: false });
       else set({ error: null });
 
@@ -1090,6 +1103,226 @@ export const useItineraryStore = create<Store>((set, get) => {
       }
 
       await get().fetchActiveTrip(String(newTrip.id), true);
+    },
+
+    cloneTrip: async (template, name, startDate) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || !session.user?.id) {
+        set({ error: "Tu sesión no está activa. Inicia sesión de nuevo (y confirma tu email si es necesario)." });
+        return;
+      }
+      const userId = session.user.id;
+
+      const finalName = name?.trim() || template.name;
+      const finalStartDate = startDate || template.startDate || new Date().toISOString().split("T")[0];
+      // Compute end date based on template duration
+      const start = new Date(finalStartDate);
+      const end = new Date(start);
+      end.setDate(end.getDate() + Math.max(0, template.days.length - 1));
+      const finalEndDate = end.toISOString().split("T")[0];
+
+      if (!isOnline()) {
+        // Offline: create a local trip and queue mutations (simplified: treat as createTrip)
+        await get().createTrip(finalName, finalStartDate, finalEndDate);
+        return;
+      }
+
+      set({ loading: true });
+      const { data: newTrip, error } = await supabase
+        .from("trips")
+        .insert({
+          name: finalName,
+          user_id: userId,
+          start_date: finalStartDate,
+          end_date: finalEndDate,
+        })
+        .select()
+        .single();
+
+      if (error || !newTrip) {
+        set({ loading: false, error: error?.message ?? "Failed to clone trip" });
+        return;
+      }
+
+      const newTripId = String(newTrip.id);
+
+      // Create days (let DB generate ids), then map old day id -> new day id
+      const dayIdMap = new Map<string, string>();
+      if (template.days.length > 0) {
+        const daysToCreate = template.days.map((day) => ({
+          trip_id: newTripId,
+          user_id: userId,
+          date: day.date,
+          city: day.city,
+          label: day.label,
+        }));
+        const { data: createdDays, error: daysError } = await supabase
+          .from("trip_days")
+          .insert(daysToCreate)
+          .select("id, date, city, label");
+        if (daysError) {
+          set({ loading: false, error: daysError.message });
+          return;
+        }
+        // Map by index (template.days order matches insert order)
+        template.days.forEach((day, i) => {
+          if (createdDays && createdDays[i]) {
+            dayIdMap.set(day.id, String(createdDays[i].id));
+          }
+        });
+      }
+
+      // Create activities (let DB generate ids)
+      const activitiesToCreate: Array<Record<string, unknown>> = [];
+      for (const day of template.days) {
+        const newDayId = dayIdMap.get(day.id);
+        if (!newDayId) continue;
+        for (const act of day.activities) {
+          activitiesToCreate.push({
+            trip_id: newTripId,
+            user_id: userId,
+            day_id: newDayId,
+            title: act.title,
+            time: act.time,
+            duration_min: act.durationMin,
+            notes: act.notes ?? null,
+            location: act.location ?? null,
+            maps_url: act.mapsUrl ?? null,
+            reservation_url: act.reservationUrl ?? null,
+            expected_cost: act.expectedCost ?? null,
+            category: act.category,
+            priority: act.priority,
+            state: "pending",
+            sort_order: act.sort_order,
+          });
+        }
+      }
+
+      if (activitiesToCreate.length > 0) {
+        const { error: actsError } = await supabase.from("activities").insert(activitiesToCreate);
+        if (actsError) {
+          set({ loading: false, error: actsError.message });
+          return;
+        }
+      }
+
+      await get().fetchActiveTrip(newTripId, true);
+    },
+
+    loadTemplate: (template) => {
+      const userId = getCurrentUserId();
+      const plan: TripPlan = {
+        ...template,
+        id: template.id,
+        userId: userId ?? null,
+      };
+      const firstDayId = plan.days[0]?.id ?? "";
+      set({
+        activeTrip: plan,
+        activeTripIsDraft: true,
+        activeDayId: firstDayId,
+        loading: false,
+        error: null,
+        hasFetched: true,
+      });
+    },
+
+    saveDraft: async () => {
+      const activeTrip = get().activeTrip;
+      if (!activeTrip || !get().activeTripIsDraft) {
+        return { error: "No hay borrador para guardar." };
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || !session.user?.id) {
+        return { error: "Tu sesión no está activa. Inicia sesión de nuevo (y confirma tu email si es necesario)." };
+      }
+      const userId = session.user.id;
+
+      set({ loading: true });
+      const finalStartDate = activeTrip.startDate || new Date().toISOString().split("T")[0];
+      const finalEndDate = activeTrip.endDate || finalStartDate;
+
+      const { data: newTrip, error } = await supabase
+        .from("trips")
+        .insert({
+          name: activeTrip.name,
+          user_id: userId,
+          start_date: finalStartDate,
+          end_date: finalEndDate,
+        })
+        .select()
+        .single();
+
+      if (error || !newTrip) {
+        set({ loading: false, error: error?.message ?? "No se pudo guardar." });
+        return { error: error?.message ?? "No se pudo guardar." };
+      }
+
+      const newTripId = String(newTrip.id);
+
+      // Create days
+      const dayIdMap = new Map<string, string>();
+      if (activeTrip.days.length > 0) {
+        const daysToCreate = activeTrip.days.map((day) => ({
+          trip_id: newTripId,
+          user_id: userId,
+          date: day.date,
+          city: day.city,
+          label: day.label,
+        }));
+        const { data: createdDays, error: daysError } = await supabase
+          .from("trip_days")
+          .insert(daysToCreate)
+          .select("id");
+        if (daysError) {
+          set({ loading: false, error: daysError.message });
+          return { error: daysError.message };
+        }
+        activeTrip.days.forEach((day, i) => {
+          if (createdDays && createdDays[i]) {
+            dayIdMap.set(day.id, String(createdDays[i].id));
+          }
+        });
+      }
+
+      // Create activities
+      const activitiesToCreate: Array<Record<string, unknown>> = [];
+      for (const day of activeTrip.days) {
+        const newDayId = dayIdMap.get(day.id);
+        if (!newDayId) continue;
+        for (const act of day.activities) {
+          activitiesToCreate.push({
+            trip_id: newTripId,
+            user_id: userId,
+            day_id: newDayId,
+            title: act.title,
+            time: act.time,
+            duration_min: act.durationMin,
+            notes: act.notes ?? null,
+            location: act.location ?? null,
+            maps_url: act.mapsUrl ?? null,
+            reservation_url: act.reservationUrl ?? null,
+            expected_cost: act.expectedCost ?? null,
+            category: act.category,
+            priority: act.priority,
+            state: act.state ?? "pending",
+            sort_order: act.sort_order,
+          });
+        }
+      }
+
+      if (activitiesToCreate.length > 0) {
+        const { error: actsError } = await supabase.from("activities").insert(activitiesToCreate);
+        if (actsError) {
+          set({ loading: false, error: actsError.message });
+          return { error: actsError.message };
+        }
+      }
+
+      set({ activeTripIsDraft: false });
+      await get().fetchActiveTrip(newTripId, true);
+      return {};
     },
 
     deleteTrip: async (tripId) => {
@@ -1208,14 +1441,19 @@ export const useItineraryStore = create<Store>((set, get) => {
     },
 
     clearData: () => {
+      const userId = getCurrentUserId();
       set({
         activeTrip: null,
+        activeTripIsDraft: false,
         trips: [],
         activeDayId: "",
         hasFetched: false,
         loading: false,
         error: null,
       });
+      if (userId) {
+        void clearOfflineTripCache(userId).catch(() => {});
+      }
     },
 
     addTripDay: async (date, city, label) => {

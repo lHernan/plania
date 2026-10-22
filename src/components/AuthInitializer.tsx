@@ -15,6 +15,7 @@ export function AuthInitializer() {
   const user = useAuthStore((s) => s.user);
 
   const activeTrip = useItineraryStore((s) => s.activeTrip);
+  const activeTripIsDraft = useItineraryStore((s) => s.activeTripIsDraft);
   const hasFetched = useItineraryStore((s) => s.hasFetched);
   const loading = useItineraryStore((s) => s.loading);
   const fetchAllTrips = useItineraryStore((s) => s.fetchAllTrips);
@@ -41,10 +42,16 @@ export function AuthInitializer() {
       return;
     }
 
+    // If a draft (unsaved template) is active, don't overwrite it with
+    // server data; the auto-save effect handles persistence on login.
+    if (activeTripIsDraft) {
+      return;
+    }
+
     clearData();
     void fetchAllTrips();
     void fetchActiveTrip();
-  }, [clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id]);
+  }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id]);
 
   useEffect(() => {
     if (activeTrip && pathname === "/") {

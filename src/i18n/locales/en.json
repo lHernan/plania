@@ -264,6 +264,13 @@
   "landing_sign_in_sync": "Sign In to Sync",
   "landing_logged_in_as": "Logged in as {email}",
   "landing_no_trips_yet": "No trips yet — create one above!",
+  "landing_create_from_scratch": "Create from scratch",
+  "landing_examples_title": "Example trips",
+  "landing_examples_subtitle": "Use a real trip as a template. Clone it and make it yours.",
+  "landing_use_template": "Use as template",
+  "landing_clone_success": "Trip cloned! Open it from your trips.",
+  "landing_template_loaded": "Template loaded. Sign in to save and edit it.",
+  "landing_clone_error": "Could not clone the trip. Try again.",
 
   "share_title": "Share trip",
   "share_invite_by_email": "Invite by email",
