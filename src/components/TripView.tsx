@@ -1627,10 +1627,10 @@ export function TripView() {
           {completedPastDays.length > 0 && (
             <button
               onClick={() => setShowCompletedDays(!showCompletedDays)}
-              className={`snap-center flex flex-col items-center justify-center min-w-[58px] h-[62px] py-1.5 px-2 rounded-2xl border transition-all duration-300 flex-shrink-0 gap-1 select-none hover:scale-[1.02] active:scale-[0.98] ${
+              className={`snap-center flex flex-col items-center justify-center min-w-[58px] h-[62px] py-1.5 px-2 rounded-2xl border transition-colors duration-150 flex-shrink-0 gap-1 select-none ${
                 showCompletedDays
-                  ? "bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-700 shadow shadow-emerald-900/5"
-                  : "bg-stone-50/50 dark:bg-stone-900/40 border-stone-100 dark:border-stone-800 text-stone-400 dark:text-stone-500 hover:bg-stone-100"
+                  ? "bg-[var(--color-primary-subtle)] border-[var(--color-primary)]/20 text-[var(--color-primary)]"
+                  : "bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)]"
               }`}
             >
               {showCompletedDays ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1638,7 +1638,7 @@ export function TripView() {
                 {showCompletedDays ? t("hide_past_days") : t("show_past_days")}
               </span>
               {completedPastDays.length > 0 && !showCompletedDays && (
-                <span className="text-[8px] font-black leading-none bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-1 py-0.5 rounded-md">
+                <span className="text-[8px] font-black leading-none bg-[var(--color-border)] text-[var(--color-text-secondary)] px-1 py-0.5 rounded-md">
                   {completedPastDays.length}
                 </span>
               )}
@@ -1652,23 +1652,23 @@ export function TripView() {
               <button
                 key={day.id}
                 onClick={() => setActiveDay(day.id)}
-                className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-all duration-300 relative border flex-shrink-0 ${
+                className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-colors duration-150 relative border flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40 focus-visible:ring-offset-2 ${
                   isActive
-                    ? "bg-stone-900 dark:bg-white text-white dark:text-stone-900 border-stone-900 dark:border-white shadow-lg -translate-y-0.5"
-                    : "bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 hover:bg-stone-50"
+                    ? "bg-[#246B57] text-white border-[#246B57]"
+                    : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-primary-subtle)]"
                 }`}
               >
-                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-emerald-700" : "text-stone-400"}`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-white/70" : "text-[var(--color-text-muted)]"}`}>
                   {format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
                 <span className="text-base font-black tracking-tight leading-none">
                   {format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
-                  <div className="absolute top-1.5 right-1.5 size-1 rounded-full bg-emerald-800" />
+                  <div className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[var(--color-primary)]" />
                 )}
                 {isActive && (
-                  <motion.div layoutId="date-active" className="absolute -bottom-0.5 size-1 bg-emerald-700 rounded-full shadow shadow-emerald-700/50" />
+                  <div className="absolute -bottom-0.5 size-1 bg-white rounded-full" />
                 )}
               </button>
             );
@@ -1677,7 +1677,7 @@ export function TripView() {
           {!isInvitee && (
             <button
               onClick={handleAddDay}
-              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-dashed border-emerald-200 dark:border-emerald-800 text-emerald-800 hover:bg-emerald-50 transition-all flex-shrink-0"
+              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-colors flex-shrink-0"
             >
               <Plus size={18} />
               <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
