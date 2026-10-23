@@ -882,6 +882,7 @@ export function TripView() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
+  const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   const savingDraftRef = useRef(false);
 
@@ -1686,164 +1687,124 @@ export function TripView() {
         </div>
       </header>
 
-      {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
-      {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
-      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
-      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
-      {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
-
-      {activeTrip && budgetSummary.total > 0 ? (
-        <div className="max-w-7xl mx-auto px-5 pt-4">
-          <div className="rounded-3xl border border-emerald-100 dark:border-emerald-900/60 bg-white/80 dark:bg-stone-900/60 p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-900 dark:text-emerald-700">{t("trip_budget_title")}</p>
-              {tripMapUrl ? (
-                <a
-                  href={tripMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-700 hover:underline"
-                >
-                  {t("trip_map_view")}
-                </a>
-              ) : null}
+      {/* Day Summary Bar */}
+      {activeDay && (
+        <div className="max-w-7xl mx-auto px-5 pt-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin size={14} className="text-[var(--color-text-muted)] shrink-0" />
+              <span className="text-sm font-bold text-[var(--color-text)] truncate">
+                {format(activeDay.date, "EEE, MMM d", { locale: dateFnsLocale })}
+              </span>
+              <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider truncate">{activeDay.city}</span>
             </div>
-            <div className="space-y-2">
-              <p className="text-2xl font-black text-stone-900 dark:text-white">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-stone-400">est.</span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {budgetSummary.perDay.map((d) => (
-                  <span key={d.date} className="text-[10px] font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 rounded-full px-2 py-1">
-                    {d.date}: {d.total.toFixed(2)}
-                  </span>
-                ))}
+            <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
+              {activeDay.activities.length} {activeDay.activities.length === 1 ? "activity" : "activities"}
+            </span>
+            <div className="flex items-center gap-2 flex-1 min-w-[80px] max-w-[160px]">
+              <div className="flex-1 h-1.5 bg-[var(--color-border)] rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${completion.dayPct}%` }}
+                  className="h-full bg-[var(--color-primary)] rounded-full"
+                />
               </div>
+              <span className="text-[10px] font-black text-[var(--color-text-secondary)] tabular-nums">{completion.dayPct}%</span>
+            </div>
+            {activeDay.activities.some(a => a.expectedCost) && (
+              <span className="text-xs font-bold text-[var(--color-text-secondary)] tabular-nums">
+                {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
+              </span>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              {!isInvitee && (
+                <>
+                  <button
+                    onClick={() => setShowAdd(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary)] text-white text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-hover)] transition-colors"
+                  >
+                    <Plus size={12} /> {t("add")}
+                  </button>
+                  <button
+                    onClick={() => runOptimizeDay(activeDayId, lang)}
+                    disabled={isOptimizing}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
+                  >
+                    {isOptimizing ? <div className="size-3 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={12} />}
+                    {t("day_genius")}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
-      {activeTrip && budgetSummary.total === 0 && tripMapUrl ? (
-        <div className="max-w-7xl mx-auto px-5 pt-4">
-          <a
-            href={tripMapUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-700 hover:underline px-1"
-          >
-            {t("trip_map_view")}
-          </a>
-        </div>
-      ) : null}
-
-      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 ios-compact-gap">
+      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div className="space-y-8">
           {/* DAY INTRO */}
           {activeDay ? (
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-2xl bg-emerald-900 flex items-center justify-center text-white shadow-lg shadow-emerald-900/20">
-                    <CalendarDays size={20} />
-                  </div>
-                  <h2 className="text-xl font-black text-stone-900 dark:text-white">
-                    {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2 ml-13">
-                  <MapPin size={12} className="text-stone-400" />
-                  <p className="text-xs font-bold text-stone-500 uppercase tracking-widest">{activeDay.city}</p>
+                <h2 className="text-xl font-black text-[var(--color-text)]">
+                  {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <MapPin size={12} className="text-[var(--color-text-muted)]" />
+                  <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest">{activeDay.city}</p>
                   {!isInvitee && (
-                    <button 
+                    <button
                       onClick={() => {
                         setEditingDay(activeDay);
                         setEditDayCity(activeDay.city);
                         setEditDayLabel(activeDay.label);
                       }}
-                      className="p-1 text-stone-300 hover:text-emerald-800 transition-colors"
+                      className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
                     >
                       <Edit2 size={10} />
                     </button>
                   )}
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {!isInvitee && (
-                  <button 
+                  <button
                     onClick={() => {
                       if (confirm("Delete this entire day and all its activities?")) {
                         removeTripDay(activeDayId);
                       }
                     }}
-                    className="size-8 rounded-xl bg-stone-50 dark:bg-stone-900 text-stone-400 hover:text-rose-500 flex items-center justify-center transition-all border border-stone-100 dark:border-stone-800"
+                    className="size-8 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] flex items-center justify-center transition-all border border-[var(--color-border)]"
                     title="Remove Day"
                   >
                     <Trash2 size={14} />
                   </button>
                 )}
-                <button 
-                  onClick={() => runOptimizeDay(activeDayId, lang)}
-                  disabled={isOptimizing || isInvitee}
-                  className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
-                >
-                  {isOptimizing ? <div className="size-3 border-2 border-fuchsia-600/20 border-t-fuchsia-600 rounded-full animate-spin" /> : <Sparkles size={12} />}
-                  {t("day_genius")}
-                </button>
-                <button 
+                <button
                   onClick={jumpToToday}
-                  className="px-4 py-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-700 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-all border border-emerald-100/50"
+                  className="px-4 py-2 rounded-2xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-subtle)]/80 transition-all"
                 >
                   {t("today")}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-12 rounded-[3rem] border-2 border-dashed border-stone-200 dark:border-stone-800 text-center space-y-4">
-              <div className="size-16 bg-stone-50 dark:bg-stone-900 rounded-3xl flex items-center justify-center mx-auto text-stone-300">
+            <div className="p-12 rounded-[3rem] border-2 border-dashed border-[var(--color-border)] text-center space-y-4">
+              <div className="size-16 bg-[var(--color-surface-subtle)] rounded-3xl flex items-center justify-center mx-auto text-[var(--color-text-muted)]">
                 <CalendarDays size={32} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-stone-900 dark:text-white">No days found</h3>
-                <p className="text-sm text-stone-400">Add your first destination to start planning.</p>
+                <h3 className="text-lg font-black text-[var(--color-text)]">No days found</h3>
+                <p className="text-sm text-[var(--color-text-muted)]">Add your first destination to start planning.</p>
               </div>
-              <button 
+              <button
                 onClick={handleAddDay}
-                className="px-6 py-3 rounded-2xl bg-emerald-900 text-white font-bold text-sm shadow-xl shadow-emerald-900/20"
+                className="px-6 py-3 rounded-2xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/20"
               >
                 Add Day 1
               </button>
-            </div>
-          )}
-
-          {activeDay && (
-            <div className="grid grid-cols-2 gap-4">
-                <div className="premium-card p-5 border-l-4 border-l-emerald-800">
-                    <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
-                    <div className="flex items-end justify-between">
-                        <span className="text-2xl font-black text-stone-900 dark:text-white">{completion.dayPct}%</span>
-                        <CheckCircle2 size={24} className="text-emerald-800 mb-1" />
-                    </div>
-                    <div className="w-full h-1 bg-stone-100 dark:bg-stone-800 rounded-full mt-3 overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${completion.dayPct}%` }}
-                          className="h-full bg-emerald-800 rounded-full"
-                        />
-                    </div>
-                </div>
-                <div className="premium-card p-5 border-l-4 border-l-purple-500">
-                    <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
-                    <div className="flex items-end justify-between">
-                        <span className="text-xl font-black text-stone-900 dark:text-white">
-                          {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
-                        </span>
-                        <CreditCard size={24} className="text-purple-500 mb-1" />
-                    </div>
-                    <p className="text-[10px] font-bold text-stone-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
-                </div>
             </div>
           )}
 
@@ -2255,6 +2216,55 @@ export function TripView() {
                   </div>
                 ))}
              </div>
+          </div>
+
+          {/* BUDGET SUMMARY */}
+          {activeTrip && budgetSummary.total > 0 && (
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
+                {tripMapUrl ? (
+                  <a
+                    href={tripMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] hover:underline"
+                  >
+                    {t("trip_map_view")}
+                  </a>
+                ) : null}
+              </div>
+              <p className="text-2xl font-black text-[var(--color-text)]">
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">est.</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {budgetSummary.perDay.map((d) => (
+                  <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
+                    {d.date}: {d.total.toFixed(2)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TRAVEL TOOLS — collapsible */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
+            <button
+              onClick={() => setShowTravelTools(!showTravelTools)}
+              className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+            >
+              <span>Travel Tools</span>
+              {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {showTravelTools && (
+              <div className="px-5 pb-5 space-y-4">
+                {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+                {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+                {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+                {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
+                {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
+              </div>
+            )}
           </div>
         </aside>
       </div>
