@@ -56,7 +56,7 @@ export function ChatPanel({ tripId }: { tripId: string }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={close}
-            className="fixed inset-0 z-[80] cursor-default bg-stone-950/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[80] cursor-default bg-[var(--color-text)]/40 backdrop-blur-sm"
           />
           <motion.section
             aria-label={t("travel_agent")}
@@ -64,40 +64,40 @@ export function ChatPanel({ tripId }: { tripId: string }) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            className="fixed inset-x-0 bottom-0 z-[90] mx-auto flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] border border-stone-200 bg-white shadow-2xl dark:border-stone-800 dark:bg-stone-950 md:bottom-6 md:rounded-[2rem]"
+            className="fixed inset-x-0 bottom-0 z-[90] mx-auto flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl md:bottom-6 md:rounded-[2rem]"
           >
-            <header className="flex items-center justify-between border-b border-stone-100 px-5 py-4 dark:border-stone-800">
+            <header className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <div className="flex size-10 items-center justify-center rounded-2xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)]">
                   <Bot size={20} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black text-stone-900 dark:text-white">{t("travel_agent")}</h2>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                  <h2 className="text-sm font-black text-[var(--color-text)]">{t("travel_agent")}</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                     {t("agent_read_only")}
                   </p>
                 </div>
               </div>
-              <button type="button" onClick={close} className="flex size-9 items-center justify-center rounded-full bg-stone-100 text-stone-500 dark:bg-stone-900">
+              <button type="button" onClick={close} className="flex size-9 items-center justify-center rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)]">
                 <X size={17} />
               </button>
             </header>
 
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
               {loadedTripId !== tripId || loadingHistory ? (
-                <div className="flex min-h-40 items-center justify-center text-stone-400">
+                <div className="flex min-h-40 items-center justify-center text-[var(--color-text-muted)]">
                   <Loader2 size={20} className="animate-spin" />
                 </div>
               ) : messages.length === 0 ? (
                 <div className="py-8 text-center">
-                  <Sparkles size={28} className="mx-auto mb-3 text-emerald-700" />
-                  <p className="text-sm font-bold text-stone-700 dark:text-stone-200">{t("agent_welcome")}</p>
-                  <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-stone-400">{t("agent_welcome_hint")}</p>
+                  <Sparkles size={28} className="mx-auto mb-3 text-[var(--color-accent-ai)]" />
+                  <p className="text-sm font-bold text-[var(--color-text)]">{t("agent_welcome")}</p>
+                  <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-[var(--color-text-muted)]">{t("agent_welcome_hint")}</p>
                 </div>
               ) : (
                 messages.map((message) => (
                   <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-emerald-900 text-white" : "rounded-bl-md bg-stone-100 text-stone-700 dark:bg-stone-900 dark:text-stone-200"}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-[var(--color-primary)] text-white" : "rounded-bl-md bg-[var(--color-surface-subtle)] text-[var(--color-text)]"}`}>
                       {message.content}
                       {message.actions && message.actions.length > 0 ? (
                         <div className="mt-2 border-t border-current/10 pt-2 text-[10px] font-bold uppercase tracking-wider opacity-70">
@@ -110,7 +110,7 @@ export function ChatPanel({ tripId }: { tripId: string }) {
               )}
               {sending ? (
                 <div className="flex justify-start">
-                  <div className="rounded-2xl rounded-bl-md bg-stone-100 px-4 py-3 text-stone-400 dark:bg-stone-900">
+                  <div className="rounded-2xl rounded-bl-md bg-[var(--color-surface-subtle)] px-4 py-3 text-[var(--color-text-muted)]">
                     <Loader2 size={16} className="animate-spin" />
                   </div>
                 </div>
@@ -118,16 +118,16 @@ export function ChatPanel({ tripId }: { tripId: string }) {
               <div ref={endRef} />
             </div>
 
-            {error ? <p className="px-5 pb-2 text-xs font-medium text-rose-500">{error}</p> : null}
+            {error ? <p className="px-5 pb-2 text-xs font-medium text-[var(--color-danger)]">{error}</p> : null}
 
-            <div className="border-t border-stone-100 px-5 py-3 dark:border-stone-800">
+            <div className="border-t border-[var(--color-border)] px-5 py-3">
               <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 {QUICK_PROMPTS.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
                     onClick={() => setInput(prompt)}
-                    className="shrink-0 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    className="shrink-0 rounded-full border border-[var(--color-primary)]/20 bg-[var(--color-primary-subtle)] px-3 py-1.5 text-[10px] font-bold text-[var(--color-primary)]"
                   >
                     {prompt}
                   </button>
@@ -145,13 +145,13 @@ export function ChatPanel({ tripId }: { tripId: string }) {
                   }}
                   rows={1}
                   placeholder={t("agent_input_placeholder")}
-                  className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-800 dark:border-stone-800 dark:bg-stone-900 dark:text-white"
+                  className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 text-[var(--color-text)]"
                 />
                 <button
                   type="submit"
                   disabled={sending || !input.trim()}
                   aria-label={t("send_message")}
-                  className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-900 text-white transition-all hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white transition-all hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Send size={17} />
                 </button>

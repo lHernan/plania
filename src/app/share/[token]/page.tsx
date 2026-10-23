@@ -97,18 +97,18 @@ export default function SharePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
-        <div className="size-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
+        <div className="size-10 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error || !info) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-6">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)] p-6">
         <div className="max-w-md w-full text-center space-y-4">
-          <AlertCircle className="mx-auto text-rose-500" size={40} />
-          <p className="text-sm font-bold text-stone-700 dark:text-stone-300">{error ?? "Enlace no válido"}</p>
+          <AlertCircle className="mx-auto text-[var(--color-danger)]" size={40} />
+          <p className="text-sm font-bold text-[var(--color-text-secondary)]">{error ?? "Enlace no válido"}</p>
         </div>
       </div>
     );
@@ -124,27 +124,27 @@ export default function SharePage() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-50 dark:bg-stone-950 p-4 md:p-8">
+    <main className="min-h-screen bg-[var(--color-bg)] p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-2 border-emerald-500/10 rounded-[2.5rem] p-6 md:p-8 space-y-4"
+          className="bg-[var(--color-surface)] backdrop-blur-xl border-2 border-[var(--color-primary)]/10 rounded-[2.5rem] p-6 md:p-8 space-y-4"
         >
           <div className="flex items-center gap-3">
-            <div className="size-12 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
-              <Sparkles className="text-emerald-500" size={22} />
+            <div className="size-12 bg-[var(--color-primary-subtle)] rounded-2xl flex items-center justify-center">
+              <Sparkles className="text-[var(--color-primary)]" size={22} />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl md:text-2xl font-black text-stone-900 dark:text-white truncate">{info.tripName}</h1>
-              <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+              <h1 className="text-xl md:text-2xl font-black text-[var(--color-text)] truncate">{info.tripName}</h1>
+              <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
                 {info.role === "editor" ? "Editor" : "Viewer"} · {info.startDate ?? ""}{info.endDate ? ` → ${info.endDate}` : ""}
               </p>
             </div>
           </div>
 
           {info.accepted && (
-            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+            <div className="flex items-center gap-2 text-[var(--color-primary)] text-sm font-bold">
               <CheckCircle2 size={16} /> Already accepted
             </div>
           )}
@@ -152,7 +152,7 @@ export default function SharePage() {
           <button
             onClick={handleAccept}
             disabled={accepting}
-            className="w-full bg-stone-900 dark:bg-white text-white dark:text-stone-900 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 min-h-[48px]"
+            className="w-full bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 min-h-[48px]"
           >
             {accepting ? <Loader2 className="animate-spin" size={18} /> : (
               <>
@@ -174,24 +174,24 @@ export default function SharePage() {
             {tripData.days.map((day) => {
               const acts = activitiesByDay.get(day.id) ?? [];
               return (
-                <div key={day.id} className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border border-stone-200 dark:border-stone-700 rounded-3xl p-5 space-y-3">
+                <div key={day.id} className="bg-[var(--color-surface)] backdrop-blur-xl border border-[var(--color-border)] rounded-3xl p-5 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-emerald-500" />
-                    <h2 className="text-sm font-black text-stone-900 dark:text-white">
+                    <Calendar size={14} className="text-[var(--color-primary)]" />
+                    <h2 className="text-sm font-black text-[var(--color-text)]">
                       {day.date} {day.city ? `· ${day.city}` : ""}
                     </h2>
-                    {day.label && <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{day.label}</span>}
+                    {day.label && <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{day.label}</span>}
                   </div>
                   {acts.length === 0 ? (
-                    <p className="text-xs text-stone-400 italic">Sin actividades</p>
+                    <p className="text-xs text-[var(--color-text-muted)] italic">Sin actividades</p>
                   ) : (
                     <ul className="space-y-2">
                       {acts.map((a) => (
-                        <li key={a.id} className="flex items-start gap-3 bg-stone-50 dark:bg-stone-800/50 rounded-2xl px-4 py-3">
-                          <Clock size={12} className="mt-0.5 text-stone-400 shrink-0" />
+                        <li key={a.id} className="flex items-start gap-3 bg-[var(--color-surface-subtle)] rounded-2xl px-4 py-3">
+                          <Clock size={12} className="mt-0.5 text-[var(--color-text-muted)] shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-stone-900 dark:text-white truncate">{a.title}</p>
-                            <p className="text-[10px] font-medium text-stone-400">
+                            <p className="text-sm font-bold text-[var(--color-text)] truncate">{a.title}</p>
+                            <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
                               {a.time}{a.duration_min ? ` · ${a.duration_min} min` : ""}{a.location ? ` · ${a.location}` : ""}
                             </p>
                           </div>

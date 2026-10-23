@@ -106,27 +106,27 @@ export function TripSwitcher() {
           }}
           className={`w-full flex items-center gap-3 px-4 pr-28 py-3.5 rounded-2xl transition-all text-left ios-compact-row ios-compact-gap ${
             isCurrentTrip
-              ? "bg-emerald-900 shadow-lg shadow-emerald-900/20"
-              : "bg-stone-50 dark:bg-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800"
+              ? "bg-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/20"
+              : "bg-[var(--color-surface-subtle)] hover:bg-[var(--color-border)]"
           }`}
         >
           <div className={`size-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-            isCurrentTrip ? "bg-white/20 text-white" : "bg-white dark:bg-stone-800 text-stone-400"
+            isCurrentTrip ? "bg-white/20 text-white" : "bg-[var(--color-surface)] text-[var(--color-text-muted)]"
           }`}>
             {isCurrentTrip ? <Check size={18} /> : <MapPin size={18} />}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <p className={`text-sm font-bold truncate ios-compact-title ${isCurrentTrip ? "text-white" : "text-stone-900 dark:text-white"}`}>
+              <p className={`text-sm font-bold truncate ios-compact-title ${isCurrentTrip ? "text-white" : "text-[var(--color-text)]"}`}>
                 {trip.name}
               </p>
               {timingBadge ? (
-                <span className={`text-[10px] font-black ios-compact-meta ${isCurrentTrip ? "text-white/80" : "text-stone-400"}`}>
+                <span className={`text-[10px] font-black ios-compact-meta ${isCurrentTrip ? "text-white/80" : "text-[var(--color-text-muted)]"}`}>
                   {timingBadge}
                 </span>
               ) : null}
             </div>
-            <p className={`text-[10px] font-medium mt-0.5 ios-compact-meta ${isCurrentTrip ? "text-white/70" : "text-stone-400"}`}>
+            <p className={`text-[10px] font-medium mt-0.5 ios-compact-meta ${isCurrentTrip ? "text-white/70" : "text-[var(--color-text-muted)]"}`}>
               {trip.dayCount} days / {trip.activityCount} activities
             </p>
           </div>
@@ -148,8 +148,8 @@ export function TripSwitcher() {
               isCurrentTrip
                 ? "text-white hover:bg-white/10"
                 : trip.isFavorite
-                  ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                  : "text-stone-300 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  ? "text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10"
             } ${favoriteBusyId === trip.id ? "opacity-70" : ""}`}
             aria-label={trip.isFavorite ? "Remove favorite trip" : "Set favorite trip"}
             title={trip.isFavorite ? "Remove favorite trip" : "Set favorite trip"}
@@ -165,7 +165,7 @@ export function TripSwitcher() {
             className={`flex size-11 items-center justify-center rounded-full transition-all ${
               isCurrentTrip
                 ? "text-white/50 hover:text-white hover:bg-white/10"
-                : "text-stone-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                : "text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
             }`}
             aria-label="Delete trip"
             title="Delete trip"
@@ -199,18 +199,18 @@ export function TripSwitcher() {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 280 }}
-            className="fixed inset-x-0 bottom-0 z-[210] bg-white dark:bg-stone-950 rounded-t-3xl flex flex-col ios-compact-shell"
+            className="fixed inset-x-0 bottom-0 z-[210] bg-[var(--color-surface)] rounded-t-3xl flex flex-col ios-compact-shell"
             style={{ maxHeight: "85dvh" }}
           >
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 rounded-full bg-stone-200 dark:bg-stone-700" />
+              <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
             </div>
 
-            <div className="flex items-center justify-between px-5 py-3 border-b border-stone-100 dark:border-stone-800 flex-shrink-0 ios-compact-row">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border)] flex-shrink-0 ios-compact-row">
               <div>
-                <span className="block text-sm font-black text-stone-900 dark:text-white tracking-tight ios-compact-title">My Trips</span>
+                <span className="block text-sm font-black text-[var(--color-text)] tracking-tight ios-compact-title">My Trips</span>
                 {tripSelection.ui.hints.default_selection_label ? (
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mt-1 ios-compact-meta">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-muted)] mt-1 ios-compact-meta">
                     {tripSelection.ui.hints.default_selection_label}
                   </span>
                 ) : null}
@@ -220,7 +220,7 @@ export function TripSwitcher() {
                   setIsOpen(false);
                   setShowCreate(false);
                 }}
-                className="size-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400"
+                className="size-8 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)]"
               >
                 <X size={16} />
               </button>
@@ -229,8 +229,8 @@ export function TripSwitcher() {
             <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-4 min-h-0">
               {trips.length === 0 && !loading ? (
                 <div className="py-10 text-center">
-                  <MapPin size={28} className="text-stone-300 mx-auto mb-3" />
-                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                  <MapPin size={28} className="text-[var(--color-text-muted)] mx-auto mb-3" />
+                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
                     {tripSelection.ui.hints.empty_state ?? "No trips yet"}
                   </p>
                 </div>
@@ -238,7 +238,7 @@ export function TripSwitcher() {
 
               {tripSelection.ui.sections[0].visible ? (
                 <section className="space-y-1.5">
-                  <p className="px-1 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400 ios-compact-meta">
+                  <p className="px-1 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-text-muted)] ios-compact-meta">
                     {tripSelection.ui.sections[0].title}
                   </p>
                   {groupedTrips.active.map((trip) => renderTripRow(trip, "active"))}
@@ -247,7 +247,7 @@ export function TripSwitcher() {
 
               {tripSelection.ui.sections[1].visible ? (
                 <section className="space-y-1.5">
-                  <p className="px-1 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400 ios-compact-meta">
+                  <p className="px-1 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-text-muted)] ios-compact-meta">
                     {tripSelection.ui.sections[1].title}
                   </p>
                   {groupedTrips.upcoming.map((trip) => renderTripRow(trip, "upcoming"))}
@@ -261,12 +261,12 @@ export function TripSwitcher() {
                     onClick={() => setShowPastTrips((current) => !current)}
                     className="w-full px-1 flex items-center justify-between text-left"
                   >
-                    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400 ios-compact-meta">
+                    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-text-muted)] ios-compact-meta">
                       {tripSelection.ui.sections[2].title}
                     </span>
                     <ChevronRight
                       size={14}
-                      className={`text-stone-400 transition-transform ${showPastTrips ? "rotate-90" : ""}`}
+                      className={`text-[var(--color-text-muted)] transition-transform ${showPastTrips ? "rotate-90" : ""}`}
                     />
                   </button>
                   {showPastTrips ? groupedTrips.past.map((trip) => renderTripRow(trip, "past")) : null}
@@ -278,8 +278,8 @@ export function TripSwitcher() {
               {sharedTrips.length > 0 && (
                 <section className="space-y-1.5">
                   <div className="px-1 flex items-center gap-1.5">
-                    <Share2 size={10} className="text-amber-600" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-600 ios-compact-meta">
+                    <Share2 size={10} className="text-[var(--color-warning)]" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-warning)] ios-compact-meta">
                       Compartidos conmigo
                     </p>
                   </div>
@@ -295,32 +295,32 @@ export function TripSwitcher() {
                           }}
                           className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all text-left ios-compact-row ios-compact-gap ${
                             isCurrentTrip
-                              ? "bg-amber-700 shadow-lg shadow-amber-700/20"
-                              : "bg-stone-50 dark:bg-stone-900 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                              ? "bg-[var(--color-warning)] shadow-lg shadow-[var(--color-warning)]/20"
+                              : "bg-[var(--color-surface-subtle)] hover:bg-[var(--color-warning)]/10"
                           }`}
                         >
                           <div className={`size-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            isCurrentTrip ? "bg-white/20 text-white" : "bg-amber-50 dark:bg-amber-900/30 text-amber-600"
+                            isCurrentTrip ? "bg-white/20 text-white" : "bg-[var(--color-warning)]/10 text-[var(--color-warning)]"
                           }`}>
                             {isCurrentTrip ? <Check size={18} /> : <Share2 size={16} />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 min-w-0">
                               <p className={`text-sm font-bold truncate ios-compact-title ${
-                                isCurrentTrip ? "text-white" : "text-stone-900 dark:text-white"
+                                isCurrentTrip ? "text-white" : "text-[var(--color-text)]"
                               }`}>
                                 {trip.name}
                               </p>
                               <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${
                                 isCurrentTrip
                                   ? "bg-white/20 text-white"
-                                  : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                                  : "bg-[var(--color-warning)]/10 text-[var(--color-warning)]"
                               }`}>
                                 Compartido
                               </span>
                             </div>
                             <p className={`text-[10px] font-medium mt-0.5 ios-compact-meta ${
-                              isCurrentTrip ? "text-white/70" : "text-stone-400"
+                              isCurrentTrip ? "text-white/70" : "text-[var(--color-text-muted)]"
                             }`}>
                               De: {trip.ownerEmail}
                             </p>
@@ -332,7 +332,7 @@ export function TripSwitcher() {
                 </section>
               )}
 
-            <div className="flex-shrink-0 border-t border-stone-100 dark:border-stone-800 px-4 pt-3 pb-8">
+            <div className="flex-shrink-0 border-t border-[var(--color-border)] px-4 pt-3 pb-8">
               {showCreate ? (
                 <form onSubmit={handleCreate} className="space-y-3">
                   <input
@@ -341,27 +341,27 @@ export function TripSwitcher() {
                     placeholder="Trip name, e.g. Tokyo 2026"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-4 py-3 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-800"
+                    className="w-full px-4 py-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1 mb-1 block">Start</label>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1 mb-1 block">Start</label>
                       <input
                         type="date"
                         min={todayStr}
                         value={newStartDate}
                         onChange={(e) => setNewStartDate(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-800"
+                        className="w-full px-3 py-2.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1 mb-1 block">End</label>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1 mb-1 block">End</label>
                       <input
                         type="date"
                         min={newStartDate || todayStr}
                         value={newEndDate}
                         onChange={(e) => setNewEndDate(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-800"
+                        className="w-full px-3 py-2.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                       />
                     </div>
                   </div>
@@ -369,14 +369,14 @@ export function TripSwitcher() {
                     <button
                       type="submit"
                       disabled={loading || !newName.trim()}
-                      className="flex-1 bg-emerald-900 text-white py-3.5 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 bg-[var(--color-primary)] text-white py-3.5 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {loading ? <Loader2 size={14} className="animate-spin" /> : "Create Trip"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCreate(false)}
-                      className="px-5 py-3.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-500 text-xs font-bold"
+                      className="px-5 py-3.5 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold"
                     >
                       Cancel
                     </button>
@@ -385,7 +385,7 @@ export function TripSwitcher() {
               ) : (
                 <button
                   onClick={() => setShowCreate(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all"
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 border-dashed border-[var(--color-primary)]/30 text-[var(--color-primary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-primary-subtle)] transition-all"
                 >
                   <Plus size={16} />
                   New Trip
@@ -405,12 +405,12 @@ export function TripSwitcher() {
         className="flex items-center gap-1.5 max-w-[180px] md:max-w-[220px]"
       >
         <div className="flex flex-col items-start min-w-0">
-          <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 leading-none mb-0.5 ios-compact-meta">Current Trip</span>
-          <span className="text-sm font-black text-stone-900 dark:text-white truncate max-w-[140px] md:max-w-[180px] leading-tight ios-compact-title">
+          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] leading-none mb-0.5 ios-compact-meta">Current Trip</span>
+          <span className="text-sm font-black text-[var(--color-text)] truncate max-w-[140px] md:max-w-[180px] leading-tight ios-compact-title">
             {activeTrip?.name ?? "Select a Trip"}
           </span>
         </div>
-        <ChevronDown size={14} className={`text-stone-400 transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown size={14} className={`text-[var(--color-text-muted)] transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {typeof document !== "undefined" ? createPortal(sheet, document.body) : null}

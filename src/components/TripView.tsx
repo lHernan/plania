@@ -89,7 +89,7 @@ const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: 
   reservation: { icon: CheckCircle2, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
   transport: { icon: Plane, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
   hotel: { icon: Bed, color: "text-[#966B32]", bg: "bg-[#966B32]/10" },
-  food: { icon: Utensils, color: "text-rose-600", bg: "bg-rose-50" },
+  food: { icon: Utensils, color: "text-[#B54747]", bg: "bg-[#B54747]/10" },
   shopping: { icon: ShoppingBag, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
   photos: { icon: Camera, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
   nightlife: { icon: Music, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
@@ -233,7 +233,7 @@ function SortableActivityCard({
             </span>
             {!completed && activity.timeInferred && (
               <span 
-                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-[4px] text-[7.5px] font-black uppercase tracking-widest bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30 cursor-help select-none hover:scale-105 active:scale-95 transition-all pointer-events-auto"
+                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-[4px] text-[7.5px] font-black uppercase tracking-widest bg-[var(--color-warning)]/10 text-[var(--color-warning)] border border-[var(--color-warning)]/20 cursor-help select-none hover:scale-105 active:scale-95 transition-all pointer-events-auto"
                 title={t("confidence_tooltip", { confidence: Math.round((activity.timeConfidence || 0.85) * 100) })}
               >
                 ✨ {t("suggested_time")}
@@ -387,12 +387,12 @@ function ActivityFilesSection({
   };
 
   const getOfflineBadgeCopy = (status: DocumentOfflineStatus) => {
-    if (status === "available") return { label: t("offline_available"), tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" };
-    if (status === "pending") return { label: t("offline_caching"), tone: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" };
-    if (status === "failed") return { label: t("offline_failed"), tone: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" };
+    if (status === "available") return { label: t("offline_available"), tone: "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" };
+    if (status === "pending") return { label: t("offline_caching"), tone: "bg-[var(--color-warning)]/10 text-[var(--color-warning)]" };
+    if (status === "failed") return { label: t("offline_failed"), tone: "bg-[var(--color-danger)]/10 text-[var(--color-danger)]" };
     return {
       label: isOnline ? t("offline_not_cached") : t("offline_unavailable"),
-      tone: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300",
+      tone: "bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)]",
     };
   };
 
@@ -416,7 +416,7 @@ function ActivityFilesSection({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={loading}
-          className="text-[10px] font-black uppercase tracking-widest text-emerald-800 hover:text-emerald-900 disabled:opacity-50 flex items-center gap-1 bg-emerald-50 dark:bg-[var(--color-primary)]/20 px-3 py-1 rounded-full transition-all"
+          className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] disabled:opacity-50 flex items-center gap-1 bg-[var(--color-primary-subtle)] px-3 py-1 rounded-full transition-all"
         >
           <Plus size={12} /> {t("add_file")}
         </button>
@@ -434,10 +434,10 @@ function ActivityFilesSection({
         {files.map((file) => (
           <div
             key={file.id}
-            className="group relative bg-[var(--color-surface)] rounded-2xl p-3 border border-stone-100 border-[var(--color-border)] flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
+            className="group relative bg-[var(--color-surface)] rounded-2xl p-3 border border-[var(--color-border)] border-[var(--color-border)] flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
           >
             <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
-              file.fileType === "pdf" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
+              file.fileType === "pdf" ? "bg-[var(--color-danger)]/10 text-[var(--color-danger)]" : "bg-[var(--color-transport)]/10 text-[var(--color-transport)]"
             }`}>
               {file.fileType === "pdf" ? <FileText size={20} /> : <Camera size={20} />}
             </div>
@@ -449,7 +449,7 @@ function ActivityFilesSection({
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => handlePreview(file)}
-                  className="text-[10px] font-bold text-emerald-800 hover:underline uppercase tracking-wider"
+                  className="text-[10px] font-bold text-[var(--color-primary)] hover:underline uppercase tracking-wider"
                 >
                   {t("view_file")}
                 </button>
@@ -462,7 +462,7 @@ function ActivityFilesSection({
             <button
               onClick={() => handleOfflineDownload(file)}
               disabled={offlineStatuses[file.id] === "pending" || !isOnline}
-              className="shrink-0 rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--color-text-secondary)] transition-all hover:border-emerald-200 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:text-stone-300"
+              className="shrink-0 rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {offlineStatuses[file.id] === "available" ? t("offline_ready_short") : t("download_offline")}
             </button>
@@ -474,7 +474,7 @@ function ActivityFilesSection({
                   deleteFile(file.id);
                 }
               }}
-              className="absolute top-2 right-2 p-1 text-stone-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-2 right-2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors opacity-0 group-hover:opacity-100"
             >
               <Trash2 size={12} />
             </button>
@@ -482,7 +482,7 @@ function ActivityFilesSection({
         ))}
         
         {files.length === 0 && !loading && (
-          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-stone-100 border-[var(--color-border)]">
+          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-[var(--color-border)] border-[var(--color-border)]">
             <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
               {t("no_attachments_hint")}
             </p>
@@ -491,7 +491,7 @@ function ActivityFilesSection({
 
         {loading && (
           <div className="col-span-full py-6 flex items-center justify-center">
-            <Loader2 size={20} className="text-emerald-800 animate-spin" />
+            <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
           </div>
         )}
       </div>
@@ -540,13 +540,13 @@ function ActivityEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-white dark:bg-stone-950 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
+        className="relative w-full max-w-2xl bg-white dark:bg-[var(--color-bg)] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-[var(--color-text-muted)]" /></button>
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-[var(--color-text-muted)]" /></button>
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-[var(--color-surface-subtle)] hover:bg-[var(--color-surface-subtle)] transition-colors z-[60] hidden md:block"><X size={20} className="text-[var(--color-text-muted)]" /></button>
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-[var(--color-surface-subtle)] hover:bg-[var(--color-surface-subtle)] transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-[var(--color-text-muted)]" /></button>
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-stone-200 dark:bg-stone-800" />
+            <div className="w-12 h-1.5 rounded-full bg-[var(--color-border)]" />
           </div>
 
           <div className="space-y-8">
@@ -555,7 +555,7 @@ function ActivityEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none pb-2 border-b-2 border-transparent focus:border-[var(--color-primary)]/30 transition-all font-sans"
                 placeholder={t("adventure_title_placeholder")}
               />
             </div>
@@ -572,8 +572,8 @@ function ActivityEditModal({
                     onClick={() => setLocalCategory(cat)}
                     className={`snap-center flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border ${
                       isSel 
-                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-emerald-800/20 ring-offset-2 ring-offset-white dark:ring-offset-stone-950` 
-                        : "bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-stone-100"
+                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-[var(--color-primary)]/20 ring-offset-2 ring-offset-white` 
+                        : "bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-subtle)]"
                     }`}
                   >
                     <Icon size={14} strokeWidth={isSel ? 3 : 2} />
@@ -585,7 +585,7 @@ function ActivityEditModal({
 
             {/* Time & Duration */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
                 <input
                   type="time"
@@ -594,7 +594,7 @@ function ActivityEditModal({
                   className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 block">{t("duration_mins")}</label>
                 <div className="flex items-center gap-1">
                   <input
@@ -603,14 +603,14 @@ function ActivityEditModal({
                     onChange={(e) => setLocalDuration(parseInt(e.target.value) || 0)}
                     className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
-                  <span className="text-[10px] font-black text-stone-300">{t("mins_short")}</span>
+                  <span className="text-[10px] font-black text-[var(--color-text-muted)]">{t("mins_short")}</span>
                 </div>
               </div>
             </div>
 
             {/* Location & Cost */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
                 <input
                   type="text"
@@ -620,7 +620,7 @@ function ActivityEditModal({
                   className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
                 <div className="flex items-center gap-1">
                   <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
@@ -635,7 +635,7 @@ function ActivityEditModal({
             </div>
 
             {/* Notes */}
-            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)] relative">
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)] relative">
               <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
 
               <textarea
@@ -656,16 +656,16 @@ function ActivityEditModal({
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-stone-100 border-[var(--color-border)]/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-[var(--color-border)] border-[var(--color-border)]/50 bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] flex gap-3 pb-safe">
            <button 
              onClick={() => { onDelete(); onClose(); }}
-             className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
+             className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-danger)]/10 text-[var(--color-danger)] flex items-center justify-center hover:bg-[var(--color-danger)]/20 transition-colors"
            >
              <Trash2 size={20} />
            </button>
            <button 
              onClick={() => { onDuplicate(); onClose(); }}
-             className="size-14 shrink-0 rounded-[1.5rem] bg-emerald-50 dark:bg-[var(--color-primary)]/20 text-emerald-900 items-center justify-center hover:bg-emerald-50 transition-colors hidden md:flex"
+             className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-primary-subtle)] dark:bg-[var(--color-primary)]/20 text-[var(--color-primary)] items-center justify-center hover:bg-[var(--color-primary-subtle)] transition-colors hidden md:flex"
            >
              <Plus size={24} />
            </button>
@@ -682,7 +682,7 @@ function ActivityEditModal({
                 });
                 onClose();
              }}
-             className="flex-1 rounded-[1.5rem] bg-stone-900 dark:bg-white text-white dark:text-stone-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+             className="flex-1 rounded-[1.5rem] bg-[var(--color-text)] dark:bg-white text-white dark:text-[var(--color-text)] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
              {t("save_changes")}
            </button>
@@ -732,11 +732,11 @@ function ReservationEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-stone-950 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
+        className="relative w-full max-w-lg bg-white dark:bg-[var(--color-bg)] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-stone-200 dark:bg-stone-800" />
+            <div className="w-12 h-1.5 rounded-full bg-[var(--color-border)]" />
           </div>
 
           <div className="space-y-6">
@@ -744,13 +744,13 @@ function ReservationEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none pb-2 border-b-2 border-transparent focus:border-[var(--color-primary)]/30 transition-all font-sans"
                 placeholder={t("reservation_title_placeholder")}
                 autoFocus
               />
             </div>
 
-            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
               <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
               <input
                 type="date"
@@ -763,7 +763,7 @@ function ReservationEditModal({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
                 <input
                   type="date"
@@ -775,7 +775,7 @@ function ReservationEditModal({
                 />
               </div>
 
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
                 <div className="flex items-center gap-1">
                   <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
@@ -789,7 +789,7 @@ function ReservationEditModal({
               </div>
             </div>
 
-            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
               <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
               <input
                 type="url"
@@ -803,11 +803,11 @@ function ReservationEditModal({
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-stone-100 border-[var(--color-border)]/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-[var(--color-border)] border-[var(--color-border)]/50 bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] flex gap-3 pb-safe">
            {!isNew && (
              <button 
                onClick={() => { onDelete(); onClose(); }}
-               className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
+               className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-danger)]/10 text-[var(--color-danger)] flex items-center justify-center hover:bg-[var(--color-danger)]/20 transition-colors"
              >
                <Trash2 size={20} />
              </button>
@@ -822,7 +822,7 @@ function ReservationEditModal({
                   price: localPrice
                 });
              }}
-             className="flex-1 rounded-[1.5rem] bg-stone-900 dark:bg-white text-white dark:text-stone-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+             className="flex-1 rounded-[1.5rem] bg-[var(--color-text)] dark:bg-white text-white dark:text-[var(--color-text)] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
              {t("save_reservation")}
            </button>
@@ -1479,9 +1479,9 @@ export function TripView() {
 
   if (!isMounted || (loading && !activeTrip)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="size-12 border-4 border-emerald-900/20 border-t-emerald-900 rounded-full animate-spin" />
+          <div className="size-12 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
           <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Loading\u2026</p>
         </div>
       </div>
@@ -1490,16 +1490,16 @@ export function TripView() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] p-8 text-center">
         <div className="premium-card p-12 max-w-md">
-          <div className="size-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Info className="text-rose-600" size={32} />
+          <div className="size-16 bg-[var(--color-danger)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Info className="text-[var(--color-danger)]" size={32} />
           </div>
-          <h2 className="text-xl font-black text-stone-900 mb-2">{t("connection_issue")}</h2>
+          <h2 className="text-xl font-black text-[var(--color-text)] mb-2">{t("connection_issue")}</h2>
           <p className="text-[var(--color-text-secondary)] text-sm mb-8">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full bg-stone-900 text-white rounded-2xl py-4 font-bold"
+            className="w-full bg-[var(--color-text)] text-white rounded-2xl py-4 font-bold"
           >
             {t("retry_connection")}
           </button>
@@ -1509,10 +1509,10 @@ export function TripView() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-50 dark:bg-stone-950 pb-32 ios-compact-shell">
+    <main className="min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] pb-32 ios-compact-shell">
       {activeTripIsDraft && (
-        <div className="sticky top-0 z-50 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+        <div className="sticky top-0 z-50 bg-[var(--color-warning)]/10 border-b border-[var(--color-warning)]/20 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-[var(--color-warning)]">
             Estás viendo un viaje de ejemplo. Inicia sesión para guardarlo y editarlo.
           </p>
           <button
@@ -1524,7 +1524,7 @@ export function TripView() {
               const res = await saveDraft();
               if (res.error) alert(res.error);
             }}
-            className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-700 transition-all min-h-[36px]"
+            className="px-4 py-2 bg-[var(--color-warning)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-warning)]/90 transition-all min-h-[36px]"
           >
             Guardar
           </button>
@@ -1934,7 +1934,7 @@ export function TripView() {
                      {sortedActivities.length === 0 && (
                       <div className="py-24 text-center">
                         <div className="size-24 bg-[var(--color-surface)] border-2 border-dashed border-[var(--color-border)] rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
-                          <Plane className="text-stone-200" size={40} />
+                          <Plane className="text-[var(--color-text-muted)]" size={40} />
                         </div>
                         <h3 className="text-xl font-black text-[var(--color-text)]">
                           {t("where_to_first")}
@@ -2347,7 +2347,7 @@ export function TripView() {
                   {t("cancel")}
                 </button>
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-[var(--color-primary)] text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-[var(--color-primary)] text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-[var(--color-primary)]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                   onClick={() => {
                     if (!newTitle.trim() || !activeDay) return;
                     addActivity({
@@ -2469,7 +2469,7 @@ export function TripView() {
                     type="text" 
                     value={editDayCity}
                     onChange={(e) => setEditDayCity(e.target.value)}
-                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
+                    className="w-full bg-[var(--color-surface-subtle)] border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -2478,7 +2478,7 @@ export function TripView() {
                     type="text" 
                     value={editDayLabel}
                     onChange={(e) => setEditDayLabel(e.target.value)}
-                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
+                    className="w-full bg-[var(--color-surface-subtle)] border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -2493,7 +2493,7 @@ export function TripView() {
                   </button>
                   <button 
                     onClick={() => setEditingDay(null)}
-                    className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-stone-200 transition-all"
+                    className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-border)] transition-all"
                   >
                     Cancel
                   </button>
@@ -2538,7 +2538,7 @@ export function TripView() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
-              toast.type === "success" ? "bg-stone-900 text-white" : "bg-rose-500 text-white"
+              toast.type === "success" ? "bg-[var(--color-text)] text-white" : "bg-[var(--color-danger)] text-white"
             }`}
           >
             {toast.msg}
