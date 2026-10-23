@@ -85,15 +85,15 @@ import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
-  sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-  reservation: { icon: CheckCircle2, color: "text-emerald-900", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-  transport: { icon: Plane, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-  hotel: { icon: Bed, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20" },
-  food: { icon: Utensils, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20" },
-  shopping: { icon: ShoppingBag, color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
-  photos: { icon: Camera, color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-900/20" },
-  nightlife: { icon: Music, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/20" },
-  other: { icon: Info, color: "text-stone-500", bg: "bg-stone-100 dark:bg-stone-800" },
+  sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
+  reservation: { icon: CheckCircle2, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
+  transport: { icon: Plane, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
+  hotel: { icon: Bed, color: "text-[#966B32]", bg: "bg-[#966B32]/10" },
+  food: { icon: Utensils, color: "text-rose-600", bg: "bg-rose-50" },
+  shopping: { icon: ShoppingBag, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
+  photos: { icon: Camera, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
+  nightlife: { icon: Music, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
+  other: { icon: Info, color: "text-[var(--color-text-muted)]", bg: "bg-[var(--color-surface-subtle)]" },
 };
 
 const getCategoryStyle = (category: string) =>
@@ -184,10 +184,10 @@ function SortableActivityCard({
       }}
       exit={{ opacity: 0, scale: 0.95 }}
       layout
-      className={`group premium-card overflow-hidden transition-all duration-500 ease-in-out ${
-        completed 
-          ? "bg-stone-50/50 dark:bg-stone-900/40 border-stone-200/40" 
-          : "border-white/20 shadow-lg hover:shadow-emerald-900/5 cursor-pointer"
+      className={`group overflow-hidden rounded-2xl border transition-all duration-300 ${
+        completed
+          ? "bg-[var(--color-surface-subtle)] opacity-60 border-[var(--color-border)]"
+          : "bg-[var(--color-surface)] border-[var(--color-border)] shadow-sm hover:shadow-md hover:border-[var(--color-border-strong)] cursor-pointer"
       }`}
       onClick={onEdit}
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
@@ -203,21 +203,21 @@ function SortableActivityCard({
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-white dark:bg-stone-900"
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-[var(--color-surface-subtle)] rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-[var(--color-surface)]"
         >
           <div className="grid grid-cols-2 gap-1 px-1">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="size-1 rounded-full bg-stone-300 dark:bg-stone-600" />
+              <div key={i} className="size-1 rounded-full bg-[var(--color-border-strong)]" />
             ))}
           </div>
         </div>
 
         {/* TIME & ICON GROUP */}
         <div className="flex flex-col items-center gap-2 shrink-0 ml-4 md:ml-6 pointer-events-none">
-          <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-            completed 
-              ? "bg-stone-200 dark:bg-stone-800 text-stone-400" 
-              : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color} shadow-sm group-hover:scale-110`
+          <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+            completed
+              ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
+              : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color}`
           }`}>
             {(() => {
               const Icon = getCategoryStyle(activity.category).icon;
@@ -227,7 +227,7 @@ function SortableActivityCard({
           
           <div className="flex flex-col items-center gap-1">
             <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
-              completed ? "text-stone-400" : "text-stone-900 dark:text-stone-100"
+              completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text)]"
             }`}>
               {activity.time}
             </span>
@@ -246,41 +246,41 @@ function SortableActivityCard({
         <div className="flex-1 min-w-0 py-1">
           <div className="flex items-center gap-2 mb-1">
              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
-                completed 
-                  ? "bg-stone-100 dark:bg-stone-800 text-stone-400" 
+                completed
+                  ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
                   : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color}`
              }`}>
               {t(activity.category)}
             </span>
-            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest tabular-nums">
+            <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-widest tabular-nums">
               ┬À {activity.durationMin}{t("mins_short")}
             </span>
           </div>
           
           <h4
             className={`text-base font-extrabold leading-tight transition-all truncate ${
-              completed ? "text-stone-400 line-through" : "text-stone-900 dark:text-white"
+              completed ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"
             }`}
           >
             {activity.title}
           </h4>
           
           <div className="flex items-center gap-1.5 mt-2">
-            <MapPin size={12} className={completed ? "text-stone-300" : "text-stone-400 shrink-0"} />
+            <MapPin size={12} className={completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-muted)] shrink-0"} />
             {activity.location ? (
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   const url = activity.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location as string)}`;
                   window.open(url, "_blank");
                 }}
-                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-stone-300" : "text-emerald-800 dark:text-emerald-700 hover:text-emerald-900"}`}
+                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"}`}
               >
                 {activity.location}
                 <ExternalLink size={10} className="shrink-0" />
               </button>
             ) : (
-              <span className={`text-xs font-medium truncate ${completed ? "text-stone-300" : "text-stone-500 dark:text-stone-400"}`}>
+              <span className={`text-xs font-medium truncate ${completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-secondary)]"}`}>
                 {t("location_pending")}
               </span>
             )}
@@ -295,13 +295,13 @@ function SortableActivityCard({
               e.stopPropagation();
               updateState(dayId, activity.id, completed ? "pending" : "completed");
             }}
-            className={`size-12 md:size-10 rounded-[1.2rem] md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2 ${
-              completed 
-                ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
-                : "border-stone-200 dark:border-stone-800 hover:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 active:scale-95"
+            className={`size-12 md:size-10 rounded-[1.2rem] md:rounded-2xl flex items-center justify-center transition-all duration-300 border-2 ${
+              completed
+                ? "bg-[var(--color-success)] border-[var(--color-success)] text-white shadow-lg shadow-[var(--color-success)]/20"
+                : "border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] active:scale-95"
             }`}
           >
-            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-stone-300 md:text-stone-200"} />
+            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-[var(--color-border-strong)]"} />
           </button>
         </div>
       </div>
@@ -1809,35 +1809,35 @@ export function TripView() {
           )}
 
           {shoppingUi.show_suggestions_card && visibleShoppingSuggestions.length > 0 && (
-            <div className="premium-card p-6 border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-stone-900">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600">Good opportunity today</p>
-                  <h3 className="mt-2 text-lg font-black text-stone-900 dark:text-white">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">Good opportunity today</p>
+                  <h3 className="mt-2 text-lg font-black text-[var(--color-text)]">
                     {visibleShoppingSuggestions[0].title}
                   </h3>
-                  <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                     {visibleShoppingSuggestions[0].reason}
                   </p>
                   {visibleShoppingSuggestions[0].location_suggestions[0] && (
-                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-stone-400">
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                       {visibleShoppingSuggestions[0].location_suggestions[0].name}
                       {visibleShoppingSuggestions[0].location_suggestions[0].area ? ` · ${visibleShoppingSuggestions[0].location_suggestions[0].area}` : ""}
                     </p>
                   )}
                 </div>
-                <ShoppingBag className="shrink-0 text-emerald-500" size={28} />
+                <ShoppingBag className="shrink-0 text-[var(--color-primary)]" size={28} />
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   onClick={() => void handleShoppingPlanAdd(visibleShoppingSuggestions[0])}
-                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20"
+                  className="rounded-2xl bg-[var(--color-primary)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[var(--color-primary)]/20"
                 >
                   Add to plan
                 </button>
                 <button
                   onClick={() => void handleIgnoreShoppingSuggestion(visibleShoppingSuggestions[0])}
-                  className="rounded-2xl border border-stone-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300"
+                  className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]"
                 >
                   Ignore
                 </button>
@@ -1852,7 +1852,7 @@ export function TripView() {
             >
               <div className="space-y-10 relative">
                 {/* Visual Timeline Line */}
-                <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-stone-100 dark:bg-stone-800 hidden md:block" />
+                <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-[var(--color-border)] hidden md:block" />
 
                 <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
                   <motion.div
@@ -1873,8 +1873,8 @@ export function TripView() {
                     {sortedActivities.some(a => a.state !== "completed") && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-emerald-800 shadow-lg shadow-emerald-900/50" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">{t("scheduled_adventure")}</h3>
+                           <div className="size-2 rounded-full bg-[var(--color-primary)]" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-secondary)]">{t("scheduled_adventure")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
@@ -1889,7 +1889,7 @@ export function TripView() {
                                  />
                                  <button
                                    onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-emerald-900 text-white flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-colors"
+                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-lg hover:bg-[var(--color-primary-hover)] transition-colors"
                                    title="Comentarios"
                                  >
                                    <MessageCircle size={12} />
@@ -1904,8 +1904,8 @@ export function TripView() {
                     {sortedActivities.some(a => a.state === "completed") && (
                       <div className="space-y-4 opacity-70">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-stone-300" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">{t("memory_lane")}</h3>
+                           <div className="size-2 rounded-full bg-[var(--color-text-muted)]" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-muted)]">{t("memory_lane")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
@@ -1920,7 +1920,7 @@ export function TripView() {
                                />
                                <button
                                  onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-emerald-900 text-white flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-colors"
+                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-lg hover:bg-[var(--color-primary-hover)] transition-colors"
                                  title="Comentarios"
                                >
                                  <MessageCircle size={12} />
