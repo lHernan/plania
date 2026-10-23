@@ -410,13 +410,13 @@ function ActivityFilesSection({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-1">
+        <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] flex items-center gap-1">
           <FileText size={12} /> {t("attachments")}
         </label>
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={loading}
-          className="text-[10px] font-black uppercase tracking-widest text-emerald-800 hover:text-emerald-900 disabled:opacity-50 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded-full transition-all"
+          className="text-[10px] font-black uppercase tracking-widest text-emerald-800 hover:text-emerald-900 disabled:opacity-50 flex items-center gap-1 bg-emerald-50 dark:bg-[var(--color-primary)]/20 px-3 py-1 rounded-full transition-all"
         >
           <Plus size={12} /> {t("add_file")}
         </button>
@@ -434,7 +434,7 @@ function ActivityFilesSection({
         {files.map((file) => (
           <div
             key={file.id}
-            className="group relative bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-100 dark:border-stone-800 flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
+            className="group relative bg-[var(--color-surface)] rounded-2xl p-3 border border-stone-100 border-[var(--color-border)] flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
           >
             <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
               file.fileType === "pdf" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
@@ -443,7 +443,7 @@ function ActivityFilesSection({
             </div>
             
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-stone-900 dark:text-white truncate pr-6" title={file.fileName}>
+              <p className="text-xs font-bold text-[var(--color-text)] truncate pr-6" title={file.fileName}>
                 {file.fileName}
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -462,7 +462,7 @@ function ActivityFilesSection({
             <button
               onClick={() => handleOfflineDownload(file)}
               disabled={offlineStatuses[file.id] === "pending" || !isOnline}
-              className="shrink-0 rounded-full border border-stone-200 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-stone-500 transition-all hover:border-emerald-200 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:text-stone-300"
+              className="shrink-0 rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--color-text-secondary)] transition-all hover:border-emerald-200 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:text-stone-300"
             >
               {offlineStatuses[file.id] === "available" ? t("offline_ready_short") : t("download_offline")}
             </button>
@@ -482,8 +482,8 @@ function ActivityFilesSection({
         ))}
         
         {files.length === 0 && !loading && (
-          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-stone-100 dark:border-stone-800">
-            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-stone-100 border-[var(--color-border)]">
+            <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
               {t("no_attachments_hint")}
             </p>
           </div>
@@ -531,7 +531,7 @@ function ActivityEditModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-stone-950/60 backdrop-blur-xl"
+        className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
       />
       
       <motion.div
@@ -542,8 +542,8 @@ function ActivityEditModal({
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-2xl bg-white dark:bg-stone-950 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-stone-400" /></button>
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-stone-400" /></button>
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-[var(--color-text-muted)]" /></button>
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-stone-50 hover:bg-stone-100 dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-[var(--color-text-muted)]" /></button>
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
             <div className="w-12 h-1.5 rounded-full bg-stone-200 dark:bg-stone-800" />
@@ -555,7 +555,7 @@ function ActivityEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-stone-900 dark:text-white placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
                 placeholder={t("adventure_title_placeholder")}
               />
             </div>
@@ -573,7 +573,7 @@ function ActivityEditModal({
                     className={`snap-center flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border ${
                       isSel 
                         ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-emerald-800/20 ring-offset-2 ring-offset-white dark:ring-offset-stone-950` 
-                        : "bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-500 hover:bg-stone-100"
+                        : "bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-stone-100"
                     }`}
                   >
                     <Icon size={14} strokeWidth={isSel ? 3 : 2} />
@@ -585,23 +585,23 @@ function ActivityEditModal({
 
             {/* Time & Duration */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
                 <input
                   type="time"
                   value={localTime}
                   onChange={(e) => setLocalTime(e.target.value)}
-                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
-              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 block">{t("duration_mins")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 block">{t("duration_mins")}</label>
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
                     value={localDuration}
                     onChange={(e) => setLocalDuration(parseInt(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
                   <span className="text-[10px] font-black text-stone-300">{t("mins_short")}</span>
                 </div>
@@ -610,39 +610,39 @@ function ActivityEditModal({
 
             {/* Location & Cost */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
                 <input
                   type="text"
                   value={localLocation}
                   onChange={(e) => setLocalLocation(e.target.value)}
                   placeholder={t("location_placeholder")}
-                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
-              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-stone-400">$</span>
+                  <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
                   <input
                     type="number"
                     value={localCost}
                     onChange={(e) => setLocalCost(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
                 </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800 relative">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)] relative">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
 
               <textarea
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
                 placeholder={t("notes_placeholder")}
-                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-stone-900 dark:text-white leading-relaxed"
+                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-[var(--color-text)] leading-relaxed"
               />
             </div>
 
@@ -656,7 +656,7 @@ function ActivityEditModal({
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-stone-100 dark:border-stone-800/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-stone-100 border-[var(--color-border)]/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
            <button 
              onClick={() => { onDelete(); onClose(); }}
              className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
@@ -665,7 +665,7 @@ function ActivityEditModal({
            </button>
            <button 
              onClick={() => { onDuplicate(); onClose(); }}
-             className="size-14 shrink-0 rounded-[1.5rem] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 items-center justify-center hover:bg-emerald-50 transition-colors hidden md:flex"
+             className="size-14 shrink-0 rounded-[1.5rem] bg-emerald-50 dark:bg-[var(--color-primary)]/20 text-emerald-900 items-center justify-center hover:bg-emerald-50 transition-colors hidden md:flex"
            >
              <Plus size={24} />
            </button>
@@ -723,7 +723,7 @@ function ReservationEditModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-stone-950/60 backdrop-blur-xl"
+        className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
       />
       
       <motion.div
@@ -744,66 +744,66 @@ function ReservationEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-stone-900 dark:text-white placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none pb-2 border-b-2 border-transparent focus:border-emerald-800/30 transition-all font-sans"
                 placeholder={t("reservation_title_placeholder")}
                 autoFocus
               />
             </div>
 
-            <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
               <input
                 type="date"
                 min={todayStr}
                 value={localDate}
                 onChange={(e) => setLocalDate(e.target.value)}
                 onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
                 <input
                   type="date"
                   min={todayStr}
                   value={localDeadline}
                   onChange={(e) => setLocalDeadline(e.target.value)}
                   onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
 
-              <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-stone-400">$</span>
+                  <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
                   <input
                     type="number"
                     value={localPrice}
                     onChange={(e) => setLocalPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="bg-stone-50 dark:bg-stone-900 rounded-3xl p-5 border border-stone-100 dark:border-stone-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-stone-100 border-[var(--color-border)]">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
               <input
                 type="url"
                 value={localLink}
                 onChange={(e) => setLocalLink(e.target.value)}
                 placeholder="https://..."
-                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-stone-900 dark:text-white"
+                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
               />
             </div>
           </div>
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-stone-100 dark:border-stone-800/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-stone-100 border-[var(--color-border)]/50 bg-stone-50 dark:bg-stone-950 flex gap-3 pb-safe">
            {!isNew && (
              <button 
                onClick={() => { onDelete(); onClose(); }}
@@ -1482,7 +1482,7 @@ export function TripView() {
       <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-emerald-900/20 border-t-emerald-900 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-stone-400 uppercase tracking-widest">Loading\u2026</p>
+          <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Loading\u2026</p>
         </div>
       </div>
     );
@@ -1496,7 +1496,7 @@ export function TripView() {
             <Info className="text-rose-600" size={32} />
           </div>
           <h2 className="text-xl font-black text-stone-900 mb-2">{t("connection_issue")}</h2>
-          <p className="text-stone-500 text-sm mb-8">{error}</p>
+          <p className="text-[var(--color-text-secondary)] text-sm mb-8">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="w-full bg-stone-900 text-white rounded-2xl py-4 font-bold"
@@ -1584,7 +1584,7 @@ export function TripView() {
                 {activeTrip && (
                   <div className="hidden sm:flex mr-2">
                     {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full border border-purple-100 dark:border-purple-800" title="Solo lectura">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title="Solo lectura">
                         <Share2 size={10} />
                         <span className="text-[9px] font-black uppercase tracking-widest">
                           De {sharedTripInfo?.ownerEmail || "propietario"}
@@ -1593,7 +1593,7 @@ export function TripView() {
                     ) : (
                       <button
                         onClick={() => setShowShareModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-900 dark:text-emerald-700 rounded-full transition-colors border border-transparent hover:border-emerald-100 dark:hover:border-emerald-800"
+                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
                       >
                         <Share2 size={12} />
                         <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Compartir</span>
@@ -1601,12 +1601,12 @@ export function TripView() {
                     )}
                   </div>
                 )}
-                <div className="size-7 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-800 border border-emerald-100 dark:border-emerald-800">
+                <div className="size-7 rounded-full bg-[var(--color-primary-subtle)] flex items-center justify-center text-[var(--color-primary)] border border-[var(--color-primary)]/20">
                   <UserIcon size={12} />
                 </div>
                 <button
                   onClick={() => authSignOut()}
-                  className="size-7 rounded-full bg-stone-50 dark:bg-stone-800 flex items-center justify-center text-stone-400 hover:text-rose-500 transition-colors"
+                  className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
                 >
                   <LogOut size={12} />
                 </button>
@@ -1614,7 +1614,7 @@ export function TripView() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-800 transition-all shadow-md shadow-emerald-900/20"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
               >
                 <ShieldCheck size={10} />
                 <span>Save</span>
@@ -1933,13 +1933,13 @@ export function TripView() {
 
                      {sortedActivities.length === 0 && (
                       <div className="py-24 text-center">
-                        <div className="size-24 bg-white dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
+                        <div className="size-24 bg-[var(--color-surface)] border-2 border-dashed border-[var(--color-border)] rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
                           <Plane className="text-stone-200" size={40} />
                         </div>
-                        <h3 className="text-xl font-black text-stone-900 dark:text-white">
+                        <h3 className="text-xl font-black text-[var(--color-text)]">
                           {t("where_to_first")}
                         </h3>
-                        <p className="text-stone-500 text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
+                        <p className="text-[var(--color-text-secondary)] text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
                           {t("empty_itinerary_hint")}
                         </p>
                       </div>
@@ -1951,33 +1951,172 @@ export function TripView() {
           </DndContext>
         </div>
 
-        {/* ­ƒì▒ SIDEBAR / SECONDARY CONTENT */}
-        <aside className="space-y-10">
-          <div className="premium-card p-6 border-fuchsia-200/60 shadow-fuchsia-500/5">
-            <div className="flex items-center justify-between gap-3 mb-5">
-              <h3 className="text-lg font-black text-stone-900 dark:text-white flex items-center gap-3">
-                <ShoppingBag className="text-fuchsia-500" size={22} />
-                Shopping List
-              </h3>
-              <span className="rounded-full bg-fuchsia-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-fuchsia-600 dark:bg-fuchsia-900/20 dark:text-fuchsia-300">
-                Todo
+        {/* SIDEBAR */}
+        <aside className="space-y-6">
+          {/* AI QUICK ACTIONS */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">AI Quick Actions</h3>
+            <div className="space-y-3">
+              <button
+                onClick={() => runOptimizeDay(activeDayId, lang)}
+                disabled={isOptimizing || isInvitee}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
+              >
+                {isOptimizing ? <div className="size-4 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={16} />}
+                {t("day_genius")} — {t("ai_route_optimization")}
+              </button>
+              <div className="relative">
+                <textarea
+                  value={importText}
+                  onChange={(e) => handleImportTextChange(e.target.value)}
+                  placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
+                  className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
+                />
+                <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                  {voiceState === "preview" && (
+                    <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
+                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
+                        <X size={12} />
+                      </button>
+                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                  )}
+                  {isSpeechSupported && voiceState === "idle" && (
+                    <button onClick={startListening} className="p-2 rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all">
+                      <Mic size={18} />
+                    </button>
+                  )}
+                  {voiceState === "listening" && (
+                    <button onClick={cancelVoice} className="p-2 rounded-full bg-[var(--color-danger)]/10 text-[var(--color-danger)] animate-pulse transition-all">
+                      <Mic size={18} />
+                    </button>
+                  )}
+                  {voiceState === "syncing" && (
+                    <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
+                  )}
+                  {voiceState === "idle" && !isSpeechSupported && (
+                    <Bot className="text-[var(--color-text-muted)]" size={20} />
+                  )}
+                </div>
+              </div>
+              <button
+                className={`w-full rounded-xl px-4 py-3 text-xs font-bold transition-all tracking-wider uppercase disabled:opacity-60 ${
+                  isImporting || voiceState === 'syncing'
+                    ? "bg-[var(--color-text-muted)] text-[var(--color-surface)] cursor-wait"
+                    : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed"
+                }`}
+                disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
+                onClick={() => handleImportSync(importText)}
+              >
+                {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
+              </button>
+            </div>
+
+            {suggestions.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-[var(--color-border)]">
+                {suggestions.map((s) => (
+                  <div key={s.id} className="flex gap-3 p-3 rounded-xl bg-[var(--color-surface-subtle)] border border-[var(--color-border)]">
+                    <div className="size-7 rounded-lg bg-[var(--color-accent-ai)]/10 flex items-center justify-center text-[var(--color-accent-ai)] shrink-0">
+                      <Sparkles size={14} />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-bold text-[var(--color-text)] tracking-tight">{s.title}</p>
+                      <p className="text-[10px] text-[var(--color-text-muted)] font-medium leading-relaxed">{s.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* CRITICAL RESERVATIONS */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("critical_reservations")}</h3>
+              <button
+                onClick={() => setShowAddReservation(true)}
+                className="size-7 rounded-lg bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] flex items-center justify-center transition-all"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(activeTrip?.criticalReservations.length === 0) && (
+                <p className="text-xs font-medium text-[var(--color-text-muted)] text-center py-4">{t("no_reservations_yet")}</p>
+              )}
+              {(activeTrip?.criticalReservations ?? []).map((booking) => {
+                const isBooked = booking.status === "booked";
+                return (
+                  <div
+                    key={booking.id}
+                    onClick={() => setEditingReservation(booking)}
+                    className={`rounded-xl p-4 transition-all border-l-4 cursor-pointer ${
+                      isBooked
+                        ? "bg-[var(--color-surface-subtle)] border-l-[var(--color-border-strong)] opacity-50"
+                        : "bg-[var(--color-surface)] border border-[var(--color-border)] border-l-[var(--color-danger)] hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            isBooked ? "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" : "bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
+                          }`}>
+                            {t(booking.status)}
+                          </span>
+                          {booking.urgency === "today" && !isBooked && (
+                            <span className="text-[8px] font-black text-[var(--color-danger)] animate-pulse">{t("critical")}</span>
+                          )}
+                        </div>
+                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"}`}>
+                          {booking.title}
+                        </h4>
+                        <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
+                          {booking.reservationDate}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isBooked}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleBooking(booking.id)}
+                        className="size-5 rounded border-2 border-[var(--color-border-strong)] checked:bg-[var(--color-primary)] checked:border-[var(--color-primary)] transition-all cursor-pointer accent-[var(--color-primary)]"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SHOPPING LIST */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Shopping List</h3>
+              <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">
+                {sortedShoppingItems.length}
               </span>
             </div>
 
             <div className="space-y-3">
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <input
                   value={shoppingInput}
                   onChange={(e) => setShoppingInput(e.target.value)}
                   placeholder={shoppingUi.input_placeholder}
-                  className="flex-1 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium outline-none transition-all focus:ring-4 focus:ring-fuchsia-500/10 dark:border-stone-800 dark:bg-stone-950/50 dark:text-white"
+                  className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2.5 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20"
                 />
                 <button
                   onClick={() => void handleAddShoppingItems()}
                   disabled={shoppingLoading || !shoppingInput.trim()}
-                  className="rounded-2xl bg-stone-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 dark:bg-white dark:text-stone-900"
+                  className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
                 >
-                  {shoppingLoading ? "Adding" : "Add"}
+                  {shoppingLoading ? "..." : "Add"}
                 </button>
               </div>
 
@@ -1985,12 +2124,12 @@ export function TripView() {
                 <button
                   onClick={() => void handleEnableDeviceLocation()}
                   disabled={nearbyLoading}
-                  className="rounded-2xl border border-stone-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-stone-600 transition-all hover:border-fuchsia-200 hover:text-fuchsia-600 disabled:opacity-50 dark:border-stone-800 dark:bg-stone-950/50 dark:text-stone-300"
+                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:opacity-50"
                 >
                   {nearbyLoading ? "Locating" : deviceLocation ? "Refresh nearby" : "Use my location"}
                 </button>
                 {nearbyAttribution && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-stone-400">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                     {nearbyAttribution}
                   </span>
                 )}
@@ -1998,7 +2137,7 @@ export function TripView() {
 
               <div className="space-y-2">
                 {sortedShoppingItems.length === 0 && (
-                  <div className="rounded-2xl border-2 border-dashed border-stone-200 px-4 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:border-stone-800">
+                  <div className="rounded-xl border-2 border-dashed border-[var(--color-border)] px-4 py-5 text-center text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                     No shopping items yet
                   </div>
                 )}
@@ -2008,10 +2147,10 @@ export function TripView() {
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-2xl border px-4 py-3 transition-all ${
+                      className={`rounded-xl border px-3 py-2.5 transition-all ${
                         isSelected
-                          ? "border-fuchsia-300 bg-fuchsia-50/60 dark:border-fuchsia-700 dark:bg-fuchsia-900/10"
-                          : "border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950/50"
+                          ? "border-[var(--color-primary)]/30 bg-[var(--color-primary-subtle)]"
+                          : "border-[var(--color-border)] bg-[var(--color-surface)]"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -2019,21 +2158,21 @@ export function TripView() {
                           type="checkbox"
                           checked={item.status === "purchased"}
                           onChange={() => void toggleShoppingItemStatus(item.id)}
-                          className="mt-1 size-4 rounded border-stone-300 accent-fuchsia-500"
+                          className="mt-1 size-4 rounded border-[var(--color-border-strong)] accent-[var(--color-primary)]"
                         />
                         <button
                           onClick={() => setSelectedShoppingItemId(isSelected ? null : item.id)}
                           className="flex-1 text-left"
                         >
-                          <p className={`text-sm font-black ${item.status === "purchased" ? "text-stone-400 line-through" : "text-stone-900 dark:text-white"}`}>
+                          <p className={`text-sm font-bold ${item.status === "purchased" ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"}`}>
                             {item.name}
                           </p>
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                             {item.category}
                             {item.preferred_cities?.length ? ` · Best in ${item.preferred_cities.join(", ")}` : ""}
                           </p>
                         </button>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
                               const nextName = window.prompt("Edit shopping item", item.name);
@@ -2041,15 +2180,15 @@ export function TripView() {
                                 void updateShoppingItem(item.id, { name: nextName.trim() });
                               }
                             }}
-                            className="text-stone-300 hover:text-emerald-800 transition-colors"
+                            className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                           </button>
                           <button
                             onClick={() => void removeShoppingItem(item.id)}
-                            className="text-stone-300 hover:text-rose-500 transition-colors"
+                            className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
@@ -2058,164 +2197,6 @@ export function TripView() {
                 })}
               </div>
             </div>
-          </div>
-
-          {/* TICKET-STYLE RESERVATIONS */}
-          <div className="premium-card bg-stone-900 dark:bg-white p-6 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 size-32 bg-emerald-800/10 blur-3xl rounded-full translate-x-12 -translate-y-12" />
-            
-            <div className="flex items-center justify-between mb-6 relative z-10">
-              <h3 className="text-lg font-black text-white dark:text-stone-900 flex items-center gap-3">
-                <CreditCard className="text-emerald-700" size={24} />
-                {t("critical_reservations")}
-              </h3>
-              <button
-                onClick={() => setShowAddReservation(true)}
-                className="size-8 rounded-xl bg-white/10 dark:bg-stone-900/10 text-white dark:text-stone-900 hover:bg-white/20 dark:hover:bg-stone-900/20 flex items-center justify-center transition-all"
-              >
-                <Plus size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-4 relative z-10">
-              {(activeTrip?.criticalReservations.length === 0) && (
-                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 text-center py-4">{t("no_reservations_yet")}</p>
-              )}
-              {(activeTrip?.criticalReservations ?? []).map((booking) => {
-                const isBooked = booking.status === "booked";
-                return (
-                  <div
-                    key={booking.id}
-                    onClick={() => setEditingReservation(booking)}
-                    className={`rounded-2xl p-4 transition-all border cursor-pointer ${
-                      isBooked
-                        ? "bg-stone-800/50 dark:bg-stone-50 border-transparent opacity-50 ring-1 ring-stone-700 dark:ring-stone-200"
-                        : "bg-stone-800 dark:bg-stone-50 border-emerald-800/30 dark:border-emerald-200/50 shadow-lg hover:translate-y-[-2px]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                            isBooked ? "bg-stone-700 text-stone-400" : "bg-emerald-800 text-white"
-                          }`}>
-                            {t(booking.status)}
-                          </span>
-                          {booking.urgency === "today" && !isBooked && (
-                            <span className="text-[8px] font-black text-rose-400 animate-pulse">{t("critical")}</span>
-                          )}
-                        </div>
-                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-stone-500 line-through" : "text-white dark:text-stone-900"}`}>
-                          {booking.title}
-                        </h4>
-                        <p className="text-[10px] font-medium text-stone-400">
-                          {booking.reservationDate}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isBooked}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => toggleBooking(booking.id)}
-                        className="size-6 rounded-full border-2 border-stone-700 dark:border-stone-300 checked:bg-emerald-800 checked:border-emerald-800 transition-all cursor-pointer accent-emerald-800"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* PRO AI IMPORT SECTION */}
-          <div className="premium-card p-6 bg-linear-to-br from-emerald-800/5 to-purple-500/5 border-emerald-800/20">
-            <h3 className="text-lg font-black text-stone-900 dark:text-white mb-4 flex items-center gap-3">
-              <Sparkles className="text-emerald-800" size={22} />
-              AI Power Import
-            </h3>
-            <div className="relative mb-4">
-               <textarea
-                value={importText}
-                onChange={(e) => handleImportTextChange(e.target.value)}
-                placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
-                className={`w-full h-40 bg-white/50 dark:bg-stone-950/50 border ${voiceState === 'listening' ? 'border-red-400 dark:border-red-500 ring-4 ring-red-500/10' : 'border-stone-200 dark:border-stone-800'} rounded-3xl p-5 text-sm font-medium focus:ring-4 focus:ring-emerald-800/10 transition-all resize-none outline-none shadow-sm`}
-              />
-              
-              <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                {voiceState === "preview" && (
-                  <div className="flex items-center gap-2 bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-3 py-1.5 rounded-full shadow-lg animate-in slide-in-from-bottom-2">
-                    <Loader2 size={14} className="animate-spin" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
-                    <button onClick={cancelVoice} className="hover:bg-stone-700 dark:hover:bg-stone-200 p-0.5 rounded-full transition-colors">
-                      <X size={12} />
-                    </button>
-                    <button onClick={cancelVoice} className="hover:bg-stone-700 dark:hover:bg-stone-200 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
-                      <Edit2 size={12} />
-                    </button>
-                  </div>
-                )}
-
-                {isSpeechSupported && voiceState === "idle" && (
-                  <button onClick={startListening} className="p-2 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all">
-                    <Mic size={20} />
-                  </button>
-                )}
-                
-                {voiceState === "listening" && (
-                  <button onClick={cancelVoice} className="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 animate-pulse transition-all">
-                    <Mic size={20} />
-                  </button>
-                )}
-
-                {voiceState === "syncing" && (
-                  <Loader2 size={24} className="text-emerald-800 animate-spin" />
-                )}
-                
-                {voiceState === "idle" && !isSpeechSupported && (
-                  <Bot className="text-stone-200" size={24} />
-                )}
-              </div>
-            </div>
-            
-            <button
-              className={`w-full rounded-[1.5rem] px-5 py-4 text-xs font-black transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 ${
-                isImporting || voiceState === 'syncing'
-                  ? "bg-stone-800 dark:bg-stone-200 text-white/50 dark:text-stone-900/50 cursor-wait" 
-                  : "bg-stone-900 dark:bg-white text-white dark:text-stone-900 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
-              }`}
-              disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
-              onClick={() => handleImportSync(importText)}
-            >
-              {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
-            </button>
-          </div>
-
-          {/* AI OPTIMIZER CARD */}
-          <div className="premium-card p-8 border-2 border-emerald-800/30 shadow-emerald-900/5">
-             <div className="flex items-center justify-between mb-8">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-black text-stone-900 dark:text-white">{t("day_genius")}</h3>
-                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">{t("ai_route_optimization")}</p>
-                </div>
-                <Bot className="text-emerald-800" size={32} />
-             </div>
-
-             <button className="w-full rounded-[1.5rem] bg-emerald-900 px-6 py-4 text-xs font-black text-white shadow-xl shadow-emerald-900/30 hover:bg-emerald-800 transition-all tracking-widest uppercase mb-8">
-                {t("run_optimizer")}
-             </button>
-
-             <div className="space-y-4">
-                {suggestions.map((s) => (
-                  <div key={s.id} className="flex gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-900 border border-stone-100 dark:border-stone-800 shadow-sm transition-all hover:scale-105">
-                     <div className="size-8 rounded-xl bg-white dark:bg-stone-800 flex items-center justify-center text-emerald-800 shrink-0">
-                        <Sparkles size={16} />
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-xs font-black text-stone-900 dark:text-white tracking-tight">{s.title}</p>
-                        <p className="text-[10px] text-stone-400 font-medium leading-relaxed">{s.reason}</p>
-                     </div>
-                  </div>
-                ))}
-             </div>
           </div>
 
           {/* BUDGET SUMMARY */}
@@ -2275,7 +2256,7 @@ export function TripView() {
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowAdd(true)}
-          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow-2xl flex items-center justify-center z-50 transition-all ring-8 ring-emerald-800/10"
+          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-[var(--color-primary)] text-white shadow-2xl shadow-[var(--color-primary)]/20 flex items-center justify-center z-50 transition-all ring-4 ring-[var(--color-primary)]/10"
         >
           <Plus size={36} />
         </motion.button>
@@ -2298,61 +2279,61 @@ export function TripView() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAdd(false)}
-              className="absolute inset-0 bg-stone-950/60 backdrop-blur-xl"
+              className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 40 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 40 }}
               transition={{ type: "spring", damping: 20 }}
-              className="relative w-full max-w-lg premium-card p-10 bg-white dark:bg-stone-900 border-emerald-800/20 shadow-emerald-900/10"
+              className="relative w-full max-w-lg bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-10 shadow-xl"
             >
               <div className="flex items-center gap-4 mb-8">
-                <div className="size-12 rounded-2xl bg-emerald-900 flex items-center justify-center text-white">
+                <div className="size-12 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-white">
                   <Plus size={24} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-stone-900 dark:text-white">{t("new_activity")}</h3>
-                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Day {activeIndex + 1} ┬À {activeDay?.city}</p>
+                  <h3 className="text-2xl font-black text-[var(--color-text)]">{t("new_activity")}</h3>
+                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Day {activeIndex + 1} · {activeDay?.city}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">
                     {t("title")}
                   </label>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full rounded-2xl border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50"
+                    className="w-full rounded-2xl border border-[var(--color-border)] px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)]"
                     placeholder={t("title_placeholder")}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">{t("time")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">{t("time")}</label>
                   <input
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full rounded-2xl border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-black focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50 tabular-nums"
+                    className="w-full rounded-2xl border border-[var(--color-border)] px-6 py-4 text-sm font-black focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)] tabular-nums"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">{t("location")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">{t("location")}</label>
                   <input
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
-                    className="w-full rounded-2xl border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50"
+                    className="w-full rounded-2xl border border-[var(--color-border)] px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)]"
                     placeholder={t("location_placeholder")}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 block px-1">{t("notes")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">{t("notes")}</label>
                   <textarea
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
-                    className="w-full rounded-[1.5rem] border border-stone-200 dark:border-stone-800 px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-emerald-800/10 outline-none transition-all bg-stone-50/50 dark:bg-stone-950/50 min-h-[120px] resize-none"
+                    className="w-full rounded-[1.5rem] border border-[var(--color-border)] px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)] min-h-[120px] resize-none"
                     placeholder={t("notes_placeholder")}
                   />
                 </div>
@@ -2360,13 +2341,13 @@ export function TripView() {
 
               <div className="mt-10 flex gap-4">
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-stone-100 dark:bg-stone-800 font-black text-xs uppercase tracking-widest text-stone-500"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-[var(--color-surface-subtle)] font-black text-xs uppercase tracking-widest text-[var(--color-text-secondary)]"
                   onClick={() => setShowAdd(false)}
                 >
                   {t("cancel")}
                 </button>
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-emerald-900 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-[var(--color-primary)] text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
                   onClick={() => {
                     if (!newTitle.trim() || !activeDay) return;
                     addActivity({
@@ -2472,32 +2453,32 @@ export function TripView() {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setEditingDay(null)}
-              className="absolute inset-0 bg-stone-950/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-8"
+              className="relative w-full max-w-sm bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)] p-8"
             >
-              <h2 className="text-xl font-black text-stone-900 dark:text-white mb-6">Edit Day</h2>
+              <h2 className="text-xl font-black text-[var(--color-text)] mb-6">Edit Day</h2>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Destination City</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Destination City</label>
                   <input 
                     type="text" 
                     value={editDayCity}
                     onChange={(e) => setEditDayCity(e.target.value)}
-                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-emerald-800 transition-all"
+                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Day Label</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Day Label</label>
                   <input 
                     type="text" 
                     value={editDayLabel}
                     onChange={(e) => setEditDayLabel(e.target.value)}
-                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-emerald-800 transition-all"
+                    className="w-full bg-stone-50 dark:bg-stone-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -2506,13 +2487,13 @@ export function TripView() {
                       await updateTripDay(editingDay.id, { city: editDayCity, label: editDayLabel });
                       setEditingDay(null);
                     }}
-                    className="flex-1 bg-emerald-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-800 transition-all shadow-xl shadow-emerald-900/20"
+                    className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
                   >
                     Save Changes
                   </button>
                   <button 
                     onClick={() => setEditingDay(null)}
-                    className="px-6 py-4 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-500 font-bold text-xs uppercase tracking-widest hover:bg-stone-200 transition-all"
+                    className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-stone-200 transition-all"
                   >
                     Cancel
                   </button>
