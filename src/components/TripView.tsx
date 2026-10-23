@@ -86,6 +86,11 @@ import { CityPaymentGuideCard } from "@/components/CityPaymentGuideCard";
 import { CurrencyConverter } from "@/components/CurrencyConverter";
 import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
+import dynamic from "next/dynamic";
+
+const DayMapView = dynamic(() => import("@/components/DayMapView"), {
+  ssr: false,
+});
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
@@ -179,11 +184,12 @@ function SortableActivityCard({
 
   return (
     <motion.div
+      id={`activity-${activity.id}`}
       ref={setNodeRef}
       style={style}
       initial={{ opacity: 0, y: 10 }}
-      animate={{ 
-        opacity: completed ? 0.7 : 1, 
+      animate={{
+        opacity: completed ? 0.7 : 1,
         y: 0,
         scale: isDragging ? 1.02 : 1,
       }}
@@ -894,6 +900,12 @@ export function TripView() {
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [activeMapActivityId, setActiveMapActivityId] = useState<string | null>(null);
+  const [mapAnchor, setMapAnchor] = useState<{ lat: number; lng: number } | null>(null);
+  const [showMapCityPrompt, setShowMapCityPrompt] = useState(false);
+  const [mapLocating, setMapLocating] = useState(false);
+  const openMapAfterDayEditRef = useRef(false);
   const [travelContextOpen, setTravelContextOpen] = useState(false);
   const savingDraftRef = useRef(false);
 
@@ -1155,10 +1167,14 @@ export function TripView() {
     }
   }, [activeDayId, dayScrollY]);
 
-  const activeDay = useMemo(() => 
-    activeTrip?.days.find(d => d.id === activeDayId) || activeTrip?.days[0], 
+  const activeDay = useMemo(() =>
+    activeTrip?.days.find(d => d.id === activeDayId) || activeTrip?.days[0],
     [activeTrip, activeDayId]
   );
+
+  // Reset active map marker when switching days
+  useEffect(() => { setActiveMapActivityId(null); }, [activeDayId]);
+
   const shoppingItems = activeTrip?.shoppingItems ?? EMPTY_SHOPPING_ITEMS;
   const ignoredSuggestionKeys = activeTrip?.ignoredShoppingSuggestionKeys ?? EMPTY_STRING_LIST;
 
@@ -1433,6 +1449,76 @@ export function TripView() {
       showToast(error instanceof Error ? error.message : "Unable to load nearby places.", "error");
     } finally {
       setNearbyLoading(false);
+    }
+  };
+
+  const isPlaceholderCity = (city: string) => {
+    const c = city.trim().toLowerCase();
+    return !c || c === "new destination" || c === "new city";
+  };
+
+  const handleMapToggle = () => {
+    if (showMap) {
+      setShowMap(false);
+      return;
+    }
+    if (activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
+      setShowMapCityPrompt(true);
+      return;
+    }
+    setShowMap(true);
+  };
+
+  const handleMapUseDeviceLocation = async () => {
+    if (!("geolocation" in navigator)) {
+      showToast(t("map_location_not_supported"), "error");
+      return;
+    }
+    setMapLocating(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 60_000,
+        });
+      });
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      setMapAnchor({ lat, lng });
+
+      // Reverse-geocode to fill in the city name
+      if (activeDay) {
+        try {
+          const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
+          if (res.ok) {
+            const data = (await res.json()) as { city: string | null };
+            if (data.city) {
+              await updateTripDay(activeDay.id, { city: data.city });
+            }
+          }
+        } catch {} // city update is best-effort
+      }
+
+      setShowMapCityPrompt(false);
+      setShowMap(true);
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : t("map_location_failed"),
+        "error",
+      );
+    } finally {
+      setMapLocating(false);
+    }
+  };
+
+  const handleMapSetCityManually = () => {
+    setShowMapCityPrompt(false);
+    if (activeDay) {
+      setEditingDay(activeDay);
+      setEditDayCity(isPlaceholderCity(activeDay.city) ? "" : activeDay.city);
+      setEditDayLabel(activeDay.label);
+      openMapAfterDayEditRef.current = true;
     }
   };
 
@@ -1744,6 +1830,16 @@ export function TripView() {
                     {isOptimizing ? <div className="size-3 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={12} />}
                     {t("day_genius")}
                   </button>
+                  <button
+                    onClick={handleMapToggle}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                      showMap
+                        ? "bg-[var(--color-primary)] text-white"
+                        : "bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)]"
+                    }`}
+                  >
+                    <MapIcon size={12} /> {t("map")}
+                  </button>
                 </>
               )}
             </div>
@@ -1751,7 +1847,7 @@ export function TripView() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 ios-compact-gap">
+      <div className={`max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 ${showMap ? "lg:grid-cols-[1fr_1fr]" : "lg:grid-cols-[1fr_340px]"} gap-10 ios-compact-gap`}>
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div className="space-y-8">
           {/* DAY INTRO */}
@@ -1948,7 +2044,22 @@ export function TripView() {
           </DndContext>
         </div>
 
-        {/* SIDEBAR */}
+        {/* SIDEBAR / MAP */}
+        {showMap && activeDay ? (
+          <div className="hidden lg:block sticky top-4 h-[calc(100vh-120px)]">
+            <DayMapView
+              activities={activeDay.activities}
+              city={activeDay.city}
+              anchor={mapAnchor ?? undefined}
+              activeActivityId={activeMapActivityId}
+              onActivitySelect={(id) => {
+                setActiveMapActivityId(id);
+                document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              onClose={() => setShowMap(false)}
+            />
+          </div>
+        ) : (
         <aside className="space-y-6">
           {/* AI QUICK ACTIONS */}
           <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
@@ -2256,7 +2367,36 @@ export function TripView() {
             )}
           </div>
         </aside>
+        )}
       </div>
+
+      {/* Mobile map overlay */}
+      <AnimatePresence>
+        {showMap && activeDay && (
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-50 bg-[var(--color-bg)] lg:hidden"
+          >
+            <DayMapView
+              activities={activeDay.activities}
+              city={activeDay.city}
+              anchor={mapAnchor ?? undefined}
+              activeActivityId={activeMapActivityId}
+              onActivitySelect={(id) => {
+                setActiveMapActivityId(id);
+                setShowMap(false);
+                setTimeout(() => {
+                  document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 350);
+              }}
+              onClose={() => setShowMap(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Ô×ò THE PRIMARY FAB */}
       {!isInvitee && (
@@ -2453,13 +2593,60 @@ export function TripView() {
 
 
 
+      {/* Map city prompt */}
+      <AnimatePresence>
+        {showMapCityPrompt && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMapCityPrompt(false)}
+              className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)] p-8 space-y-6"
+            >
+              <div className="space-y-2">
+                <h2 className="text-lg font-black text-[var(--color-text)]">{t("map_set_destination")}</h2>
+                <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{t("map_set_destination_hint")}</p>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={() => void handleMapUseDeviceLocation()}
+                  disabled={mapLocating}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-[var(--color-primary)] text-white font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20 disabled:opacity-60"
+                >
+                  {mapLocating ? (
+                    <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <MapPin size={14} />
+                  )}
+                  {mapLocating ? t("map_locating") : t("map_use_my_location")}
+                </button>
+                <button
+                  onClick={handleMapSetCityManually}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold uppercase tracking-widest text-xs hover:bg-[var(--color-border)] transition-all"
+                >
+                  <Edit2 size={14} />
+                  {t("map_set_city")}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {editingDay && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setEditingDay(null)}
               className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
             />
@@ -2490,17 +2677,24 @@ export function TripView() {
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button 
+                  <button
                     onClick={async () => {
                       await updateTripDay(editingDay.id, { city: editDayCity, label: editDayLabel });
                       setEditingDay(null);
+                      if (openMapAfterDayEditRef.current) {
+                        openMapAfterDayEditRef.current = false;
+                        setShowMap(true);
+                      }
                     }}
                     className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
                   >
                     Save Changes
                   </button>
-                  <button 
-                    onClick={() => setEditingDay(null)}
+                  <button
+                    onClick={() => {
+                      openMapAfterDayEditRef.current = false;
+                      setEditingDay(null);
+                    }}
                     className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-border)] transition-all"
                   >
                     Cancel

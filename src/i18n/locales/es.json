@@ -352,5 +352,19 @@
   "lang_es": "Español",
   "lang_en": "English",
 
+  "map": "Mapa",
+  "map_no_locations": "Sin ubicaciones para mostrar",
+  "map_loading": "Cargando mapa...",
+  "map_close": "Cerrar mapa",
+  "map_set_destination": "¿Dónde estás?",
+  "map_set_destination_hint": "Establecé la ciudad de destino para que el mapa encuentre lugares cercanos con precisión.",
+  "map_use_my_location": "Usar mi ubicación",
+  "map_locating": "Localizando...",
+  "map_set_city": "Escribir la ciudad",
+  "map_location_not_supported": "La geolocalización no está disponible en este navegador.",
+  "map_location_failed": "No se pudo determinar tu ubicación.",
+  "map_you_are_here": "Estás acá",
+  "map_get_directions": "Cómo llegar",
+
   "logout": "Cerrar sesión"
 }

@@ -353,5 +353,19 @@
   "lang_es": "Español",
   "lang_en": "English",
 
+  "map": "Map",
+  "map_no_locations": "No locations to show",
+  "map_loading": "Loading map...",
+  "map_close": "Close map",
+  "map_set_destination": "Where are you?",
+  "map_set_destination_hint": "Set the destination city so the map can find nearby places accurately.",
+  "map_use_my_location": "Use my location",
+  "map_locating": "Locating...",
+  "map_set_city": "Set city manually",
+  "map_location_not_supported": "Geolocation is not supported in this browser.",
+  "map_location_failed": "Could not determine your location.",
+  "map_you_are_here": "You are here",
+  "map_get_directions": "Get directions",
+
   "logout": "Log out"
 }
