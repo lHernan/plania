@@ -46,7 +46,10 @@ import {
   Eye,
   EyeOff,
   Share2,
-  MessageCircle
+  MessageCircle,
+  Sun,
+  Moon,
+  Monitor
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -878,8 +881,23 @@ export function TripView() {
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   const savingDraftRef = useRef(false);
+
+  // Initialize theme from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("plania_theme") as "light" | "dark" | "system" | null;
+    const mode = stored || "system";
+    setThemeMode(mode);
+    const html = document.documentElement;
+    if (mode === "system") {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      html.classList.toggle("dark", prefersDark);
+    } else {
+      html.classList.toggle("dark", mode === "dark");
+    }
+  }, []);
 
   // Auto-save draft when user logs in
   useEffect(() => {
@@ -1512,7 +1530,7 @@ export function TripView() {
         </div>
       )}
       {/* COMPACT STICKY HEADER */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-stone-950/80 backdrop-blur-xl border-b border-stone-200/50 dark:border-stone-800/50">
+      <header className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-sm border-b border-[var(--color-border)]">
         {/* Top bar: trip selector + controls */}
         <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
           {/* Left: Trip Switcher */}
@@ -1520,8 +1538,30 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const html = document.documentElement;
+                const current = localStorage.getItem("plania_theme") || "system";
+                const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
+                localStorage.setItem("plania_theme", next);
+                if (next === "system") {
+                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                  html.classList.toggle("dark", prefersDark);
+                } else {
+                  html.classList.toggle("dark", next === "dark");
+                }
+                setThemeMode(next as "light" | "dark" | "system");
+              }}
+              className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+              title={`Theme: ${themeMode}`}
+            >
+              {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
+            </button>
+
             {/* Language toggle */}
-            <div className="flex items-center rounded-full bg-stone-100 p-0.5 dark:bg-stone-800">
+            <div className="flex items-center rounded-full bg-[var(--color-surface-subtle)] p-0.5">
               {(["es", "en"] as const).map((code) => (
                 <button
                   key={code}
@@ -1529,8 +1569,8 @@ export function TripView() {
                   onClick={() => setLang(code)}
                   className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
                     lang === code
-                      ? "bg-emerald-900 text-white shadow-sm"
-                      : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                      ? "bg-[var(--color-primary)] text-white shadow-sm"
+                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                   }`}
                 >
                   {code === "es" ? "ES" : "EN"}
