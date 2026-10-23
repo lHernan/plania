@@ -52,13 +52,12 @@ self.addEventListener("fetch", (event) => {
 
 async function handleStaticAssetRequest(request) {
   const cache = await caches.open("static-assets-v1");
-  const cached = await cache.match(request);
-  if (cached) return cached;
   try {
     const response = await fetch(request);
     if (response.ok) await cache.put(request, response.clone());
     return response;
   } catch {
+    const cached = await cache.match(request);
     return cached || new Response("", { status: 503 });
   }
 }
