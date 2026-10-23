@@ -91,34 +91,34 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+        className="absolute inset-0 bg-[var(--color-text)]/60 backdrop-blur-md"
       />
 
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden"
+        className="relative w-full max-w-md bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-white/20 overflow-hidden"
       >
         <div className="p-8 md:p-10">
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="absolute top-6 right-6 p-2 rounded-full hover:bg-[var(--color-surface-subtle)] transition-colors"
             aria-label={t("cancel")}
           >
-            <X size={20} className="text-slate-400" />
+            <X size={20} className="text-[var(--color-text-muted)]" />
           </button>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{title}</h2>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{subtitle}</p>
+            <h2 className="text-3xl font-black text-[var(--color-text)] mb-2 font-[family-name:var(--font-display)]">{title}</h2>
+            <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{subtitle}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("email")}</label>
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] ml-1">{t("email")}</label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" size={18} />
                 <input
                   id="email"
                   name="email"
@@ -127,7 +127,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[48px]"
+                  className="w-full bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:ring-2 focus:ring-[var(--color-primary)]/30 outline-none transition-all min-h-[48px]"
                   placeholder="name@example.com"
                   autoComplete="username"
                   inputMode="email"
@@ -137,9 +137,9 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
 
             {!isReset && (
               <div className="space-y-1">
-                <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{t("password")}</label>
+                <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] ml-1">{t("password")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" size={18} />
                   <input
                     id="password"
                     name="password"
@@ -148,7 +148,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[48px]"
+                    className="w-full bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:ring-2 focus:ring-[var(--color-primary)]/30 outline-none transition-all min-h-[48px]"
                     placeholder="••••••••"
                     autoComplete={isLogin ? "current-password" : "new-password"}
                   />
@@ -159,7 +159,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl py-4 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-6 min-h-[48px]"
+              className="w-full bg-[var(--color-primary)] text-white rounded-2xl py-4 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-[var(--color-primary-hover)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-6 min-h-[48px]"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
@@ -175,7 +175,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
               <button
                 type="button"
                 onClick={() => setIsReset(true)}
-                className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors inline-flex items-center gap-1"
+                className="text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors inline-flex items-center gap-1"
               >
                 <KeyRound size={12} /> {t("auth_forgot_password")}
               </button>
@@ -187,7 +187,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
               <button
                 type="button"
                 onClick={() => setIsReset(false)}
-                className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors"
+                className="text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
               >
                 {t("auth_back_to_login")}
               </button>
@@ -198,7 +198,7 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
             <div className="mt-6 text-center">
               <button
                 onClick={() => setIsLogin(!isLogin)}
-                className="text-xs font-bold text-slate-500 hover:text-indigo-500 transition-colors"
+                className="text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
               >
                 {isLogin ? t("auth_no_account") : t("auth_have_account")}
               </button>

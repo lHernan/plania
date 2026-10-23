@@ -95,32 +95,32 @@ export function CurrencyConverter({ city }: { city: string }) {
 
   return (
     <section className="mx-auto mt-5 w-full max-w-7xl px-5">
-      <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/30 dark:to-slate-950 sm:p-6">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm sm:p-6">
         {/* Collapsible header */}
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           className="flex w-full items-start gap-3 text-left"
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white">
             <ArrowRightLeft size={19} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-primary)]">
               {t("currency_title")}
             </p>
             {sameCurrency ? (
-              <h2 className="mt-1 text-base font-black text-slate-900 dark:text-white">
+              <h2 className="mt-1 text-base font-black text-[var(--color-text)]">
                 {destinationCurrency}
-                <span className="ml-2 text-sm font-bold text-emerald-600/60 dark:text-emerald-400/60">
+                <span className="ml-2 text-sm font-bold text-[var(--color-primary)] opacity-60">
                   {t("currency_same")}
                 </span>
               </h2>
             ) : (
-              <h2 className="mt-1 text-base font-black text-slate-900 dark:text-white">
+              <h2 className="mt-1 text-base font-black text-[var(--color-text)]">
                 {homeCurrency} → {destinationCurrency}
                 {rate && !open ? (
-                  <span className="ml-2 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="ml-2 text-sm font-bold text-[var(--color-primary)]">
                     {formatCurrency(1, homeCurrency)} = {formatCurrency(rate.rate, destinationCurrency)}
                   </span>
                 ) : null}
@@ -129,7 +129,7 @@ export function CurrencyConverter({ city }: { city: string }) {
           </div>
           <ChevronDown
             size={18}
-            className={`mt-3 shrink-0 text-emerald-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            className={`mt-3 shrink-0 text-[var(--color-text-muted)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           />
         </button>
 
@@ -138,26 +138,26 @@ export function CurrencyConverter({ city }: { city: string }) {
           <div className="mt-4 pl-[52px]">
             {sameCurrency ? (
               /* Same currency — only show the home selector so users can change it */
-              <div className="rounded-2xl border border-emerald-100/80 bg-white/70 p-4 dark:border-emerald-900/40 dark:bg-slate-900/60">
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
+                <p className="text-xs text-[var(--color-text-secondary)]">
                   {t("currency_same_hint", { currency: destinationCurrency })}
                 </p>
               </div>
             ) : (
               /* Different currencies — rate display + converter */
-              <div className="rounded-2xl border border-emerald-100/80 bg-white/70 p-4 dark:border-emerald-900/40 dark:bg-slate-900/60">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
                 {loading ? (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
                     <RefreshCw size={12} className="animate-spin" />
                     {t("currency_loading")}
                   </div>
                 ) : error ? (
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-red-600 dark:text-red-400">{t("currency_error")}</p>
+                    <p className="text-xs text-[var(--color-danger)]">{t("currency_error")}</p>
                     <button
                       type="button"
                       onClick={() => void fetchRate(homeCurrency, destinationCurrency)}
-                      className="text-[10px] font-bold text-emerald-700 hover:underline dark:text-emerald-300"
+                      className="text-[10px] font-bold text-[var(--color-primary)] hover:underline"
                     >
                       {t("currency_retry")}
                     </button>
@@ -166,7 +166,7 @@ export function CurrencyConverter({ city }: { city: string }) {
                   <div className="space-y-3">
                     {/* Exchange rate */}
                     <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                      <span className="text-2xl font-black text-[var(--color-text)]">
                         {formatCurrency(1, homeCurrency)} = {formatCurrency(rate.rate, destinationCurrency)}
                       </span>
                     </div>
@@ -174,7 +174,7 @@ export function CurrencyConverter({ city }: { city: string }) {
                     {/* Quick converter */}
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1">
-                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -transtone-y-1/2 text-xs font-bold text-[var(--color-text-muted)]">
                           {homeCurrency}
                         </span>
                         <input
@@ -185,12 +185,12 @@ export function CurrencyConverter({ city }: { city: string }) {
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           placeholder="100"
-                          className="w-full rounded-xl border border-emerald-200 bg-white py-2 pl-12 pr-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400 dark:border-emerald-800 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-600"
+                          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-2 pl-12 pr-3 text-sm font-bold text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
                         />
                       </div>
-                      <ArrowRightLeft size={14} className="shrink-0 text-slate-400" />
-                      <div className="flex-1 rounded-xl border border-emerald-100 bg-emerald-50/50 py-2 px-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                        <p className="text-sm font-black text-emerald-800 dark:text-emerald-200">
+                      <ArrowRightLeft size={14} className="shrink-0 text-[var(--color-text-muted)]" />
+                      <div className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-primary-subtle)] py-2 px-3">
+                        <p className="text-sm font-black text-[var(--color-primary)]">
                           {converted != null
                             ? formatCurrency(converted, destinationCurrency)
                             : `— ${destinationCurrency}`}
@@ -199,7 +199,7 @@ export function CurrencyConverter({ city }: { city: string }) {
                     </div>
 
                     {/* Source + date */}
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-[var(--color-text-muted)]">
                       {t("currency_source", { date: rate.date })}
                     </p>
                   </div>
@@ -209,33 +209,33 @@ export function CurrencyConverter({ city }: { city: string }) {
 
             {/* Home currency selector — always available */}
             <div className="mt-3 flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+              <span className="text-[10px] font-bold text-[var(--color-text-secondary)]">
                 {t("currency_home")}:
               </span>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setSelectorOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-bold text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)]"
                 >
                   {homeCurrency} — {CURRENCY_LABELS[homeCurrency] ?? homeCurrency}
                   <ChevronDown size={12} />
                 </button>
                 {selectorOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                  <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-56 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
                     {HOME_CURRENCIES.map((code) => (
                       <button
                         key={code}
                         type="button"
                         onClick={() => changeHome(code)}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold hover:bg-[var(--color-surface-subtle)] ${
                           code === homeCurrency
-                            ? "text-emerald-700 dark:text-emerald-300"
-                            : "text-slate-700 dark:text-slate-200"
+                            ? "text-[var(--color-primary)]"
+                            : "text-[var(--color-text)]"
                         }`}
                       >
                         <span className="font-black">{code}</span>
-                        <span className="text-slate-500 dark:text-slate-400">{CURRENCY_LABELS[code] ?? code}</span>
+                        <span className="text-[var(--color-text-secondary)]">{CURRENCY_LABELS[code] ?? code}</span>
                       </button>
                     ))}
                   </div>

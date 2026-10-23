@@ -52,7 +52,7 @@ export function OfflineStatus() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -16, opacity: 0 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="sticky top-0 z-[120] border-b border-amber-200 bg-amber-50/95 px-4 pb-2 pt-2 text-[11px] font-bold uppercase tracking-widest text-amber-900 backdrop-blur ios-safe-top"
+          className="sticky top-0 z-[120] border-b border-[var(--color-warning)]/20 bg-[var(--color-warning)]/10 px-4 pb-2 pt-2 text-[11px] font-bold uppercase tracking-widest text-[var(--color-warning)] backdrop-blur ios-safe-top"
         >
           <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 ios-compact-shell">
             <CloudOff size={14} />

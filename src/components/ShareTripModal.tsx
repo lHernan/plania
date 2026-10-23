@@ -199,7 +199,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-950/70 backdrop-blur-xl"
+        className="absolute inset-0 bg-[var(--color-text)]/70 backdrop-blur-xl"
       />
 
       {/* Sheet */}
@@ -209,27 +209,27 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
         exit={{ y: "100%", opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 240 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden border border-indigo-500/10"
+        className="relative w-full max-w-lg bg-[var(--color-surface)] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden border border-[var(--color-primary)]/10"
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0 md:hidden">
-          <div className="w-10 h-1 rounded-full bg-slate-200 dark:bg-slate-700" />
+          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-[var(--color-border)] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-              <Share2 size={18} className="text-indigo-600 dark:text-indigo-400" />
+            <div className="size-10 rounded-2xl bg-[var(--color-primary-subtle)] flex items-center justify-center">
+              <Share2 size={18} className="text-[var(--color-primary)]" />
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">{t("share_title")}</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[200px]">{tripName}</p>
+              <h2 className="text-sm font-black text-[var(--color-text)] tracking-tight">{t("share_title")}</h2>
+              <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest truncate max-w-[200px]">{tripName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+            className="size-8 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
           >
             <X size={16} />
           </button>
@@ -238,7 +238,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {/* Share form */}
           <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] flex items-center gap-1.5">
               <Mail size={11} /> {t("share_invite_by_email")}
             </label>
             <form onSubmit={handleShare} className="space-y-2">
@@ -252,13 +252,13 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                     if (shareStatus.type !== "idle") setShareStatus({ type: "idle" });
                   }}
                   placeholder={t("share_email_placeholder")}
-                  className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-base font-medium outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 min-h-[44px]"
+                  className="flex-1 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl px-4 py-3 text-base font-medium outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all placeholder:text-[var(--color-text-muted)] min-h-[44px]"
                   disabled={shareStatus.type === "loading"}
                 />
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as "viewer" | "editor")}
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/30 min-h-[44px]"
+                  className="bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl px-3 py-3 text-xs font-bold text-[var(--color-text-secondary)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 min-h-[44px]"
                   disabled={shareStatus.type === "loading"}
                   aria-label="Permission"
                 >
@@ -268,7 +268,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                 <button
                   type="submit"
                   disabled={shareStatus.type === "loading" || !email.trim()}
-                  className="px-5 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 min-h-[44px]"
+                  className="px-5 py-3 bg-[var(--color-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 min-h-[44px]"
                 >
                   {shareStatus.type === "loading" ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -288,7 +288,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="flex items-start gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-2xl px-4 py-3 border border-emerald-200 dark:border-emerald-800"
+                  className="flex items-start gap-2 bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-2xl px-4 py-3 border border-[var(--color-primary)]/20"
                 >
                   <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
                   <p className="text-xs font-medium leading-snug">{shareStatus.message}</p>
@@ -300,7 +300,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="flex items-start gap-2 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-2xl px-4 py-3 border border-rose-200 dark:border-rose-800"
+                  className="flex items-start gap-2 bg-[var(--color-danger)]/10 text-[var(--color-danger)] rounded-2xl px-4 py-3 border border-[var(--color-danger)]/20"
                 >
                   <AlertCircle size={14} className="mt-0.5 shrink-0" />
                   <p className="text-xs font-medium leading-snug">{shareStatus.message}</p>
@@ -311,7 +311,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
 
           {/* Shareable link */}
           <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] flex items-center gap-1.5">
               {t("share_link_section")}
             </label>
             {!shareLink ? (
@@ -319,7 +319,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                 type="button"
                 onClick={handleCreateLink}
                 disabled={linkLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all min-h-[44px] disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-border)] transition-all min-h-[44px] disabled:opacity-50"
               >
                 {linkLoading ? <Loader2 size={14} className="animate-spin" /> : null}
                 {t("share_create_link")}
@@ -329,36 +329,36 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                 <input
                   readOnly
                   value={shareLink}
-                  className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-medium text-slate-600 dark:text-slate-300 outline-none min-h-[44px]"
+                  className="flex-1 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] outline-none min-h-[44px]"
                 />
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all min-h-[44px] flex items-center gap-1.5"
+                  className="px-4 py-3 bg-[var(--color-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] active:scale-95 transition-all min-h-[44px] flex items-center gap-1.5"
                 >
                   {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
                 </button>
               </div>
             )}
-            <p className="text-[10px] font-medium text-slate-400 leading-relaxed">
+            <p className="text-[10px] font-medium text-[var(--color-text-muted)] leading-relaxed">
               {t("share_link_note")}
             </p>
           </div>
 
           {/* Current shares list */}
           <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] flex items-center gap-1.5">
               <Users size={11} /> {t("share_people_with_access")}
             </label>
 
             {sharesLoading ? (
               <div className="flex justify-center py-6">
-                <Loader2 size={20} className="text-indigo-500 animate-spin" />
+                <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
               </div>
             ) : shares.length === 0 ? (
-              <div className="py-6 text-center rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800">
-                <UserX size={24} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="py-6 text-center rounded-2xl border-2 border-dashed border-[var(--color-border)]">
+                <UserX size={24} className="text-[var(--color-text-muted)] mx-auto mb-2" />
+                <p className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
                   {t("share_no_access_yet")}
                 </p>
               </div>
@@ -371,17 +371,17 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                       initial={{ opacity: 0, scale: 0.97 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95, x: -20 }}
-                      className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-2xl px-4 py-3 border border-slate-100 dark:border-slate-800"
+                      className="flex items-center gap-3 bg-[var(--color-surface-subtle)] rounded-2xl px-4 py-3 border border-[var(--color-border)]"
                     >
                       {/* Avatar */}
-                      <div className="size-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase">
+                      <div className="size-8 rounded-xl bg-[var(--color-primary-subtle)] flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-black text-[var(--color-primary)] uppercase">
                           {share.email[0]}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{share.email}</p>
-                        <p className="text-[10px] font-medium text-slate-400">
+                        <p className="text-sm font-bold text-[var(--color-text)] truncate">{share.email}</p>
+                        <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
                           Desde {new Date(share.createdAt).toLocaleDateString("es-ES", {
                             day: "numeric",
                             month: "short",
@@ -392,7 +392,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                       <select
                         value={share.role}
                         onChange={(e) => handleRoleChange(share.userId, e.target.value as "viewer" | "editor")}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 outline-none min-h-[32px]"
+                        className="bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl px-2 py-1 text-[10px] font-bold text-[var(--color-text-secondary)] outline-none min-h-[32px]"
                         aria-label="Role"
                       >
                         <option value="viewer">{t("share_role_viewer")}</option>
@@ -401,7 +401,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                       <button
                         onClick={() => handleRevoke(share.userId, share.email)}
                         disabled={revokingId === share.userId}
-                        className="size-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all disabled:opacity-50"
+                        className="size-8 flex items-center justify-center rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all disabled:opacity-50"
                         aria-label={t("share_revoke_confirm", { email: share.email })}
                         title={t("share_revoke_access")}
                       >
@@ -420,8 +420,8 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
         </div>
 
         {/* Footer note */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
-          <p className="text-[10px] font-medium text-slate-400 text-center leading-relaxed">
+        <div className="flex-shrink-0 px-6 py-4 border-t border-[var(--color-border)] bg-[var(--color-surface-subtle)]/50">
+          <p className="text-[10px] font-medium text-[var(--color-text-muted)] text-center leading-relaxed">
             {t("share_footer_note")}
           </p>
         </div>

@@ -185,24 +185,24 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
 
   return (
     <section className="mx-auto mt-5 w-full max-w-7xl px-5">
-      <div className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm dark:border-sky-900/60 dark:from-sky-950/30 dark:to-slate-950 sm:p-6">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm sm:p-6">
         {/* Collapsible header */}
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           className="flex w-full items-start gap-3 text-left"
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-sky-600 text-white">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white">
             <Luggage size={19} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-primary)]">
               {t("packing_title")}
             </p>
-            <h2 className="mt-1 text-base font-black text-slate-900 dark:text-white">
+            <h2 className="mt-1 text-base font-black text-[var(--color-text)]">
               {tripName}
               {list && (
-                <span className="ml-2 text-sm font-bold text-sky-600 dark:text-sky-400">
+                <span className="ml-2 text-sm font-bold text-[var(--color-primary)]">
                   {t("packing_items_packed", { packed: String(packedItems), total: String(totalItems) })}
                 </span>
               )}
@@ -210,7 +210,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
           </div>
           <ChevronDown
             size={18}
-            className={`mt-3 shrink-0 text-sky-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            className={`mt-3 shrink-0 text-[var(--color-text-muted)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           />
         </button>
 
@@ -219,7 +219,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
           <div className="mt-4 space-y-4 pl-[52px]">
             {/* No dates hint */}
             {!hasDates && (
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold text-[var(--color-text-secondary)]">
                 {t("packing_no_dates")}
               </p>
             )}
@@ -229,14 +229,14 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
               <button
                 type="button"
                 onClick={generate}
-                className="rounded-xl bg-sky-600 px-4 py-2 text-xs font-black text-white hover:bg-sky-700"
+                className="rounded-xl bg-[var(--color-primary)] px-4 py-2 text-xs font-black text-white hover:bg-[var(--color-primary-hover)]"
               >
                 {t("packing_generate")}
               </button>
             )}
 
             {loading && (
-              <p className="text-xs font-bold text-sky-600 dark:text-sky-400 animate-pulse">
+              <p className="text-xs font-bold text-[var(--color-primary)] animate-pulse">
                 {t("packing_generating")}
               </p>
             )}
@@ -251,17 +251,17 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
                 {list.weatherSummaries.map((w) => (
                   <div
                     key={w.city}
-                    className="flex items-center gap-1.5 rounded-xl border border-sky-100/80 bg-white/70 px-3 py-1.5 dark:border-sky-900/40 dark:bg-slate-900/60"
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-1.5"
                   >
-                    <Thermometer size={12} className="text-sky-500" />
-                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                    <Thermometer size={12} className="text-[var(--color-primary)]" />
+                    <span className="text-[11px] font-bold text-[var(--color-text)]">
                       {w.city}
                     </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    <span className="text-[10px] text-[var(--color-text-secondary)]">
                       {w.tempMinC}–{w.tempMaxC}°C
                     </span>
                     {w.rainProbabilityMax > 30 && (
-                      <span className="flex items-center gap-0.5 text-[10px] text-sky-600 dark:text-sky-400">
+                      <span className="flex items-center gap-0.5 text-[10px] text-[var(--color-primary)]">
                         <CloudRain size={10} />
                         {w.rainProbabilityMax}%
                       </span>
@@ -275,9 +275,9 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
             {list && list.categories.map((cat, ci) => (
               <section
                 key={cat.name}
-                className="rounded-2xl border border-sky-100/80 bg-white/70 p-4 dark:border-sky-900/40 dark:bg-slate-900/60"
+                className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4"
               >
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[var(--color-text-muted)]">
                   {cat.name}
                 </h3>
                 <div className="mt-2 space-y-1.5">
@@ -291,8 +291,8 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
                         onClick={() => toggleItem(ci, item.id)}
                         className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                           item.status === "packed"
-                            ? "border-sky-500 bg-sky-500 text-white"
-                            : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
+                            ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                            : "border-[var(--color-border-strong)] bg-[var(--color-surface)]"
                         }`}
                       >
                         {item.status === "packed" && <Check size={12} />}
@@ -300,19 +300,19 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
                       <span
                         className={`text-xs font-bold ${
                           item.status === "packed"
-                            ? "text-slate-400 line-through dark:text-slate-500"
-                            : "text-slate-700 dark:text-slate-200"
+                            ? "text-[var(--color-text-muted)] line-through"
+                            : "text-[var(--color-text)]"
                         }`}
                       >
                         {item.quantity > 1 && (
-                          <span className="mr-1 text-sky-600 dark:text-sky-400">
+                          <span className="mr-1 text-[var(--color-primary)]">
                             {item.quantity}×
                           </span>
                         )}
                         {item.name}
                       </span>
                       {item.reason && (
-                        <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500 hidden sm:inline">
+                        <span className="ml-auto text-[10px] text-[var(--color-text-muted)] hidden sm:inline">
                           {item.reason}
                         </span>
                       )}
@@ -331,13 +331,13 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
                   onChange={(e) => setNewItemName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addManualItem()}
                   placeholder={t("packing_add_item_placeholder")}
-                  className="min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 placeholder-slate-400 outline-none focus:border-sky-400 dark:border-sky-800 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-500"
+                  className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-bold text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)]"
                 />
                 <button
                   type="button"
                   onClick={addManualItem}
                   disabled={!newItemName.trim()}
-                  className="flex items-center gap-1 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-black text-white hover:bg-sky-700 disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-xl bg-[var(--color-primary)] px-3 py-1.5 text-xs font-black text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-40"
                 >
                   <Plus size={12} />
                   {t("packing_add_item")}
@@ -348,7 +348,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
             {/* Regenerate + generated-at footer */}
             {list && hasDates && (
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                <p className="text-[10px] text-[var(--color-text-muted)]">
                   {t("packing_generated_at", {
                     date: new Date(list.generatedAt).toLocaleDateString(),
                   })}
@@ -357,7 +357,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
                   type="button"
                   onClick={generate}
                   disabled={loading}
-                  className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-sky-600 hover:text-sky-700 dark:text-sky-400 disabled:opacity-40"
+                  className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] disabled:opacity-40"
                 >
                   <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
                   {t("packing_regenerate")}

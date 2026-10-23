@@ -10,18 +10,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { 
-  Bot, 
-  CalendarDays, 
-  CheckCircle2, 
-  Clock3, 
-  MapPin, 
-  CreditCard, 
-  FileText, 
-  ChevronDown, 
-  ChevronUp, 
-  Plus, 
-  Sparkles, 
+import {
+  Bot,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  CreditCard,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Sparkles,
   ExternalLink,
   Plane,
   Utensils,
@@ -46,7 +47,12 @@ import {
   Eye,
   EyeOff,
   Share2,
-  MessageCircle
+  MessageCircle,
+  Sun,
+  Moon,
+  Monitor,
+  GripVertical,
+  Compass
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -82,15 +88,15 @@ import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
 
 const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
-  sightseeing: { icon: MapIcon, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-  reservation: { icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
-  transport: { icon: Plane, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-  hotel: { icon: Bed, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20" },
-  food: { icon: Utensils, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20" },
-  shopping: { icon: ShoppingBag, color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
-  photos: { icon: Camera, color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-900/20" },
-  nightlife: { icon: Music, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
-  other: { icon: Info, color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800" },
+  sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
+  reservation: { icon: CheckCircle2, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
+  transport: { icon: Plane, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
+  hotel: { icon: Bed, color: "text-[#966B32]", bg: "bg-[#966B32]/10" },
+  food: { icon: Utensils, color: "text-[#B54747]", bg: "bg-[#B54747]/10" },
+  shopping: { icon: ShoppingBag, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
+  photos: { icon: Camera, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
+  nightlife: { icon: Music, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
+  other: { icon: Info, color: "text-[var(--color-text-muted)]", bg: "bg-[var(--color-surface-subtle)]" },
 };
 
 const getCategoryStyle = (category: string) =>
@@ -148,11 +154,13 @@ function SortableActivityCard({
   activity,
   onCompleteSwipe,
   onEdit,
+  onComment,
 }: {
   dayId: string;
   activity: Activity;
   onCompleteSwipe: (activityId: string) => void;
   onEdit: () => void;
+  onComment?: () => void;
 }) {
   const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -181,10 +189,10 @@ function SortableActivityCard({
       }}
       exit={{ opacity: 0, scale: 0.95 }}
       layout
-      className={`group premium-card overflow-hidden transition-all duration-500 ease-in-out ${
-        completed 
-          ? "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200/40" 
-          : "border-white/20 shadow-lg hover:shadow-indigo-500/5 cursor-pointer"
+      className={`group overflow-hidden rounded-2xl border transition-all duration-300 ${
+        completed
+          ? "bg-[var(--color-surface-subtle)] opacity-60 border-[var(--color-border)]"
+          : "bg-[var(--color-surface)] border-[var(--color-border)] shadow-sm hover:shadow-md hover:border-[var(--color-border-strong)] cursor-pointer"
       }`}
       onClick={onEdit}
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
@@ -194,27 +202,23 @@ function SortableActivityCard({
         }
       }}
     >
-      <div className="relative p-5 flex gap-4 items-center">
+      <div className="relative p-4 flex gap-3 items-center">
         {/* DRAG HANDLE */}
         <div
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-white dark:bg-slate-900"
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-[var(--color-surface-subtle)] rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-[var(--color-surface)]"
         >
-          <div className="grid grid-cols-2 gap-1 px-1">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="size-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-            ))}
-          </div>
+          <GripVertical size={16} className="text-[var(--color-text-muted)]" />
         </div>
 
         {/* TIME & ICON GROUP */}
         <div className="flex flex-col items-center gap-2 shrink-0 ml-4 md:ml-6 pointer-events-none">
-          <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-            completed 
-              ? "bg-slate-200 dark:bg-slate-800 text-slate-400" 
-              : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color} shadow-sm group-hover:scale-110`
+          <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+            completed
+              ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
+              : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color}`
           }`}>
             {(() => {
               const Icon = getCategoryStyle(activity.category).icon;
@@ -224,13 +228,13 @@ function SortableActivityCard({
           
           <div className="flex flex-col items-center gap-1">
             <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
-              completed ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
+              completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text)]"
             }`}>
               {activity.time}
             </span>
             {!completed && activity.timeInferred && (
               <span 
-                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-[4px] text-[7.5px] font-black uppercase tracking-widest bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30 cursor-help select-none hover:scale-105 active:scale-95 transition-all pointer-events-auto"
+                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-[4px] text-[7.5px] font-black uppercase tracking-widest bg-[var(--color-warning)]/10 text-[var(--color-warning)] border border-[var(--color-warning)]/20 cursor-help select-none hover:scale-105 active:scale-95 transition-all pointer-events-auto"
                 title={t("confidence_tooltip", { confidence: Math.round((activity.timeConfidence || 0.85) * 100) })}
               >
                 ✨ {t("suggested_time")}
@@ -243,41 +247,41 @@ function SortableActivityCard({
         <div className="flex-1 min-w-0 py-1">
           <div className="flex items-center gap-2 mb-1">
              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
-                completed 
-                  ? "bg-slate-100 dark:bg-slate-800 text-slate-400" 
+                completed
+                  ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
                   : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color}`
              }`}>
               {t(activity.category)}
             </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest tabular-nums">
+            <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-widest tabular-nums">
               ┬À {activity.durationMin}{t("mins_short")}
             </span>
           </div>
           
           <h4
             className={`text-base font-extrabold leading-tight transition-all truncate ${
-              completed ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"
+              completed ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"
             }`}
           >
             {activity.title}
           </h4>
           
           <div className="flex items-center gap-1.5 mt-2">
-            <MapPin size={12} className={completed ? "text-slate-300" : "text-slate-400 shrink-0"} />
+            <MapPin size={12} className={completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-muted)] shrink-0"} />
             {activity.location ? (
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   const url = activity.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location as string)}`;
                   window.open(url, "_blank");
                 }}
-                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-slate-300" : "text-indigo-500 dark:text-indigo-400 hover:text-indigo-600"}`}
+                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"}`}
               >
                 {activity.location}
                 <ExternalLink size={10} className="shrink-0" />
               </button>
             ) : (
-              <span className={`text-xs font-medium truncate ${completed ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
+              <span className={`text-xs font-medium truncate ${completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-secondary)]"}`}>
                 {t("location_pending")}
               </span>
             )}
@@ -286,19 +290,28 @@ function SortableActivityCard({
 
         {/* ACTION GROUP */}
         <div className="flex items-center gap-1">
+          {onComment && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onComment(); }}
+              className="size-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all"
+            >
+              <MessageCircle size={15} />
+            </button>
+          )}
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               updateState(dayId, activity.id, completed ? "pending" : "completed");
             }}
-            className={`size-12 md:size-10 rounded-[1.2rem] md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2 ${
-              completed 
-                ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
-                : "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 active:scale-95"
+            className={`size-7 md:size-6 rounded-lg flex items-center justify-center transition-all duration-300 ${
+              completed
+                ? "bg-[var(--color-success)] border border-[var(--color-success)] text-white"
+                : "border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] bg-transparent active:scale-95"
             }`}
           >
-            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-slate-300 md:text-slate-200"} />
+            {completed && <Check size={14} strokeWidth={3} />}
           </button>
         </div>
       </div>
@@ -384,12 +397,12 @@ function ActivityFilesSection({
   };
 
   const getOfflineBadgeCopy = (status: DocumentOfflineStatus) => {
-    if (status === "available") return { label: t("offline_available"), tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" };
-    if (status === "pending") return { label: t("offline_caching"), tone: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" };
-    if (status === "failed") return { label: t("offline_failed"), tone: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" };
+    if (status === "available") return { label: t("offline_available"), tone: "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" };
+    if (status === "pending") return { label: t("offline_caching"), tone: "bg-[var(--color-warning)]/10 text-[var(--color-warning)]" };
+    if (status === "failed") return { label: t("offline_failed"), tone: "bg-[var(--color-danger)]/10 text-[var(--color-danger)]" };
     return {
       label: isOnline ? t("offline_not_cached") : t("offline_unavailable"),
-      tone: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+      tone: "bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)]",
     };
   };
 
@@ -407,13 +420,13 @@ function ActivityFilesSection({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+        <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] flex items-center gap-1">
           <FileText size={12} /> {t("attachments")}
         </label>
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={loading}
-          className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 disabled:opacity-50 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full transition-all"
+          className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] disabled:opacity-50 flex items-center gap-1 bg-[var(--color-primary-subtle)] px-3 py-1 rounded-full transition-all"
         >
           <Plus size={12} /> {t("add_file")}
         </button>
@@ -431,22 +444,22 @@ function ActivityFilesSection({
         {files.map((file) => (
           <div
             key={file.id}
-            className="group relative bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
+            className="group relative bg-[var(--color-surface)] rounded-2xl p-3 border border-[var(--color-border)] border-[var(--color-border)] flex items-center gap-3 shadow-sm hover:shadow-md transition-all"
           >
             <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
-              file.fileType === "pdf" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
+              file.fileType === "pdf" ? "bg-[var(--color-danger)]/10 text-[var(--color-danger)]" : "bg-[var(--color-transport)]/10 text-[var(--color-transport)]"
             }`}>
               {file.fileType === "pdf" ? <FileText size={20} /> : <Camera size={20} />}
             </div>
             
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 dark:text-white truncate pr-6" title={file.fileName}>
+              <p className="text-xs font-bold text-[var(--color-text)] truncate pr-6" title={file.fileName}>
                 {file.fileName}
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => handlePreview(file)}
-                  className="text-[10px] font-bold text-indigo-500 hover:underline uppercase tracking-wider"
+                  className="text-[10px] font-bold text-[var(--color-primary)] hover:underline uppercase tracking-wider"
                 >
                   {t("view_file")}
                 </button>
@@ -459,7 +472,7 @@ function ActivityFilesSection({
             <button
               onClick={() => handleOfflineDownload(file)}
               disabled={offlineStatuses[file.id] === "pending" || !isOnline}
-              className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+              className="shrink-0 rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {offlineStatuses[file.id] === "available" ? t("offline_ready_short") : t("download_offline")}
             </button>
@@ -471,7 +484,7 @@ function ActivityFilesSection({
                   deleteFile(file.id);
                 }
               }}
-              className="absolute top-2 right-2 p-1 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-2 right-2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors opacity-0 group-hover:opacity-100"
             >
               <Trash2 size={12} />
             </button>
@@ -479,8 +492,8 @@ function ActivityFilesSection({
         ))}
         
         {files.length === 0 && !loading && (
-          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="col-span-full py-6 text-center rounded-2xl border-2 border-dashed border-[var(--color-border)] border-[var(--color-border)]">
+            <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
               {t("no_attachments_hint")}
             </p>
           </div>
@@ -488,7 +501,7 @@ function ActivityFilesSection({
 
         {loading && (
           <div className="col-span-full py-6 flex items-center justify-center">
-            <Loader2 size={20} className="text-indigo-500 animate-spin" />
+            <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
           </div>
         )}
       </div>
@@ -528,7 +541,7 @@ function ActivityEditModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+        className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
       />
       
       <motion.div
@@ -537,13 +550,13 @@ function ActivityEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
+        className="relative w-full max-w-2xl bg-white dark:bg-[var(--color-bg)] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] hidden md:block"><X size={20} className="text-slate-400" /></button>
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-slate-400" /></button>
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full bg-[var(--color-surface-subtle)] hover:bg-[var(--color-surface-subtle)] transition-colors z-[60] hidden md:block"><X size={20} className="text-[var(--color-text-muted)]" /></button>
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-[var(--color-surface-subtle)] hover:bg-[var(--color-surface-subtle)] transition-colors z-[60] md:hidden flex items-center justify-center shadow-lg"><X size={16} className="text-[var(--color-text-muted)]" /></button>
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
+            <div className="w-12 h-1.5 rounded-full bg-[var(--color-border)]" />
           </div>
 
           <div className="space-y-8">
@@ -552,7 +565,7 @@ function ActivityEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none pb-2 border-b-2 border-transparent focus:border-[var(--color-primary)]/30 transition-all font-sans"
                 placeholder={t("adventure_title_placeholder")}
               />
             </div>
@@ -569,8 +582,8 @@ function ActivityEditModal({
                     onClick={() => setLocalCategory(cat)}
                     className={`snap-center flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border ${
                       isSel 
-                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-white dark:ring-offset-slate-950` 
-                        : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100"
+                        ? `${conf.bg} ${conf.color} border-transparent shadow-sm ring-2 ring-[var(--color-primary)]/20 ring-offset-2 ring-offset-white` 
+                        : "bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-subtle)]"
                     }`}
                   >
                     <Icon size={14} strokeWidth={isSel ? 3 : 2} />
@@ -582,64 +595,64 @@ function ActivityEditModal({
 
             {/* Time & Duration */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("time")}</label>
                 <input
                   type="time"
                   value={localTime}
                   onChange={(e) => setLocalTime(e.target.value)}
-                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">{t("duration_mins")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 block">{t("duration_mins")}</label>
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
                     value={localDuration}
                     onChange={(e) => setLocalDuration(parseInt(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
-                  <span className="text-[10px] font-black text-slate-300">{t("mins_short")}</span>
+                  <span className="text-[10px] font-black text-[var(--color-text-muted)]">{t("mins_short")}</span>
                 </div>
               </div>
             </div>
 
             {/* Location & Cost */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><MapPin size={12}/> {t("location")}</label>
                 <input
                   type="text"
                   value={localLocation}
                   onChange={(e) => setLocalLocation(e.target.value)}
                   placeholder={t("location_placeholder")}
-                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-slate-400">$</span>
+                  <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
                   <input
                     type="number"
                     value={localCost}
                     onChange={(e) => setLocalCost(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
                 </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 relative">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)] relative">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
 
               <textarea
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
                 placeholder={t("notes_placeholder")}
-                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-slate-900 dark:text-white leading-relaxed"
+                className="w-full bg-transparent text-sm font-medium border-none p-0 outline-none focus:ring-0 min-h-[120px] resize-none text-[var(--color-text)] leading-relaxed"
               />
             </div>
 
@@ -653,16 +666,16 @@ function ActivityEditModal({
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-[var(--color-border)] border-[var(--color-border)]/50 bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] flex gap-3 pb-safe">
            <button 
              onClick={() => { onDelete(); onClose(); }}
-             className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
+             className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-danger)]/10 text-[var(--color-danger)] flex items-center justify-center hover:bg-[var(--color-danger)]/20 transition-colors"
            >
              <Trash2 size={20} />
            </button>
            <button 
              onClick={() => { onDuplicate(); onClose(); }}
-             className="size-14 shrink-0 rounded-[1.5rem] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 items-center justify-center hover:bg-indigo-100 transition-colors hidden md:flex"
+             className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-primary-subtle)] dark:bg-[var(--color-primary)]/20 text-[var(--color-primary)] items-center justify-center hover:bg-[var(--color-primary-subtle)] transition-colors hidden md:flex"
            >
              <Plus size={24} />
            </button>
@@ -679,7 +692,7 @@ function ActivityEditModal({
                 });
                 onClose();
              }}
-             className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+             className="flex-1 rounded-[1.5rem] bg-[var(--color-text)] dark:bg-white text-white dark:text-[var(--color-text)] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
              {t("save_changes")}
            </button>
@@ -720,7 +733,7 @@ function ReservationEditModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+        className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
       />
       
       <motion.div
@@ -729,11 +742,11 @@ function ReservationEditModal({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
+        className="relative w-full max-w-lg bg-white dark:bg-[var(--color-bg)] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
       >
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
           <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />
+            <div className="w-12 h-1.5 rounded-full bg-[var(--color-border)]" />
           </div>
 
           <div className="space-y-6">
@@ -741,70 +754,70 @@ function ReservationEditModal({
               <input
                 value={localTitle}
                 onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 outline-none pb-2 border-b-2 border-transparent focus:border-indigo-500/30 transition-all font-sans"
+                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none pb-2 border-b-2 border-transparent focus:border-[var(--color-primary)]/30 transition-all font-sans"
                 placeholder={t("reservation_title_placeholder")}
                 autoFocus
               />
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
               <input
                 type="date"
                 min={todayStr}
                 value={localDate}
                 onChange={(e) => setLocalDate(e.target.value)}
                 onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
                 <input
                   type="date"
                   min={todayStr}
                   value={localDeadline}
                   onChange={(e) => setLocalDeadline(e.target.value)}
                   onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                 />
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-slate-400">$</span>
+                  <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
                   <input
                     type="number"
                     value={localPrice}
                     onChange={(e) => setLocalPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
+            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
               <input
                 type="url"
                 value={localLink}
                 onChange={(e) => setLocalLink(e.target.value)}
                 placeholder="https://..."
-                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-slate-900 dark:text-white"
+                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
               />
             </div>
           </div>
         </div>
 
         {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950 flex gap-3 pb-safe">
+        <div className="p-4 md:px-10 border-t border-[var(--color-border)] border-[var(--color-border)]/50 bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] flex gap-3 pb-safe">
            {!isNew && (
              <button 
                onClick={() => { onDelete(); onClose(); }}
-               className="size-14 shrink-0 rounded-[1.5rem] bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors"
+               className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-danger)]/10 text-[var(--color-danger)] flex items-center justify-center hover:bg-[var(--color-danger)]/20 transition-colors"
              >
                <Trash2 size={20} />
              </button>
@@ -819,7 +832,7 @@ function ReservationEditModal({
                   price: localPrice
                 });
              }}
-             className="flex-1 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
+             className="flex-1 rounded-[1.5rem] bg-[var(--color-text)] dark:bg-white text-white dark:text-[var(--color-text)] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
            >
              {t("save_reservation")}
            </button>
@@ -878,8 +891,25 @@ export function TripView() {
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
+  const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
+  const [travelContextOpen, setTravelContextOpen] = useState(false);
   const savingDraftRef = useRef(false);
+
+  // Initialize theme from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("plania_theme") as "light" | "dark" | "system" | null;
+    const mode = stored || "system";
+    setThemeMode(mode);
+    const html = document.documentElement;
+    if (mode === "system") {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      html.classList.toggle("dark", prefersDark);
+    } else {
+      html.classList.toggle("dark", mode === "dark");
+    }
+  }, []);
 
   // Auto-save draft when user logs in
   useEffect(() => {
@@ -1460,10 +1490,10 @@ export function TripView() {
 
   if (!isMounted || (loading && !activeTrip)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="size-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading\u2026</p>
+          <div className="size-12 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
+          <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Loading\u2026</p>
         </div>
       </div>
     );
@@ -1471,16 +1501,16 @@ export function TripView() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] p-8 text-center">
         <div className="premium-card p-12 max-w-md">
-          <div className="size-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Info className="text-rose-600" size={32} />
+          <div className="size-16 bg-[var(--color-danger)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Info className="text-[var(--color-danger)]" size={32} />
           </div>
-          <h2 className="text-xl font-black text-slate-900 mb-2">{t("connection_issue")}</h2>
-          <p className="text-slate-500 text-sm mb-8">{error}</p>
+          <h2 className="text-xl font-black text-[var(--color-text)] mb-2">{t("connection_issue")}</h2>
+          <p className="text-[var(--color-text-secondary)] text-sm mb-8">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold"
+            className="w-full bg-[var(--color-text)] text-white rounded-2xl py-4 font-bold"
           >
             {t("retry_connection")}
           </button>
@@ -1490,10 +1520,10 @@ export function TripView() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 ios-compact-shell">
+    <main className="min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] pb-32 ios-compact-shell">
       {activeTripIsDraft && (
-        <div className="sticky top-0 z-50 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+        <div className="sticky top-0 z-50 bg-[var(--color-warning)]/10 border-b border-[var(--color-warning)]/20 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-[var(--color-warning)]">
             Estás viendo un viaje de ejemplo. Inicia sesión para guardarlo y editarlo.
           </p>
           <button
@@ -1505,14 +1535,14 @@ export function TripView() {
               const res = await saveDraft();
               if (res.error) alert(res.error);
             }}
-            className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-700 transition-all min-h-[36px]"
+            className="px-4 py-2 bg-[var(--color-warning)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-warning)]/90 transition-all min-h-[36px]"
           >
             Guardar
           </button>
         </div>
       )}
       {/* COMPACT STICKY HEADER */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+      <header className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-sm border-b border-[var(--color-border)]">
         {/* Top bar: trip selector + controls */}
         <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
           {/* Left: Trip Switcher */}
@@ -1520,8 +1550,30 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const html = document.documentElement;
+                const current = localStorage.getItem("plania_theme") || "system";
+                const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
+                localStorage.setItem("plania_theme", next);
+                if (next === "system") {
+                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                  html.classList.toggle("dark", prefersDark);
+                } else {
+                  html.classList.toggle("dark", next === "dark");
+                }
+                setThemeMode(next as "light" | "dark" | "system");
+              }}
+              className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+              title={`Theme: ${themeMode}`}
+            >
+              {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
+            </button>
+
             {/* Language toggle */}
-            <div className="flex items-center rounded-full bg-slate-100 p-0.5 dark:bg-slate-800">
+            <div className="flex items-center rounded-full bg-[var(--color-surface-subtle)] p-0.5">
               {(["es", "en"] as const).map((code) => (
                 <button
                   key={code}
@@ -1529,8 +1581,8 @@ export function TripView() {
                   onClick={() => setLang(code)}
                   className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
                     lang === code
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      ? "bg-[var(--color-primary)] text-white shadow-sm"
+                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                   }`}
                 >
                   {code === "es" ? "ES" : "EN"}
@@ -1543,7 +1595,7 @@ export function TripView() {
                 {activeTrip && (
                   <div className="hidden sm:flex mr-2">
                     {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-full border border-violet-100 dark:border-violet-800" title="Solo lectura">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title="Solo lectura">
                         <Share2 size={10} />
                         <span className="text-[9px] font-black uppercase tracking-widest">
                           De {sharedTripInfo?.ownerEmail || "propietario"}
@@ -1552,7 +1604,7 @@ export function TripView() {
                     ) : (
                       <button
                         onClick={() => setShowShareModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full transition-colors border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
+                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
                       >
                         <Share2 size={12} />
                         <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Compartir</span>
@@ -1560,12 +1612,12 @@ export function TripView() {
                     )}
                   </div>
                 )}
-                <div className="size-7 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 border border-indigo-100 dark:border-indigo-800">
+                <div className="size-7 rounded-full bg-[var(--color-primary-subtle)] flex items-center justify-center text-[var(--color-primary)] border border-[var(--color-primary)]/20">
                   <UserIcon size={12} />
                 </div>
                 <button
                   onClick={() => authSignOut()}
-                  className="size-7 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                  className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
                 >
                   <LogOut size={12} />
                 </button>
@@ -1573,7 +1625,7 @@ export function TripView() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
               >
                 <ShieldCheck size={10} />
                 <span>Save</span>
@@ -1587,10 +1639,10 @@ export function TripView() {
           {completedPastDays.length > 0 && (
             <button
               onClick={() => setShowCompletedDays(!showCompletedDays)}
-              className={`snap-center flex flex-col items-center justify-center min-w-[58px] h-[62px] py-1.5 px-2 rounded-2xl border transition-all duration-300 flex-shrink-0 gap-1 select-none hover:scale-[1.02] active:scale-[0.98] ${
+              className={`snap-center flex flex-col items-center justify-center min-w-[58px] h-[62px] py-1.5 px-2 rounded-2xl border transition-colors duration-150 flex-shrink-0 gap-1 select-none ${
                 showCompletedDays
-                  ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 shadow shadow-indigo-500/5"
-                  : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-100"
+                  ? "bg-[var(--color-primary-subtle)] border-[var(--color-primary)]/20 text-[var(--color-primary)]"
+                  : "bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)]"
               }`}
             >
               {showCompletedDays ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1598,7 +1650,7 @@ export function TripView() {
                 {showCompletedDays ? t("hide_past_days") : t("show_past_days")}
               </span>
               {completedPastDays.length > 0 && !showCompletedDays && (
-                <span className="text-[8px] font-black leading-none bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1 py-0.5 rounded-md">
+                <span className="text-[8px] font-black leading-none bg-[var(--color-border)] text-[var(--color-text-secondary)] px-1 py-0.5 rounded-md">
                   {completedPastDays.length}
                 </span>
               )}
@@ -1612,23 +1664,23 @@ export function TripView() {
               <button
                 key={day.id}
                 onClick={() => setActiveDay(day.id)}
-                className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-all duration-300 relative border flex-shrink-0 ${
+                className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-colors duration-150 relative border flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40 focus-visible:ring-offset-2 ${
                   isActive
-                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-lg -translate-y-0.5"
-                    : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:bg-slate-50"
+                    ? "bg-[#246B57] text-white border-[#246B57]"
+                    : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-primary-subtle)]"
                 }`}
               >
-                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-indigo-400" : "text-slate-400"}`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-white/70" : "text-[var(--color-text-muted)]"}`}>
                   {format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
                 <span className="text-base font-black tracking-tight leading-none">
                   {format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
-                  <div className="absolute top-1.5 right-1.5 size-1 rounded-full bg-indigo-500" />
+                  <div className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[var(--color-primary)]" />
                 )}
                 {isActive && (
-                  <motion.div layoutId="date-active" className="absolute -bottom-0.5 size-1 bg-indigo-400 rounded-full shadow shadow-indigo-400/50" />
+                  <div className="absolute -bottom-0.5 size-1 bg-white rounded-full" />
                 )}
               </button>
             );
@@ -1637,7 +1689,7 @@ export function TripView() {
           {!isInvitee && (
             <button
               onClick={handleAddDay}
-              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 transition-all flex-shrink-0"
+              className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-colors flex-shrink-0"
             >
               <Plus size={18} />
               <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
@@ -1646,197 +1698,157 @@ export function TripView() {
         </div>
       </header>
 
-      {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
-      {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
-      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
-      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
-      {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
-
-      {activeTrip && budgetSummary.total > 0 ? (
-        <div className="max-w-7xl mx-auto px-5 pt-4">
-          <div className="rounded-3xl border border-indigo-100 dark:border-indigo-900/60 bg-white/80 dark:bg-slate-900/60 p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-300">{t("trip_budget_title")}</p>
-              {tripMapUrl ? (
-                <a
-                  href={tripMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                  {t("trip_map_view")}
-                </a>
-              ) : null}
+      {/* Day Summary Bar */}
+      {activeDay && (
+        <div className="max-w-7xl mx-auto px-5 pt-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin size={14} className="text-[var(--color-text-muted)] shrink-0" />
+              <span className="text-sm font-bold text-[var(--color-text)] truncate">
+                {format(activeDay.date, "EEE, MMM d", { locale: dateFnsLocale })}
+              </span>
+              <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider truncate">{activeDay.city}</span>
             </div>
-            <div className="space-y-2">
-              <p className="text-2xl font-black text-slate-900 dark:text-white">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-slate-400">est.</span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {budgetSummary.perDay.map((d) => (
-                  <span key={d.date} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-                    {d.date}: {d.total.toFixed(2)}
-                  </span>
-                ))}
+            <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
+              {activeDay.activities.length} {activeDay.activities.length === 1 ? "activity" : "activities"}
+            </span>
+            <div className="flex items-center gap-2 flex-1 min-w-[80px] max-w-[160px]">
+              <div className="flex-1 h-1.5 bg-[var(--color-border)] rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${completion.dayPct}%` }}
+                  className="h-full bg-[var(--color-primary)] rounded-full"
+                />
               </div>
+              <span className="text-[10px] font-black text-[var(--color-text-secondary)] tabular-nums">{completion.dayPct}%</span>
+            </div>
+            {activeDay.activities.some(a => a.expectedCost) && (
+              <span className="text-xs font-bold text-[var(--color-text-secondary)] tabular-nums">
+                {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
+              </span>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              {!isInvitee && (
+                <>
+                  <button
+                    onClick={() => setShowAdd(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary)] text-white text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-hover)] transition-colors"
+                  >
+                    <Plus size={12} /> {t("add")}
+                  </button>
+                  <button
+                    onClick={() => runOptimizeDay(activeDayId, lang)}
+                    disabled={isOptimizing}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
+                  >
+                    {isOptimizing ? <div className="size-3 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={12} />}
+                    {t("day_genius")}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
-      {activeTrip && budgetSummary.total === 0 && tripMapUrl ? (
-        <div className="max-w-7xl mx-auto px-5 pt-4">
-          <a
-            href={tripMapUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:underline px-1"
-          >
-            {t("trip_map_view")}
-          </a>
-        </div>
-      ) : null}
-
-      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 ios-compact-gap">
+      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div className="space-y-8">
           {/* DAY INTRO */}
           {activeDay ? (
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-                    <CalendarDays size={20} />
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                    {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2 ml-13">
-                  <MapPin size={12} className="text-slate-400" />
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{activeDay.city}</p>
+                <h2 className="text-xl font-black text-[var(--color-text)]">
+                  {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <MapPin size={12} className="text-[var(--color-text-muted)]" />
+                  <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest">{activeDay.city}</p>
                   {!isInvitee && (
-                    <button 
+                    <button
                       onClick={() => {
                         setEditingDay(activeDay);
                         setEditDayCity(activeDay.city);
                         setEditDayLabel(activeDay.label);
                       }}
-                      className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"
+                      className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
                     >
                       <Edit2 size={10} />
                     </button>
                   )}
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {!isInvitee && (
-                  <button 
+                  <button
                     onClick={() => {
                       if (confirm("Delete this entire day and all its activities?")) {
                         removeTripDay(activeDayId);
                       }
                     }}
-                    className="size-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800"
+                    className="size-8 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] flex items-center justify-center transition-all border border-[var(--color-border)]"
                     title="Remove Day"
                   >
                     <Trash2 size={14} />
                   </button>
                 )}
-                <button 
-                  onClick={() => runOptimizeDay(activeDayId, lang)}
-                  disabled={isOptimizing || isInvitee}
-                  className="px-4 py-2 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-100 transition-all border border-fuchsia-100/50 flex items-center gap-2 disabled:opacity-50"
-                >
-                  {isOptimizing ? <div className="size-3 border-2 border-fuchsia-600/20 border-t-fuchsia-600 rounded-full animate-spin" /> : <Sparkles size={12} />}
-                  {t("day_genius")}
-                </button>
-                <button 
+                <button
                   onClick={jumpToToday}
-                  className="px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100/50"
+                  className="px-4 py-2 rounded-2xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-subtle)]/80 transition-all"
                 >
                   {t("today")}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-12 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-center space-y-4">
-              <div className="size-16 bg-slate-50 dark:bg-slate-900 rounded-3xl flex items-center justify-center mx-auto text-slate-300">
+            <div className="p-12 rounded-[3rem] border-2 border-dashed border-[var(--color-border)] text-center space-y-4">
+              <div className="size-16 bg-[var(--color-surface-subtle)] rounded-3xl flex items-center justify-center mx-auto text-[var(--color-text-muted)]">
                 <CalendarDays size={32} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">No days found</h3>
-                <p className="text-sm text-slate-400">Add your first destination to start planning.</p>
+                <h3 className="text-lg font-black text-[var(--color-text)]">No days found</h3>
+                <p className="text-sm text-[var(--color-text-muted)]">Add your first destination to start planning.</p>
               </div>
-              <button 
+              <button
                 onClick={handleAddDay}
-                className="px-6 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-500/20"
+                className="px-6 py-3 rounded-2xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/20"
               >
                 Add Day 1
               </button>
             </div>
           )}
 
-          {activeDay && (
-            <div className="grid grid-cols-2 gap-4">
-                <div className="premium-card p-5 border-l-4 border-l-indigo-500">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("day_progress")}</span>
-                    <div className="flex items-end justify-between">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white">{completion.dayPct}%</span>
-                        <CheckCircle2 size={24} className="text-indigo-500 mb-1" />
-                    </div>
-                    <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${completion.dayPct}%` }}
-                          className="h-full bg-indigo-500 rounded-full"
-                        />
-                    </div>
-                </div>
-                <div className="premium-card p-5 border-l-4 border-l-violet-500">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">{t("budget_status")}</span>
-                    <div className="flex items-end justify-between">
-                        <span className="text-xl font-black text-slate-900 dark:text-white">
-                          {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
-                        </span>
-                        <CreditCard size={24} className="text-violet-500 mb-1" />
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-500 mt-3">{t("estimated_for", { city: activeDay.city })}</p>
-                </div>
-            </div>
-          )}
-
           {shoppingUi.show_suggestions_card && visibleShoppingSuggestions.length > 0 && (
-            <div className="premium-card p-6 border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-900">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600">Good opportunity today</p>
-                  <h3 className="mt-2 text-lg font-black text-slate-900 dark:text-white">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">Good opportunity today</p>
+                  <h3 className="mt-2 text-lg font-black text-[var(--color-text)]">
                     {visibleShoppingSuggestions[0].title}
                   </h3>
-                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                     {visibleShoppingSuggestions[0].reason}
                   </p>
                   {visibleShoppingSuggestions[0].location_suggestions[0] && (
-                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                       {visibleShoppingSuggestions[0].location_suggestions[0].name}
                       {visibleShoppingSuggestions[0].location_suggestions[0].area ? ` · ${visibleShoppingSuggestions[0].location_suggestions[0].area}` : ""}
                     </p>
                   )}
                 </div>
-                <ShoppingBag className="shrink-0 text-emerald-500" size={28} />
+                <ShoppingBag className="shrink-0 text-[var(--color-primary)]" size={28} />
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   onClick={() => void handleShoppingPlanAdd(visibleShoppingSuggestions[0])}
-                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20"
+                  className="rounded-2xl bg-[var(--color-primary)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[var(--color-primary)]/20"
                 >
                   Add to plan
                 </button>
                 <button
                   onClick={() => void handleIgnoreShoppingSuggestion(visibleShoppingSuggestions[0])}
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]"
                 >
                   Ignore
                 </button>
@@ -1851,7 +1863,7 @@ export function TripView() {
             >
               <div className="space-y-10 relative">
                 {/* Visual Timeline Line */}
-                <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-slate-100 dark:bg-slate-800 hidden md:block" />
+                <div className="absolute left-[38px] top-6 bottom-6 w-0.5 bg-[var(--color-border)] hidden md:block" />
 
                 <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
                   <motion.div
@@ -1872,28 +1884,21 @@ export function TripView() {
                     {sortedActivities.some(a => a.state !== "completed") && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/50" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{t("scheduled_adventure")}</h3>
+                           <div className="size-2 rounded-full bg-[var(--color-primary)]" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-secondary)]">{t("scheduled_adventure")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
                             .filter((a) => a.state !== "completed")
                             .map((activity) => (
-                               <div key={activity.id} className="relative group">
-                                 <SortableActivityCard
-                                   dayId={activeDayId}
-                                   activity={activity}
-                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                   onEdit={() => setEditingActivityId(activity.id)}
-                                 />
-                                 <button
-                                   onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
-                                   title="Comentarios"
-                                 >
-                                   <MessageCircle size={12} />
-                                 </button>
-                               </div>
+                               <SortableActivityCard
+                                 key={activity.id}
+                                 dayId={activeDayId}
+                                 activity={activity}
+                                 onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                 onEdit={() => setEditingActivityId(activity.id)}
+                                 onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                               />
                              ))}
                          </div>
                        </div>
@@ -1903,28 +1908,21 @@ export function TripView() {
                     {sortedActivities.some(a => a.state === "completed") && (
                       <div className="space-y-4 opacity-70">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-slate-300" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">{t("memory_lane")}</h3>
+                           <div className="size-2 rounded-full bg-[var(--color-text-muted)]" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-muted)]">{t("memory_lane")}</h3>
                         </div>
                         <div className="space-y-4">
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
-                             <div key={activity.id} className="relative group">
                                <SortableActivityCard
+                                 key={activity.id}
                                  dayId={activeDayId}
                                  activity={activity}
                                  onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
                                  onEdit={() => setEditingActivityId(activity.id)}
+                                 onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
-                               <button
-                                 onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
-                                 title="Comentarios"
-                               >
-                                 <MessageCircle size={12} />
-                               </button>
-                             </div>
                            ))}
                          </div>
                        </div>
@@ -1932,13 +1930,13 @@ export function TripView() {
 
                      {sortedActivities.length === 0 && (
                       <div className="py-24 text-center">
-                        <div className="size-24 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
-                          <Plane className="text-slate-200" size={40} />
+                        <div className="size-24 bg-[var(--color-surface)] border-2 border-dashed border-[var(--color-border)] rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
+                          <Plane className="text-[var(--color-text-muted)]" size={40} />
                         </div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                        <h3 className="text-xl font-black text-[var(--color-text)]">
                           {t("where_to_first")}
                         </h3>
-                        <p className="text-slate-500 text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
+                        <p className="text-[var(--color-text-secondary)] text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
                           {t("empty_itinerary_hint")}
                         </p>
                       </div>
@@ -1950,33 +1948,182 @@ export function TripView() {
           </DndContext>
         </div>
 
-        {/* ­ƒì▒ SIDEBAR / SECONDARY CONTENT */}
-        <aside className="space-y-10">
-          <div className="premium-card p-6 border-fuchsia-200/60 shadow-fuchsia-500/5">
-            <div className="flex items-center justify-between gap-3 mb-5">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
-                <ShoppingBag className="text-fuchsia-500" size={22} />
-                Shopping List
-              </h3>
-              <span className="rounded-full bg-fuchsia-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-fuchsia-600 dark:bg-fuchsia-900/20 dark:text-fuchsia-300">
-                Todo
+        {/* SIDEBAR */}
+        <aside className="space-y-6">
+          {/* AI QUICK ACTIONS */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">AI Quick Actions</h3>
+            <div className="space-y-3">
+              <button
+                onClick={() => runOptimizeDay(activeDayId, lang)}
+                disabled={isOptimizing || isInvitee}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
+              >
+                {isOptimizing ? <div className="size-4 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={16} />}
+                {t("day_genius")} — {t("ai_route_optimization")}
+              </button>
+              <button
+                onClick={() => setTravelContextOpen(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+              >
+                <Compass size={16} />
+                {t("trip_context")}
+              </button>
+              <div className="relative">
+                <textarea
+                  value={importText}
+                  onChange={(e) => handleImportTextChange(e.target.value)}
+                  placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
+                  className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
+                />
+                <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                  {voiceState === "preview" && (
+                    <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
+                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
+                        <X size={12} />
+                      </button>
+                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                  )}
+                  {isSpeechSupported && voiceState === "idle" && (
+                    <button onClick={startListening} className="p-2 rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all">
+                      <Mic size={18} />
+                    </button>
+                  )}
+                  {voiceState === "listening" && (
+                    <button onClick={cancelVoice} className="p-2 rounded-full bg-[var(--color-danger)]/10 text-[var(--color-danger)] animate-pulse transition-all">
+                      <Mic size={18} />
+                    </button>
+                  )}
+                  {voiceState === "syncing" && (
+                    <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
+                  )}
+                  {voiceState === "idle" && !isSpeechSupported && (
+                    <Bot className="text-[var(--color-text-muted)]" size={20} />
+                  )}
+                </div>
+              </div>
+              <button
+                className={`w-full rounded-xl px-4 py-3 text-xs font-bold transition-all tracking-wider uppercase disabled:opacity-60 ${
+                  isImporting || voiceState === 'syncing'
+                    ? "bg-[var(--color-text-muted)] text-[var(--color-surface)] cursor-wait"
+                    : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed"
+                }`}
+                disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
+                onClick={() => handleImportSync(importText)}
+              >
+                {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
+              </button>
+            </div>
+
+            {suggestions.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-[var(--color-border)]">
+                {suggestions.map((s) => (
+                  <div key={s.id} className="flex gap-3 p-3 rounded-xl bg-[var(--color-surface-subtle)] border border-[var(--color-border)]">
+                    <div className="size-7 rounded-lg bg-[var(--color-accent-ai)]/10 flex items-center justify-center text-[var(--color-accent-ai)] shrink-0">
+                      <Sparkles size={14} />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-bold text-[var(--color-text)] tracking-tight">{s.title}</p>
+                      <p className="text-[10px] text-[var(--color-text-muted)] font-medium leading-relaxed">{s.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* CRITICAL RESERVATIONS */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("critical_reservations")}</h3>
+              <button
+                onClick={() => setShowAddReservation(true)}
+                className="size-7 rounded-lg bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] flex items-center justify-center transition-all"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(activeTrip?.criticalReservations.length === 0) && (
+                <div className="flex flex-col items-center gap-2 py-6 text-[var(--color-text-muted)]">
+                  <CalendarDays size={24} />
+                  <p className="text-xs font-medium">{t("no_reservations_yet")}</p>
+                </div>
+              )}
+              {(activeTrip?.criticalReservations ?? []).map((booking) => {
+                const isBooked = booking.status === "booked";
+                return (
+                  <div
+                    key={booking.id}
+                    onClick={() => setEditingReservation(booking)}
+                    className={`rounded-xl p-4 transition-all border-l-4 cursor-pointer ${
+                      isBooked
+                        ? "bg-[var(--color-surface-subtle)] border-l-[var(--color-border-strong)] opacity-50"
+                        : "bg-[var(--color-surface)] border border-[var(--color-border)] border-l-[var(--color-danger)] hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            isBooked ? "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" : "bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
+                          }`}>
+                            {t(booking.status)}
+                          </span>
+                          {booking.urgency === "today" && !isBooked && (
+                            <span className="text-[8px] font-black text-[var(--color-danger)] animate-pulse">{t("critical")}</span>
+                          )}
+                        </div>
+                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"}`}>
+                          {booking.title}
+                        </h4>
+                        <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
+                          {booking.reservationDate}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isBooked}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleBooking(booking.id)}
+                        className="size-5 rounded border-2 border-[var(--color-border-strong)] checked:bg-[var(--color-primary)] checked:border-[var(--color-primary)] transition-all cursor-pointer accent-[var(--color-primary)]"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SHOPPING LIST */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Shopping List</h3>
+              <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">
+                {sortedShoppingItems.length}
               </span>
             </div>
 
             <div className="space-y-3">
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <input
                   value={shoppingInput}
                   onChange={(e) => setShoppingInput(e.target.value)}
                   placeholder={shoppingUi.input_placeholder}
-                  className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition-all focus:ring-4 focus:ring-fuchsia-500/10 dark:border-slate-800 dark:bg-slate-950/50 dark:text-white"
+                  className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2.5 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20"
                 />
                 <button
                   onClick={() => void handleAddShoppingItems()}
                   disabled={shoppingLoading || !shoppingInput.trim()}
-                  className="rounded-2xl bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50 dark:bg-white dark:text-slate-900"
+                  className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
                 >
-                  {shoppingLoading ? "Adding" : "Add"}
+                  {shoppingLoading ? "..." : "Add"}
                 </button>
               </div>
 
@@ -1984,12 +2131,12 @@ export function TripView() {
                 <button
                   onClick={() => void handleEnableDeviceLocation()}
                   disabled={nearbyLoading}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-fuchsia-200 hover:text-fuchsia-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300"
+                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:opacity-50"
                 >
                   {nearbyLoading ? "Locating" : deviceLocation ? "Refresh nearby" : "Use my location"}
                 </button>
                 {nearbyAttribution && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                     {nearbyAttribution}
                   </span>
                 )}
@@ -1997,8 +2144,9 @@ export function TripView() {
 
               <div className="space-y-2">
                 {sortedShoppingItems.length === 0 && (
-                  <div className="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:border-slate-800">
-                    No shopping items yet
+                  <div className="rounded-xl border-2 border-dashed border-[var(--color-border)] px-4 py-6 flex flex-col items-center gap-2 text-[var(--color-text-muted)]">
+                    <ShoppingBag size={24} />
+                    <span className="text-[11px] font-bold uppercase tracking-widest">{t("no_shopping_items_yet")}</span>
                   </div>
                 )}
 
@@ -2007,10 +2155,10 @@ export function TripView() {
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-2xl border px-4 py-3 transition-all ${
+                      className={`rounded-xl border px-3 py-2.5 transition-all ${
                         isSelected
-                          ? "border-fuchsia-300 bg-fuchsia-50/60 dark:border-fuchsia-700 dark:bg-fuchsia-900/10"
-                          : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/50"
+                          ? "border-[var(--color-primary)]/30 bg-[var(--color-primary-subtle)]"
+                          : "border-[var(--color-border)] bg-[var(--color-surface)]"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -2018,21 +2166,21 @@ export function TripView() {
                           type="checkbox"
                           checked={item.status === "purchased"}
                           onChange={() => void toggleShoppingItemStatus(item.id)}
-                          className="mt-1 size-4 rounded border-slate-300 accent-fuchsia-500"
+                          className="mt-1 size-4 rounded border-[var(--color-border-strong)] accent-[var(--color-primary)]"
                         />
                         <button
                           onClick={() => setSelectedShoppingItemId(isSelected ? null : item.id)}
                           className="flex-1 text-left"
                         >
-                          <p className={`text-sm font-black ${item.status === "purchased" ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
+                          <p className={`text-sm font-bold ${item.status === "purchased" ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"}`}>
                             {item.name}
                           </p>
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                             {item.category}
                             {item.preferred_cities?.length ? ` · Best in ${item.preferred_cities.join(", ")}` : ""}
                           </p>
                         </button>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
                               const nextName = window.prompt("Edit shopping item", item.name);
@@ -2040,15 +2188,15 @@ export function TripView() {
                                 void updateShoppingItem(item.id, { name: nextName.trim() });
                               }
                             }}
-                            className="text-slate-300 hover:text-indigo-500 transition-colors"
+                            className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                           </button>
                           <button
                             onClick={() => void removeShoppingItem(item.id)}
-                            className="text-slate-300 hover:text-rose-500 transition-colors"
+                            className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
@@ -2059,162 +2207,53 @@ export function TripView() {
             </div>
           </div>
 
-          {/* TICKET-STYLE RESERVATIONS */}
-          <div className="premium-card bg-slate-900 dark:bg-white p-6 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 size-32 bg-indigo-500/10 blur-3xl rounded-full translate-x-12 -translate-y-12" />
-            
-            <div className="flex items-center justify-between mb-6 relative z-10">
-              <h3 className="text-lg font-black text-white dark:text-slate-900 flex items-center gap-3">
-                <CreditCard className="text-indigo-400" size={24} />
-                {t("critical_reservations")}
-              </h3>
-              <button
-                onClick={() => setShowAddReservation(true)}
-                className="size-8 rounded-xl bg-white/10 dark:bg-slate-900/10 text-white dark:text-slate-900 hover:bg-white/20 dark:hover:bg-slate-900/20 flex items-center justify-center transition-all"
-              >
-                <Plus size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-4 relative z-10">
-              {(activeTrip?.criticalReservations.length === 0) && (
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center py-4">{t("no_reservations_yet")}</p>
-              )}
-              {(activeTrip?.criticalReservations ?? []).map((booking) => {
-                const isBooked = booking.status === "booked";
-                return (
-                  <div
-                    key={booking.id}
-                    onClick={() => setEditingReservation(booking)}
-                    className={`rounded-2xl p-4 transition-all border cursor-pointer ${
-                      isBooked
-                        ? "bg-slate-800/50 dark:bg-slate-50 border-transparent opacity-50 ring-1 ring-slate-700 dark:ring-slate-200"
-                        : "bg-slate-800 dark:bg-slate-50 border-indigo-500/30 dark:border-indigo-200/50 shadow-lg hover:translate-y-[-2px]"
-                    }`}
+          {/* BUDGET SUMMARY */}
+          {activeTrip && budgetSummary.total > 0 && (
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
+                {tripMapUrl ? (
+                  <a
+                    href={tripMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] hover:underline"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                            isBooked ? "bg-slate-700 text-slate-400" : "bg-indigo-500 text-white"
-                          }`}>
-                            {t(booking.status)}
-                          </span>
-                          {booking.urgency === "today" && !isBooked && (
-                            <span className="text-[8px] font-black text-rose-400 animate-pulse">{t("critical")}</span>
-                          )}
-                        </div>
-                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-slate-500 line-through" : "text-white dark:text-slate-900"}`}>
-                          {booking.title}
-                        </h4>
-                        <p className="text-[10px] font-medium text-slate-400">
-                          {booking.reservationDate}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isBooked}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => toggleBooking(booking.id)}
-                        className="size-6 rounded-full border-2 border-slate-700 dark:border-slate-300 checked:bg-indigo-500 checked:border-indigo-500 transition-all cursor-pointer accent-indigo-500"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* PRO AI IMPORT SECTION */}
-          <div className="premium-card p-6 bg-linear-to-br from-indigo-500/5 to-violet-500/5 border-indigo-500/20">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4 flex items-center gap-3">
-              <Sparkles className="text-indigo-500" size={22} />
-              AI Power Import
-            </h3>
-            <div className="relative mb-4">
-               <textarea
-                value={importText}
-                onChange={(e) => handleImportTextChange(e.target.value)}
-                placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
-                className={`w-full h-40 bg-white/50 dark:bg-slate-950/50 border ${voiceState === 'listening' ? 'border-red-400 dark:border-red-500 ring-4 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} rounded-3xl p-5 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none outline-none shadow-sm`}
-              />
-              
-              <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                {voiceState === "preview" && (
-                  <div className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full shadow-lg animate-in slide-in-from-bottom-2">
-                    <Loader2 size={14} className="animate-spin" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
-                    <button onClick={cancelVoice} className="hover:bg-slate-700 dark:hover:bg-slate-200 p-0.5 rounded-full transition-colors">
-                      <X size={12} />
-                    </button>
-                    <button onClick={cancelVoice} className="hover:bg-slate-700 dark:hover:bg-slate-200 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
-                      <Edit2 size={12} />
-                    </button>
-                  </div>
-                )}
-
-                {isSpeechSupported && voiceState === "idle" && (
-                  <button onClick={startListening} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all">
-                    <Mic size={20} />
-                  </button>
-                )}
-                
-                {voiceState === "listening" && (
-                  <button onClick={cancelVoice} className="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 animate-pulse transition-all">
-                    <Mic size={20} />
-                  </button>
-                )}
-
-                {voiceState === "syncing" && (
-                  <Loader2 size={24} className="text-indigo-500 animate-spin" />
-                )}
-                
-                {voiceState === "idle" && !isSpeechSupported && (
-                  <Bot className="text-slate-200" size={24} />
-                )}
+                    {t("trip_map_view")}
+                  </a>
+                ) : null}
+              </div>
+              <p className="text-2xl font-black text-[var(--color-text)]">
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">est.</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {budgetSummary.perDay.map((d) => (
+                  <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
+                    {d.date}: {d.total.toFixed(2)}
+                  </span>
+                ))}
               </div>
             </div>
-            
+          )}
+
+          {/* TRAVEL TOOLS — collapsible */}
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
             <button
-              className={`w-full rounded-[1.5rem] px-5 py-4 text-xs font-black transition-all shadow-xl tracking-widest uppercase disabled:opacity-80 disabled:scale-100 ${
-                isImporting || voiceState === 'syncing'
-                  ? "bg-slate-800 dark:bg-slate-200 text-white/50 dark:text-slate-900/50 cursor-wait" 
-                  : "bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
-              }`}
-              disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
-              onClick={() => handleImportSync(importText)}
+              onClick={() => setShowTravelTools(!showTravelTools)}
+              className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
             >
-              {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
+              <span>Travel Tools</span>
+              {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
-          </div>
-
-          {/* AI OPTIMIZER CARD */}
-          <div className="premium-card p-8 border-2 border-indigo-500/30 shadow-indigo-500/5">
-             <div className="flex items-center justify-between mb-8">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">{t("day_genius")}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("ai_route_optimization")}</p>
-                </div>
-                <Bot className="text-indigo-500" size={32} />
-             </div>
-
-             <button className="w-full rounded-[1.5rem] bg-indigo-600 px-6 py-4 text-xs font-black text-white shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 transition-all tracking-widest uppercase mb-8">
-                {t("run_optimizer")}
-             </button>
-
-             <div className="space-y-4">
-                {suggestions.map((s) => (
-                  <div key={s.id} className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:scale-105">
-                     <div className="size-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 shrink-0">
-                        <Sparkles size={16} />
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-xs font-black text-slate-900 dark:text-white tracking-tight">{s.title}</p>
-                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed">{s.reason}</p>
-                     </div>
-                  </div>
-                ))}
-             </div>
+            {showTravelTools && (
+              <div className="px-5 pb-5 space-y-4">
+                {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+                {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+                {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+                {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
+                {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
+              </div>
+            )}
           </div>
         </aside>
       </div>
@@ -2225,15 +2264,15 @@ export function TripView() {
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowAdd(true)}
-          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl flex items-center justify-center z-50 transition-all ring-8 ring-indigo-500/10"
+          className="fixed bottom-8 right-24 md:hidden size-14 rounded-2xl bg-[var(--color-primary)] text-white shadow-2xl shadow-[var(--color-primary)]/20 flex items-center justify-center z-50 transition-all ring-4 ring-[var(--color-primary)]/10"
         >
-          <Plus size={36} />
+          <Plus size={24} />
         </motion.button>
       )}
 
       {activeTrip && (
         <>
-          <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} />
+          <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} isOpen={travelContextOpen} onClose={() => setTravelContextOpen(false)} />
           <ChatFab />
           <ChatPanel tripId={activeTrip.id} />
         </>
@@ -2248,61 +2287,61 @@ export function TripView() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAdd(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl"
+              className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 40 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 40 }}
               transition={{ type: "spring", damping: 20 }}
-              className="relative w-full max-w-lg premium-card p-10 bg-white dark:bg-slate-900 border-indigo-500/20 shadow-indigo-500/10"
+              className="relative w-full max-w-lg bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-10 shadow-xl"
             >
               <div className="flex items-center gap-4 mb-8">
-                <div className="size-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white">
+                <div className="size-12 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-white">
                   <Plus size={24} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white">{t("new_activity")}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Day {activeIndex + 1} ┬À {activeDay?.city}</p>
+                  <h3 className="text-2xl font-black text-[var(--color-text)]">{t("new_activity")}</h3>
+                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Day {activeIndex + 1} · {activeDay?.city}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">
                     {t("title")}
                   </label>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50"
+                    className="w-full rounded-2xl border border-[var(--color-border)] px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)]"
                     placeholder={t("title_placeholder")}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("time")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">{t("time")}</label>
                   <input
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-black focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50 tabular-nums"
+                    className="w-full rounded-2xl border border-[var(--color-border)] px-6 py-4 text-sm font-black focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)] tabular-nums"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("location")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">{t("location")}</label>
                   <input
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50"
+                    className="w-full rounded-2xl border border-[var(--color-border)] px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)]"
                     placeholder={t("location_placeholder")}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block px-1">{t("notes")}</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-3 block px-1">{t("notes")}</label>
                   <textarea
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
-                    className="w-full rounded-[1.5rem] border border-slate-200 dark:border-slate-800 px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-slate-50/50 dark:bg-slate-950/50 min-h-[120px] resize-none"
+                    className="w-full rounded-[1.5rem] border border-[var(--color-border)] px-6 py-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all bg-[var(--color-surface-subtle)] min-h-[120px] resize-none"
                     placeholder={t("notes_placeholder")}
                   />
                 </div>
@@ -2310,13 +2349,13 @@ export function TripView() {
 
               <div className="mt-10 flex gap-4">
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black text-xs uppercase tracking-widest text-slate-500"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-[var(--color-surface-subtle)] font-black text-xs uppercase tracking-widest text-[var(--color-text-secondary)]"
                   onClick={() => setShowAdd(false)}
                 >
                   {t("cancel")}
                 </button>
                 <button
-                  className="flex-1 px-8 py-5 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  className="flex-1 px-8 py-5 rounded-2xl bg-[var(--color-primary)] text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-[var(--color-primary)]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                   onClick={() => {
                     if (!newTitle.trim() || !activeDay) return;
                     addActivity({
@@ -2422,32 +2461,32 @@ export function TripView() {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setEditingDay(null)}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-8"
+              className="relative w-full max-w-sm bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)] p-8"
             >
-              <h2 className="text-xl font-black text-slate-900 dark:text-white mb-6">Edit Day</h2>
+              <h2 className="text-xl font-black text-[var(--color-text)] mb-6">Edit Day</h2>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Destination City</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Destination City</label>
                   <input 
                     type="text" 
                     value={editDayCity}
                     onChange={(e) => setEditDayCity(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full bg-[var(--color-surface-subtle)] border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Day Label</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Day Label</label>
                   <input 
                     type="text" 
                     value={editDayLabel}
                     onChange={(e) => setEditDayLabel(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full bg-[var(--color-surface-subtle)] border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -2456,13 +2495,13 @@ export function TripView() {
                       await updateTripDay(editingDay.id, { city: editDayCity, label: editDayLabel });
                       setEditingDay(null);
                     }}
-                    className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20"
+                    className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
                   >
                     Save Changes
                   </button>
                   <button 
                     onClick={() => setEditingDay(null)}
-                    className="px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-border)] transition-all"
                   >
                     Cancel
                   </button>
@@ -2507,7 +2546,7 @@ export function TripView() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
-              toast.type === "success" ? "bg-slate-900 text-white" : "bg-rose-500 text-white"
+              toast.type === "success" ? "bg-[var(--color-text)] text-white" : "bg-[var(--color-danger)] text-white"
             }`}
           >
             {toast.msg}
