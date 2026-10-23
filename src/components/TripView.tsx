@@ -10,18 +10,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { 
-  Bot, 
-  CalendarDays, 
-  CheckCircle2, 
-  Clock3, 
-  MapPin, 
-  CreditCard, 
-  FileText, 
-  ChevronDown, 
-  ChevronUp, 
-  Plus, 
-  Sparkles, 
+import {
+  Bot,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  CreditCard,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Sparkles,
   ExternalLink,
   Plane,
   Utensils,
@@ -49,7 +50,9 @@ import {
   MessageCircle,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  GripVertical,
+  Compass
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -151,11 +154,13 @@ function SortableActivityCard({
   activity,
   onCompleteSwipe,
   onEdit,
+  onComment,
 }: {
   dayId: string;
   activity: Activity;
   onCompleteSwipe: (activityId: string) => void;
   onEdit: () => void;
+  onComment?: () => void;
 }) {
   const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -197,7 +202,7 @@ function SortableActivityCard({
         }
       }}
     >
-      <div className="relative p-5 flex gap-4 items-center">
+      <div className="relative p-4 flex gap-3 items-center">
         {/* DRAG HANDLE */}
         <div
           {...attributes}
@@ -205,11 +210,7 @@ function SortableActivityCard({
           onClick={(e) => e.stopPropagation()}
           className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-[var(--color-surface-subtle)] rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-[var(--color-surface)]"
         >
-          <div className="grid grid-cols-2 gap-1 px-1">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="size-1 rounded-full bg-[var(--color-border-strong)]" />
-            ))}
-          </div>
+          <GripVertical size={16} className="text-[var(--color-text-muted)]" />
         </div>
 
         {/* TIME & ICON GROUP */}
@@ -289,19 +290,28 @@ function SortableActivityCard({
 
         {/* ACTION GROUP */}
         <div className="flex items-center gap-1">
+          {onComment && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onComment(); }}
+              className="size-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all"
+            >
+              <MessageCircle size={15} />
+            </button>
+          )}
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               updateState(dayId, activity.id, completed ? "pending" : "completed");
             }}
-            className={`size-12 md:size-10 rounded-[1.2rem] md:rounded-2xl flex items-center justify-center transition-all duration-300 border-2 ${
+            className={`size-7 md:size-6 rounded-lg flex items-center justify-center transition-all duration-300 ${
               completed
-                ? "bg-[var(--color-success)] border-[var(--color-success)] text-white shadow-lg shadow-[var(--color-success)]/20"
-                : "border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] active:scale-95"
+                ? "bg-[var(--color-success)] border border-[var(--color-success)] text-white"
+                : "border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] bg-transparent active:scale-95"
             }`}
           >
-            <CheckCircle2 size={24} strokeWidth={completed ? 3 : 2} className={completed ? "scale-110" : "text-[var(--color-border-strong)]"} />
+            {completed && <Check size={14} strokeWidth={3} />}
           </button>
         </div>
       </div>
@@ -884,6 +894,7 @@ export function TripView() {
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
+  const [travelContextOpen, setTravelContextOpen] = useState(false);
   const savingDraftRef = useRef(false);
 
   // Initialize theme from localStorage
@@ -1880,21 +1891,14 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state !== "completed")
                             .map((activity) => (
-                               <div key={activity.id} className="relative group">
-                                 <SortableActivityCard
-                                   dayId={activeDayId}
-                                   activity={activity}
-                                   onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
-                                   onEdit={() => setEditingActivityId(activity.id)}
-                                 />
-                                 <button
-                                   onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                   className="absolute top-2 right-2 z-10 size-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-lg hover:bg-[var(--color-primary-hover)] transition-colors"
-                                   title="Comentarios"
-                                 >
-                                   <MessageCircle size={12} />
-                                 </button>
-                               </div>
+                               <SortableActivityCard
+                                 key={activity.id}
+                                 dayId={activeDayId}
+                                 activity={activity}
+                                 onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                 onEdit={() => setEditingActivityId(activity.id)}
+                                 onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                               />
                              ))}
                          </div>
                        </div>
@@ -1911,21 +1915,14 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
-                             <div key={activity.id} className="relative group">
                                <SortableActivityCard
+                                 key={activity.id}
                                  dayId={activeDayId}
                                  activity={activity}
                                  onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
                                  onEdit={() => setEditingActivityId(activity.id)}
+                                 onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
-                               <button
-                                 onClick={() => setCommentActivity({ id: activity.id, title: activity.title })}
-                                 className="absolute top-2 right-2 z-10 size-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-lg hover:bg-[var(--color-primary-hover)] transition-colors"
-                                 title="Comentarios"
-                               >
-                                 <MessageCircle size={12} />
-                               </button>
-                             </div>
                            ))}
                          </div>
                        </div>
@@ -1964,6 +1961,13 @@ export function TripView() {
               >
                 {isOptimizing ? <div className="size-4 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={16} />}
                 {t("day_genius")} — {t("ai_route_optimization")}
+              </button>
+              <button
+                onClick={() => setTravelContextOpen(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+              >
+                <Compass size={16} />
+                {t("trip_context")}
               </button>
               <div className="relative">
                 <textarea
@@ -2047,7 +2051,10 @@ export function TripView() {
 
             <div className="space-y-3">
               {(activeTrip?.criticalReservations.length === 0) && (
-                <p className="text-xs font-medium text-[var(--color-text-muted)] text-center py-4">{t("no_reservations_yet")}</p>
+                <div className="flex flex-col items-center gap-2 py-6 text-[var(--color-text-muted)]">
+                  <CalendarDays size={24} />
+                  <p className="text-xs font-medium">{t("no_reservations_yet")}</p>
+                </div>
               )}
               {(activeTrip?.criticalReservations ?? []).map((booking) => {
                 const isBooked = booking.status === "booked";
@@ -2137,8 +2144,9 @@ export function TripView() {
 
               <div className="space-y-2">
                 {sortedShoppingItems.length === 0 && (
-                  <div className="rounded-xl border-2 border-dashed border-[var(--color-border)] px-4 py-5 text-center text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
-                    No shopping items yet
+                  <div className="rounded-xl border-2 border-dashed border-[var(--color-border)] px-4 py-6 flex flex-col items-center gap-2 text-[var(--color-text-muted)]">
+                    <ShoppingBag size={24} />
+                    <span className="text-[11px] font-bold uppercase tracking-widest">{t("no_shopping_items_yet")}</span>
                   </div>
                 )}
 
@@ -2256,15 +2264,15 @@ export function TripView() {
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowAdd(true)}
-          className="fixed bottom-8 right-8 size-18 rounded-[2rem] bg-[var(--color-primary)] text-white shadow-2xl shadow-[var(--color-primary)]/20 flex items-center justify-center z-50 transition-all ring-4 ring-[var(--color-primary)]/10"
+          className="fixed bottom-8 right-24 md:hidden size-14 rounded-2xl bg-[var(--color-primary)] text-white shadow-2xl shadow-[var(--color-primary)]/20 flex items-center justify-center z-50 transition-all ring-4 ring-[var(--color-primary)]/10"
         >
-          <Plus size={36} />
+          <Plus size={24} />
         </motion.button>
       )}
 
       {activeTrip && (
         <>
-          <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} />
+          <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} isOpen={travelContextOpen} onClose={() => setTravelContextOpen(false)} />
           <ChatFab />
           <ChatPanel tripId={activeTrip.id} />
         </>

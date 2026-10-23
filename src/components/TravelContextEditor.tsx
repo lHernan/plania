@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Compass, LoaderCircle, X } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { parseTravelContext } from "@/lib/travel-context";
 import type { TravelContext } from "@/lib/types";
@@ -36,13 +36,22 @@ function setSectionValue(
 export function TravelContextEditor({
   context,
   canEdit,
+  isOpen,
+  onClose,
 }: {
   context?: TravelContext;
   canEdit: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
 }) {
   const { t } = useI18n();
   const saveTravelContext = useItineraryStore((state) => state.saveTravelContext);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isOpen ?? internalOpen;
+  const setOpen = (v: boolean) => {
+    if (!v && onClose) onClose();
+    setInternalOpen(v);
+  };
   const [form, setForm] = useState<TravelContext>(context ?? { version: 1 });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,20 +88,6 @@ export function TravelContextEditor({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => {
-          setForm(context ?? { version: 1 });
-          setError(null);
-          setOpen(true);
-        }}
-        aria-label={t("trip_context")}
-        title={t("trip_context")}
-        className="fixed bottom-8 right-52 z-50 flex size-14 items-center justify-center rounded-2xl border border-white/20 bg-[var(--color-text-secondary)] text-white shadow-xl transition hover:bg-[var(--color-text)]"
-      >
-        <Compass size={22} />
-      </button>
-
       {open ? (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[var(--color-text)]/60 p-0 backdrop-blur-sm sm:items-center sm:p-5">
           <section
