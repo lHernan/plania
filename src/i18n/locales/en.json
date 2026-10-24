@@ -1,5 +1,5 @@
 {
-  "app_title": "Plania",
+  "app_title": "Tachao",
   "today": "Today",
   "loading_adventure": "Loading Adventure...",
   "connection_issue": "Connection Issue",
@@ -195,7 +195,7 @@
   "arrival_enter_luggage_first": "Enter carry-on and checked bag counts in Trip Context to compare per-vehicle costs.",
   "arrival_compare_blocked_currency_mismatch": "Options use different currencies. Convert them using a verified rate before comparing.",
   "remove_arrival_option": "Remove transfer option",
-  "add_arrival_option": "Add a quote to compare in Plania (optional)",
+  "add_arrival_option": "Add a quote to compare in Tachao (optional)",
   "arrival_quick_walk": "Walk",
   "arrival_quick_walk_hint": "Open Google Maps for walking directions and current duration.",
   "arrival_quick_transit": "Public transport",
@@ -216,7 +216,7 @@
   "hotel_route_save_origin": "Use this start",
   "hotel_route_use_current": "Use current location",
   "hotel_route_locating": "Finding location…",
-  "hotel_route_location_not_saved": "Your current location is used only to open Maps; Plania does not save it.",
+  "hotel_route_location_not_saved": "Your current location is used only to open Maps; Tachao does not save it.",
   "option_name": "Option name",
   "transport_mode": "Transport type",
   "quoted_amount": "Quoted amount",
@@ -244,14 +244,14 @@
   "arrival_checkin_unavailable": "No reliable check-in estimate. Add a local arrival date/time, destination time zone, and hotel check-in time; daylight-saving ambiguous times need review.",
   "payment_guide_title": "Transport payment guide",
   "payment_guide_unverified": "No source-verified payment guide is available for {city} yet.",
-  "payment_guide_no_assumptions": "Plania will not guess whether contactless works, where to buy tickets, or how transfers are charged.",
+  "payment_guide_no_assumptions": "Tachao will not guess whether contactless works, where to buy tickets, or how transfers are charged.",
   "payment_checked_at": "Verified {date}",
   "payment_mode_public_transport": "Public transport",
   "payment_mode_taxi": "Taxi",
   "payment_mode_ride_hailing": "Ride-hailing",
 
   "landing_loading": "Loading…",
-  "landing_title": "Plania",
+  "landing_title": "Tachao",
   "landing_tagline": "Your premium adventure starts here. Plan, sync, and explore with AI precision.",
   "landing_quick_start": "Quick Start",
   "landing_trip_name": "Trip Name",
@@ -367,5 +367,13 @@
   "map_you_are_here": "You are here",
   "map_get_directions": "Get directions",
 
-  "logout": "Log out"
+  "logout": "Log out",
+
+  "tachao_activity": "Tachao! ✨",
+  "tachao_activity_sub": "One more experience for the memories",
+  "tachao_day": "Day done! 🎉",
+  "tachao_day_sub": "One more day, a whole lot of memories",
+  "tachao_day_next": "On to the next day! →",
+  "tachao_trip": "Trip complete! ✈️",
+  "tachao_trip_sub": "The destination ends, the memories stay."
 }

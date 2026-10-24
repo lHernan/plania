@@ -23,6 +23,7 @@
   --color-warning:        #966B32;
   --color-danger:         #B54747;
   --color-success:        #28734E;
+  --color-celebration:    #FFD700;
 
   --background: var(--color-bg);
   --foreground: var(--color-text);
@@ -45,6 +46,7 @@
   --color-warning:        #966B32;
   --color-danger:         #B54747;
   --color-success:        #28734E;
+  --color-celebration:    #FFD700;
 
   --background: var(--color-bg);
   --foreground: var(--color-text);
@@ -176,4 +178,11 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
