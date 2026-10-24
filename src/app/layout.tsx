@@ -20,7 +20,7 @@ const dmSerif = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Plania - Premium Travel Itinerary",
+  title: "Tachao - Premium Travel Itinerary",
   description: "Mobile-first premium itinerary planner for complex international trips.",
   manifest: "/manifest.webmanifest",
 };

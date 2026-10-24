@@ -86,6 +86,8 @@ import { CityPaymentGuideCard } from "@/components/CityPaymentGuideCard";
 import { CurrencyConverter } from "@/components/CurrencyConverter";
 import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
+import { CelebrationOverlay } from "@/components/CelebrationOverlay";
+import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import dynamic from "next/dynamic";
 
 const DayMapView = dynamic(() => import("@/components/DayMapView"), {
@@ -157,13 +159,13 @@ function resolveShoppingDayCountry(city: string, tripName?: string) {
 function SortableActivityCard({
   dayId,
   activity,
-  onCompleteSwipe,
+  onComplete,
   onEdit,
   onComment,
 }: {
   dayId: string;
   activity: Activity;
-  onCompleteSwipe: (activityId: string) => void;
+  onComplete: (activityId: string) => void;
   onEdit: () => void;
   onComment?: () => void;
 }) {
@@ -204,7 +206,7 @@ function SortableActivityCard({
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touchStart && e.changedTouches[0].clientX - touchStart > 70 && !completed) {
-          onCompleteSwipe(activity.id);
+          onComplete(activity.id);
         }
       }}
     >
@@ -309,7 +311,11 @@ function SortableActivityCard({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              updateState(dayId, activity.id, completed ? "pending" : "completed");
+              if (completed) {
+                updateState(dayId, activity.id, "pending");
+              } else {
+                onComplete(activity.id);
+              }
             }}
             className={`size-7 md:size-6 rounded-lg flex items-center justify-center transition-all duration-300 ${
               completed
@@ -959,6 +965,14 @@ export function TripView() {
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const [celebrationEvent, setCelebrationEvent] = useState<CelebrationEvent | null>(null);
+  const { celebrate } = useCelebration();
+
+  const handleComplete = async (dayId: string, activityId: string) => {
+    const event = await celebrate(dayId, activityId);
+    if (event) setCelebrationEvent(event);
   };
 
   const [showAdd, setShowAdd] = useState(false);
@@ -1991,7 +2005,7 @@ export function TripView() {
                                  key={activity.id}
                                  dayId={activeDayId}
                                  activity={activity}
-                                 onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                 onComplete={(id) => handleComplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
@@ -1999,7 +2013,7 @@ export function TripView() {
                          </div>
                        </div>
                      )}
- 
+
                      {/* COMPLETED SECTION */}
                     {sortedActivities.some(a => a.state === "completed") && (
                       <div className="space-y-4 opacity-70">
@@ -2015,7 +2029,7 @@ export function TripView() {
                                  key={activity.id}
                                  dayId={activeDayId}
                                  activity={activity}
-                                 onCompleteSwipe={(id) => updateActivityState(activeDayId, id, "completed")}
+                                 onComplete={(id) => handleComplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
@@ -2732,6 +2746,16 @@ export function TripView() {
           />
         )}
       </AnimatePresence>
+
+      <CelebrationOverlay
+        event={celebrationEvent}
+        onDismiss={() => setCelebrationEvent(null)}
+        onNextDay={(dayId) => {
+          setCelebrationEvent(null);
+          setSlideDirection(1);
+          setActiveDay(dayId);
+        }}
+      />
 
       <AnimatePresence>
         {toast && (

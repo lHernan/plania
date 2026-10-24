@@ -1,5 +1,5 @@
 {
-  "app_title": "Plania",
+  "app_title": "Tachao",
   "today": "Hoy",
   "loading_adventure": "Cargando Aventura...",
   "connection_issue": "Error de Conexion",
@@ -194,7 +194,7 @@
   "arrival_enter_luggage_first": "Indica maletas de cabina y facturadas en el contexto del viaje para comparar precios por vehiculo.",
   "arrival_compare_blocked_currency_mismatch": "Las opciones usan monedas distintas. Convierte con un tipo de cambio verificado antes de compararlas.",
   "remove_arrival_option": "Eliminar opcion de traslado",
-  "add_arrival_option": "Anadir cotizacion para comparar en Plania (opcional)",
+  "add_arrival_option": "Anadir cotizacion para comparar en Tachao (opcional)",
   "arrival_quick_walk": "A pie",
   "arrival_quick_walk_hint": "Abre Google Maps para ver ruta y duracion actual caminando.",
   "arrival_quick_transit": "Transporte publico",
@@ -215,7 +215,7 @@
   "hotel_route_save_origin": "Usar este origen",
   "hotel_route_use_current": "Usar ubicacion actual",
   "hotel_route_locating": "Buscando ubicacion…",
-  "hotel_route_location_not_saved": "La ubicacion actual solo se usa para abrir Maps; Plania no la guarda.",
+  "hotel_route_location_not_saved": "La ubicacion actual solo se usa para abrir Maps; Tachao no la guarda.",
   "option_name": "Nombre de la opcion",
   "transport_mode": "Tipo de transporte",
   "quoted_amount": "Precio consultado",
@@ -243,14 +243,14 @@
   "arrival_checkin_unavailable": "No hay una estimacion fiable. Indica fecha/hora local de llegada, zona horaria y check-in; las horas ambiguas por cambio horario requieren revision.",
   "payment_guide_title": "Guia de pago del transporte",
   "payment_guide_unverified": "Aun no hay una guia de pago verificada con fuentes para {city}.",
-  "payment_guide_no_assumptions": "Plania no va a suponer si funciona el contactless, donde comprar billetes o como se cobran los transbordos.",
+  "payment_guide_no_assumptions": "Tachao no va a suponer si funciona el contactless, donde comprar billetes o como se cobran los transbordos.",
   "payment_checked_at": "Verificado {date}",
   "payment_mode_public_transport": "Transporte publico",
   "payment_mode_taxi": "Taxi",
   "payment_mode_ride_hailing": "Vehiculo con app",
 
   "landing_loading": "Cargando…",
-  "landing_title": "Plania",
+  "landing_title": "Tachao",
   "landing_tagline": "Tu aventura premium empieza aca. Planifica, sincroniza y explora con precision de IA.",
   "landing_quick_start": "Inicio rapido",
   "landing_trip_name": "Nombre del viaje",
@@ -366,5 +366,13 @@
   "map_you_are_here": "Estás acá",
   "map_get_directions": "Cómo llegar",
 
-  "logout": "Cerrar sesión"
+  "logout": "Cerrar sesión",
+
+  "tachao_activity": "¡Tachao! ✨",
+  "tachao_activity_sub": "Una experiencia más para el recuerdo",
+  "tachao_day": "¡Día tachao! 🎉",
+  "tachao_day_sub": "Un día más, un montón de recuerdos",
+  "tachao_day_next": "¡A por el siguiente día! →",
+  "tachao_trip": "¡Viaje tachao! ✈️",
+  "tachao_trip_sub": "El destino se acaba, los recuerdos se quedan."
 }
