@@ -498,5 +498,22 @@
   "share_page_accept_and_open": "Aceptar y abrir viaje",
   "share_page_sign_in_to_accept": "Inicia sesión para aceptar",
   "share_page_no_activities": "Sin actividades",
-  "share_page_duration_min": "{minutes} min"
+  "share_page_duration_min": "{minutes} min",
+  "map_search_open": "Buscar actividades",
+  "map_search_placeholder": "Nombre o lugar",
+  "map_search_clear": "Limpiar búsqueda",
+  "map_search_empty": "Ninguna actividad coincide con «{query}».",
+  "map_search_no_location": "Sin ubicación en el mapa",
+  "map_search_results": "Resultados de búsqueda",
+  "map_categories": "Categorías",
+  "map_categories_clear": "Limpiar categorías",
+  "map_filters_clear": "Limpiar filtros",
+  "map_filters_no_match": "Ningún lugar coincide con estos filtros.",
+  "map_route_toggle": "Orden de visita",
+  "map_route_caption": "Orden de visita · líneas rectas, no es una ruta por calles",
+  "map_route_hidden_filtered": "Orden de visita oculto mientras filtras",
+  "map_travel_mode_label": "Modo de transporte",
+  "map_travel_mode_walking": "A pie",
+  "map_travel_mode_transit": "Transporte público",
+  "map_travel_mode_driving": "En coche"
 }

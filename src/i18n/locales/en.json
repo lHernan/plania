@@ -498,5 +498,22 @@
   "share_page_accept_and_open": "Accept & open trip",
   "share_page_sign_in_to_accept": "Sign in to accept",
   "share_page_no_activities": "No activities",
-  "share_page_duration_min": "{minutes} min"
+  "share_page_duration_min": "{minutes} min",
+  "map_search_open": "Search activities",
+  "map_search_placeholder": "Name or place",
+  "map_search_clear": "Clear search",
+  "map_search_empty": "No activities match “{query}”.",
+  "map_search_no_location": "No location on the map",
+  "map_search_results": "Search results",
+  "map_categories": "Categories",
+  "map_categories_clear": "Clear categories",
+  "map_filters_clear": "Clear filters",
+  "map_filters_no_match": "No places match these filters.",
+  "map_route_toggle": "Visit order",
+  "map_route_caption": "Visit order · straight lines, not a street route",
+  "map_route_hidden_filtered": "Visit order hidden while filtering",
+  "map_travel_mode_label": "Travel mode",
+  "map_travel_mode_walking": "Walking",
+  "map_travel_mode_transit": "Public transport",
+  "map_travel_mode_driving": "Driving"
 }
