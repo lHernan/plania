@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { getCategoryStyle } from "@/components/SortableActivityCard";
+import { OriginBadge } from "@/components/OriginBadge";
 import { DESKTOP_QUERY } from "@/hooks/use-media-query";
 import { useGeocodeCache, type GeocodedLocation } from "@/hooks/use-geocode-cache";
 import { buildGoogleMapsNavigationUrl, type GoogleMapsTravelMode } from "@/lib/google-maps-links";
@@ -839,6 +840,7 @@ function MarkerDetailCard({
             <Clock size={12} aria-hidden="true" /> {activity.time}
           </span>
         )}
+        <OriginBadge activity={activity} />
       </div>
 
       <h3 className="mt-2 text-base font-extrabold leading-tight text-[var(--color-text)] pr-6">{activity.title}</h3>

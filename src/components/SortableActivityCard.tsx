@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { OriginBadge } from "@/components/OriginBadge";
 import type { Activity, ActivityCategory } from "@/lib/types";
 
 export const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
@@ -153,6 +154,7 @@ export function SortableActivityCard({
                 · {activity.durationMin}{t("mins_short")}
               </span>
             ) : null}
+            <OriginBadge activity={activity} className="ml-auto shrink-0" />
           </div>
 
           <h4

@@ -515,5 +515,9 @@
   "map_travel_mode_label": "Modo de transporte",
   "map_travel_mode_walking": "A pie",
   "map_travel_mode_transit": "Transporte público",
-  "map_travel_mode_driving": "En coche"
+  "map_travel_mode_driving": "En coche",
+  "origin_booking": "Reserva",
+  "origin_booking_hint": "Reserva confirmada importada de tus documentos",
+  "origin_suggested": "Sugerida",
+  "origin_suggested_hint": "Sugerida por Tachao y aceptada por ti"
 }
