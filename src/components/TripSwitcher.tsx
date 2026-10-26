@@ -6,12 +6,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronRight, Check, Loader2, MapPin, Plus, Share2, Star, Trash2, Users, X } from "lucide-react";
 import { getCurrentDateString, resolveTripSelectionFromSummaries } from "@/lib/trip-selection";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { useI18n } from "@/components/I18nProvider";
 
 function isTripSummary(trip: ReturnType<typeof useItineraryStore.getState>["trips"][number] | undefined): trip is ReturnType<typeof useItineraryStore.getState>["trips"][number] {
   return Boolean(trip);
 }
 
 export function TripSwitcher() {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showPastTrips, setShowPastTrips] = useState(false);
@@ -127,7 +129,7 @@ export function TripSwitcher() {
               ) : null}
             </div>
             <p className={`text-[10px] font-medium mt-0.5 ios-compact-meta ${isCurrentTrip ? "text-white/70" : "text-[var(--color-text-muted)]"}`}>
-              {trip.dayCount} days / {trip.activityCount} activities
+              {t("switcher_trip_stats", { days: trip.dayCount, activities: trip.activityCount })}
             </p>
           </div>
         </button>
@@ -151,8 +153,8 @@ export function TripSwitcher() {
                   ? "text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10"
             } ${favoriteBusyId === trip.id ? "opacity-70" : ""}`}
-            aria-label={trip.isFavorite ? "Remove favorite trip" : "Set favorite trip"}
-            title={trip.isFavorite ? "Remove favorite trip" : "Set favorite trip"}
+            aria-label={trip.isFavorite ? t("switcher_remove_favorite") : t("switcher_set_favorite")}
+            title={trip.isFavorite ? t("switcher_remove_favorite") : t("switcher_set_favorite")}
           >
             <Star size={18} className={trip.isFavorite ? "fill-current" : ""} />
           </motion.button>
@@ -160,15 +162,15 @@ export function TripSwitcher() {
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm("Delete this trip?")) deleteTrip(trip.id);
+              if (confirm(t("switcher_delete_confirm"))) deleteTrip(trip.id);
             }}
             className={`flex size-11 items-center justify-center rounded-full transition-all ${
               isCurrentTrip
                 ? "text-white/50 hover:text-white hover:bg-white/10"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
             }`}
-            aria-label="Delete trip"
-            title="Delete trip"
+            aria-label={t("switcher_delete_trip")}
+            title={t("switcher_delete_trip")}
           >
             <Trash2 size={15} />
           </button>
@@ -208,10 +210,10 @@ export function TripSwitcher() {
 
             <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border)] flex-shrink-0 ios-compact-row">
               <div>
-                <span className="block text-sm font-black text-[var(--color-text)] tracking-tight ios-compact-title">My Trips</span>
-                {tripSelection.ui.hints.default_selection_label ? (
+                <span className="block text-sm font-black text-[var(--color-text)] tracking-tight ios-compact-title">{t("switcher_my_trips")}</span>
+                {tripSelection.ui.hints.default_selection_label_key ? (
                   <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-muted)] mt-1 ios-compact-meta">
-                    {tripSelection.ui.hints.default_selection_label}
+                    {t(tripSelection.ui.hints.default_selection_label_key)}
                   </span>
                 ) : null}
               </div>
@@ -231,7 +233,7 @@ export function TripSwitcher() {
                 <div className="py-10 text-center">
                   <MapPin size={28} className="text-[var(--color-text-muted)] mx-auto mb-3" />
                   <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
-                    {tripSelection.ui.hints.empty_state ?? "No trips yet"}
+                    {t(tripSelection.ui.hints.empty_state_key ?? "trip_selection_empty_state")}
                   </p>
                 </div>
               ) : null}
@@ -239,7 +241,7 @@ export function TripSwitcher() {
               {tripSelection.ui.sections[0].visible ? (
                 <section className="space-y-1.5">
                   <p className="px-1 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-text-muted)] ios-compact-meta">
-                    {tripSelection.ui.sections[0].title}
+                    {t(tripSelection.ui.sections[0].title_key)}
                   </p>
                   {groupedTrips.active.map((trip) => renderTripRow(trip, "active"))}
                 </section>
@@ -248,7 +250,7 @@ export function TripSwitcher() {
               {tripSelection.ui.sections[1].visible ? (
                 <section className="space-y-1.5">
                   <p className="px-1 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-text-muted)] ios-compact-meta">
-                    {tripSelection.ui.sections[1].title}
+                    {t(tripSelection.ui.sections[1].title_key)}
                   </p>
                   {groupedTrips.upcoming.map((trip) => renderTripRow(trip, "upcoming"))}
                 </section>
@@ -262,7 +264,7 @@ export function TripSwitcher() {
                     className="w-full px-1 flex items-center justify-between text-left"
                   >
                     <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-text-muted)] ios-compact-meta">
-                      {tripSelection.ui.sections[2].title}
+                      {t(tripSelection.ui.sections[2].title_key)}
                     </span>
                     <ChevronRight
                       size={14}
@@ -280,7 +282,7 @@ export function TripSwitcher() {
                   <div className="px-1 flex items-center gap-1.5">
                     <Share2 size={10} className="text-[var(--color-warning)]" />
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-warning)] ios-compact-meta">
-                      Compartidos conmigo
+                      {t("switcher_shared_with_me")}
                     </p>
                   </div>
                   {sharedTrips.map((trip) => {
@@ -316,13 +318,13 @@ export function TripSwitcher() {
                                   ? "bg-white/20 text-white"
                                   : "bg-[var(--color-warning)]/10 text-[var(--color-warning)]"
                               }`}>
-                                Compartido
+                                {t("switcher_shared_badge")}
                               </span>
                             </div>
                             <p className={`text-[10px] font-medium mt-0.5 ios-compact-meta ${
                               isCurrentTrip ? "text-white/70" : "text-[var(--color-text-muted)]"
                             }`}>
-                              De: {trip.ownerEmail}
+                              {t("switcher_shared_from", { email: trip.ownerEmail ?? "" })}
                             </p>
                           </div>
                         </button>
@@ -338,14 +340,14 @@ export function TripSwitcher() {
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Trip name, e.g. Tokyo 2026"
+                    placeholder={t("switcher_trip_name_placeholder")}
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     className="w-full px-4 py-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1 mb-1 block">Start</label>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1 mb-1 block">{t("switcher_start")}</label>
                       <input
                         type="date"
                         min={todayStr}
@@ -355,7 +357,7 @@ export function TripSwitcher() {
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1 mb-1 block">End</label>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1 mb-1 block">{t("switcher_end")}</label>
                       <input
                         type="date"
                         min={newStartDate || todayStr}
@@ -371,14 +373,14 @@ export function TripSwitcher() {
                       disabled={loading || !newName.trim()}
                       className="flex-1 bg-[var(--color-primary)] text-white py-3.5 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {loading ? <Loader2 size={14} className="animate-spin" /> : "Create Trip"}
+                      {loading ? <Loader2 size={14} className="animate-spin" /> : t("switcher_create_trip")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCreate(false)}
                       className="px-5 py-3.5 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold"
                     >
-                      Cancel
+                      {t("cancel")}
                     </button>
                   </div>
                 </form>
@@ -388,7 +390,7 @@ export function TripSwitcher() {
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 border-dashed border-[var(--color-primary)]/30 text-[var(--color-primary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-primary-subtle)] transition-all"
                 >
                   <Plus size={16} />
-                  New Trip
+                  {t("switcher_new_trip")}
                 </button>
               )}
             </div>
@@ -405,9 +407,9 @@ export function TripSwitcher() {
         className="flex items-center gap-1.5 max-w-[180px] md:max-w-[220px]"
       >
         <div className="flex flex-col items-start min-w-0">
-          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] leading-none mb-0.5 ios-compact-meta">Current Trip</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] leading-none mb-0.5 ios-compact-meta">{t("trip_selection_current_trip")}</span>
           <span className="text-sm font-black text-[var(--color-text)] truncate max-w-[140px] md:max-w-[180px] leading-tight ios-compact-title">
-            {activeTrip?.name ?? "Select a Trip"}
+            {activeTrip?.name ?? t("switcher_select_trip")}
           </span>
         </div>
         <ChevronDown size={14} className={`text-[var(--color-text-muted)] transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />

@@ -138,7 +138,8 @@ type Store = {
   setActiveDay: (dayId: string) => void;
   setDayScroll: (dayId: string, y: number) => void;
   addActivity: (activity: Omit<Activity, "id" | "tripId" | "userId">) => Promise<void>;
-  updateActivityState: (dayId: string, activityId: string, state: ActivityState) => Promise<void>;
+  /** Optimistic update; rolls back and resolves false when the remote write fails. */
+  updateActivityState: (dayId: string, activityId: string, state: ActivityState) => Promise<boolean>;
   patchActivity: (dayId: string, activityId: string, patch: Partial<Activity>) => Promise<void>;
   removeActivity: (dayId: string, activityId: string) => Promise<void>;
   reorderActivities: (dayId: string, sourceId: string, targetId: string) => Promise<void>;
@@ -1593,31 +1594,44 @@ export const useItineraryStore = create<Store>((set, get) => {
     },
 
     updateActivityState: async (dayId, activityId, state) => {
-      await writeState((current) => ({
-        activeTrip: current.activeTrip
-          ? {
-              ...current.activeTrip,
-              days: current.activeTrip.days.map((day) =>
-                day.id === dayId
-                  ? {
-                      ...day,
-                      activities: day.activities.map((activity) =>
-                        activity.id === activityId ? { ...activity, state } : activity
-                      ),
-                    }
-                  : day
-              ),
-            }
-          : null,
-      }));
+      const previousState = get()
+        .activeTrip?.days.find((day) => day.id === dayId)
+        ?.activities.find((activity) => activity.id === activityId)?.state;
+
+      const applyState = (nextState: ActivityState) =>
+        writeState((current) => ({
+          activeTrip: current.activeTrip
+            ? {
+                ...current.activeTrip,
+                days: current.activeTrip.days.map((day) =>
+                  day.id === dayId
+                    ? {
+                        ...day,
+                        activities: day.activities.map((activity) =>
+                          activity.id === activityId ? { ...activity, state: nextState } : activity
+                        ),
+                      }
+                    : day
+                ),
+              }
+            : null,
+        }));
+
+      await applyState(state);
 
       if (!isOnline()) {
         await enqueueMutation("update", "activity_state", { dayId, activityId, state });
-        return;
+        return true;
       }
 
       const { error } = await supabase.from("activities").update({ state }).eq("id", activityId);
-      if (error) set({ error: error.message });
+      if (error) {
+        // Roll back only this activity, without setting the global error that replaces the trip screen.
+        console.warn("Failed to update activity state:", error.message);
+        if (previousState) await applyState(previousState);
+        return false;
+      }
+      return true;
     },
 
     patchActivity: async (dayId, activityId, patch) => {

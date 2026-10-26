@@ -3,18 +3,16 @@
 // TripView — full itinerary UI rendered at /trips
 // AuthInitializer handles routing here once activeTrip is ready.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { enUS, es } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
   Bot,
   CalendarDays,
   Check,
-  CheckCircle2,
   Clock3,
   MapPin,
   CreditCard,
@@ -25,11 +23,8 @@ import {
   Sparkles,
   ExternalLink,
   Plane,
-  Utensils,
-  Bed,
   Camera,
   ShoppingBag,
-  Music,
   Map as MapIcon,
   Info,
   Trash2,
@@ -47,11 +42,9 @@ import {
   Eye,
   EyeOff,
   Share2,
-  MessageCircle,
   Sun,
   Moon,
   Monitor,
-  GripVertical,
   Compass
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
@@ -88,27 +81,14 @@ import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
+import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
+import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
+import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
 import dynamic from "next/dynamic";
 
 const DayMapView = dynamic(() => import("@/components/DayMapView"), {
   ssr: false,
 });
-
-const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
-  sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
-  reservation: { icon: CheckCircle2, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
-  transport: { icon: Plane, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
-  hotel: { icon: Bed, color: "text-[#966B32]", bg: "bg-[#966B32]/10" },
-  food: { icon: Utensils, color: "text-[#B54747]", bg: "bg-[#B54747]/10" },
-  shopping: { icon: ShoppingBag, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
-  photos: { icon: Camera, color: "text-[#3269B2]", bg: "bg-[#3269B2]/10" },
-  nightlife: { icon: Music, color: "text-[#A779C5]", bg: "bg-[#A779C5]/10" },
-  other: { icon: Info, color: "text-[var(--color-text-muted)]", bg: "bg-[var(--color-surface-subtle)]" },
-};
-
-const getCategoryStyle = (category: string) =>
-  CATEGORY_STYLES[category as ActivityCategory] ??
-  CATEGORY_STYLES["other" as ActivityCategory];
 
 async function callShoppingAssistant(payload: Record<string, unknown>) {
   const response = await fetch("/api/shopping-assistant", {
@@ -154,181 +134,6 @@ function resolveShoppingDayCountry(city: string, tripName?: string) {
   if (tripName?.includes("Japan")) return "Japan";
   if (tripName?.includes("Korea")) return "South Korea";
   return city;
-}
-
-function SortableActivityCard({
-  dayId,
-  activity,
-  onComplete,
-  onEdit,
-  onComment,
-}: {
-  dayId: string;
-  activity: Activity;
-  onComplete: (activityId: string) => void;
-  onEdit: () => void;
-  onComment?: () => void;
-}) {
-  const { t } = useI18n();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: activity.id,
-  });
-  const updateState = useItineraryStore((s) => s.updateActivityState);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : 0,
-  };
-
-  const completed = activity.state === "completed";
-
-  return (
-    <motion.div
-      id={`activity-${activity.id}`}
-      ref={setNodeRef}
-      style={style}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{
-        opacity: completed ? 0.7 : 1,
-        y: 0,
-        scale: isDragging ? 1.02 : 1,
-      }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      layout
-      className={`group overflow-hidden rounded-2xl border transition-all duration-300 ${
-        completed
-          ? "bg-[var(--color-surface-subtle)] opacity-60 border-[var(--color-border)]"
-          : "bg-[var(--color-surface)] border-[var(--color-border)] shadow-sm hover:shadow-md hover:border-[var(--color-border-strong)] cursor-pointer"
-      }`}
-      onClick={onEdit}
-      onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
-      onTouchEnd={(e) => {
-        if (touchStart && e.changedTouches[0].clientX - touchStart > 70 && !completed) {
-          onComplete(activity.id);
-        }
-      }}
-    >
-      <div className="relative p-4 flex gap-3 items-center">
-        {/* DRAG HANDLE */}
-        <div
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-2 hover:bg-[var(--color-surface-subtle)] rounded-lg transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 md:opacity-100 md:bg-transparent bg-[var(--color-surface)]"
-        >
-          <GripVertical size={16} className="text-[var(--color-text-muted)]" />
-        </div>
-
-        {/* TIME & ICON GROUP */}
-        <div className="flex flex-col items-center gap-2 shrink-0 ml-4 md:ml-6 pointer-events-none">
-          <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-            completed
-              ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
-              : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color}`
-          }`}>
-            {(() => {
-              const Icon = getCategoryStyle(activity.category).icon;
-              return <Icon size={24} strokeWidth={2.5} />;
-            })()}
-          </div>
-          
-          <div className="flex flex-col items-center gap-1">
-            <span className={`text-[11px] font-black tracking-tighter tabular-nums transition-colors ${
-              completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text)]"
-            }`}>
-              {activity.time}
-            </span>
-            {!completed && activity.timeInferred && (
-              <span 
-                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-[4px] text-[7.5px] font-black uppercase tracking-widest bg-[var(--color-warning)]/10 text-[var(--color-warning)] border border-[var(--color-warning)]/20 cursor-help select-none hover:scale-105 active:scale-95 transition-all pointer-events-auto"
-                title={t("confidence_tooltip", { confidence: Math.round((activity.timeConfidence || 0.85) * 100) })}
-              >
-                ✨ {t("suggested_time")}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* MAIN CONTENT */}
-        <div className="flex-1 min-w-0 py-1">
-          <div className="flex items-center gap-2 mb-1">
-             <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
-                completed
-                  ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
-                  : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color}`
-             }`}>
-              {t(activity.category)}
-            </span>
-            <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-widest tabular-nums">
-              ┬À {activity.durationMin}{t("mins_short")}
-            </span>
-          </div>
-          
-          <h4
-            className={`text-base font-extrabold leading-tight transition-all truncate ${
-              completed ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"
-            }`}
-          >
-            {activity.title}
-          </h4>
-          
-          <div className="flex items-center gap-1.5 mt-2">
-            <MapPin size={12} className={completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-muted)] shrink-0"} />
-            {activity.location ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const url = activity.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location as string)}`;
-                  window.open(url, "_blank");
-                }}
-                className={`text-xs font-medium truncate flex items-center gap-1 hover:underline transition-all ${completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"}`}
-              >
-                {activity.location}
-                <ExternalLink size={10} className="shrink-0" />
-              </button>
-            ) : (
-              <span className={`text-xs font-medium truncate ${completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-secondary)]"}`}>
-                {t("location_pending")}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ACTION GROUP */}
-        <div className="flex items-center gap-1">
-          {onComment && (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onComment(); }}
-              className="size-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all"
-            >
-              <MessageCircle size={15} />
-            </button>
-          )}
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (completed) {
-                updateState(dayId, activity.id, "pending");
-              } else {
-                onComplete(activity.id);
-              }
-            }}
-            className={`size-7 md:size-6 rounded-lg flex items-center justify-center transition-all duration-300 ${
-              completed
-                ? "bg-[var(--color-success)] border border-[var(--color-success)] text-white"
-                : "border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] bg-transparent active:scale-95"
-            }`}
-          >
-            {completed && <Check size={14} strokeWidth={3} />}
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
 }
 
 function ActivityFilesSection({ 
@@ -907,6 +712,8 @@ export function TripView() {
   const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   const [showMap, setShowMap] = useState(false);
+  // Only one map instance is mounted: side panel on desktop, full-screen overlay on mobile.
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [activeMapActivityId, setActiveMapActivityId] = useState<string | null>(null);
   const [mapAnchor, setMapAnchor] = useState<{ lat: number; lng: number } | null>(null);
   const [showMapCityPrompt, setShowMapCityPrompt] = useState(false);
@@ -968,11 +775,26 @@ export function TripView() {
   };
 
   const [celebrationEvent, setCelebrationEvent] = useState<CelebrationEvent | null>(null);
-  const { celebrate } = useCelebration();
+  const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
+  const { complete } = useCelebration();
+  const dismissCelebration = useCallback(() => setCelebrationEvent(null), []);
 
+  // Single entry point for list checkbox, swipe and map card, so both views stay in sync.
   const handleComplete = async (dayId: string, activityId: string) => {
-    const event = await celebrate(dayId, activityId);
+    setJustCompletedId(activityId);
+    const { ok, event } = await complete(dayId, activityId);
+    if (!ok) {
+      setJustCompletedId(null);
+      showToast(t("activity_state_save_failed"), "error");
+      return;
+    }
     if (event) setCelebrationEvent(event);
+  };
+
+  const handleUncomplete = async (dayId: string, activityId: string) => {
+    if (justCompletedId === activityId) setJustCompletedId(null);
+    const ok = await updateActivityState(dayId, activityId, "pending");
+    if (!ok) showToast(t("activity_state_save_failed"), "error");
   };
 
   const [showAdd, setShowAdd] = useState(false);
@@ -1002,7 +824,7 @@ export function TripView() {
   const [shoppingSuggestions, setShoppingSuggestions] = useState<ShoppingSuggestion[]>([]);
   const [shoppingUi, setShoppingUi] = useState<ShoppingAssistantResponse["ui"]>({
     input_mode: "textbox",
-    input_placeholder: "Add things to buy (e.g. Japanese knife, souvenirs, sneakers...)",
+    input_placeholder: "",
     list_style: "todo",
     show_suggestions_card: false,
   });
@@ -1030,7 +852,7 @@ export function TripView() {
   const handleImportSync = async (textToSync: string) => {
     if (!textToSync.trim() || isImporting) return;
     if (!isOnline) {
-      showToast("AI import comes back online automatically when you reconnect.", "error");
+      showToast(t("trip_view_ai_import_offline"), "error");
       cancelVoice();
       return;
     }
@@ -1297,6 +1119,23 @@ export function TripView() {
 
   const activeIndex = activeTrip ? Math.max(0, activeTrip.days.findIndex((d) => d.id === activeDayId)) : 0;
 
+  // Next real day with pending activities (skips empty and completed days).
+  const nextPendingDayId = useMemo(
+    () => (activeTrip ? findNextPendingDayId(activeTrip.days, activeDayId) : undefined),
+    [activeTrip, activeDayId]
+  );
+
+  const goToDay = (dayId: string) => {
+    if (!activeTrip) return;
+    const targetIndex = activeTrip.days.findIndex((d) => d.id === dayId);
+    setSlideDirection(targetIndex >= activeIndex ? 1 : -1);
+    setCelebrationEvent(null);
+    setActiveDay(dayId);
+  };
+
+  // Switching days never replays completion animations.
+  useEffect(() => { setJustCompletedId(null); }, [activeDayId]);
+
   const handleSwipeEnd = (e: any, info: any) => {
     if (!activeTrip) return;
     const swipeThreshold = 50;
@@ -1414,7 +1253,7 @@ export function TripView() {
 
   const handleEnableDeviceLocation = async () => {
     if (!("geolocation" in navigator)) {
-      showToast("Geolocation is not supported in this browser.", "error");
+      showToast(t("map_location_not_supported"), "error");
       return;
     }
 
@@ -1453,14 +1292,15 @@ export function TripView() {
       setNearbyAttribution(data.attribution ?? null);
 
       if (places.length > 0) {
-        showToast("Nearby shops loaded.");
+        showToast(t("trip_view_nearby_shops_loaded"));
       } else if (data.warning) {
-        showToast("Location enabled. Using itinerary context for shopping suggestions.");
+        showToast(t("trip_view_location_enabled_itinerary_context"));
       } else {
-        showToast("Location enabled. No nearby shops were found.");
+        showToast(t("trip_view_location_enabled_no_shops"));
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Unable to load nearby places.", "error");
+      console.error("Unable to load nearby places", error);
+      showToast(t("trip_view_nearby_places_failed"), "error");
     } finally {
       setNearbyLoading(false);
     }
@@ -1546,15 +1386,16 @@ export function TripView() {
         shopping_list: shoppingItems,
       });
       if (result.wishlist_items.length === 0) {
-        showToast("Nothing new to add.", "error");
+        showToast(t("trip_view_shopping_nothing_new"), "error");
       } else {
         await addShoppingItems(result.wishlist_items);
         setShoppingInput("");
-        showToast("Shopping list updated.");
+        showToast(t("trip_view_shopping_list_updated"));
       }
       setShoppingUi(result.ui);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Shopping assistant failed.", "error");
+      console.error("Shopping assistant failed", error);
+      showToast(t("trip_view_shopping_assistant_failed"), "error");
     } finally {
       setShoppingLoading(false);
     }
@@ -1578,7 +1419,7 @@ export function TripView() {
       location: suggestion.location_suggestions[0]?.name || activeDay.city,
       sort_order: 0,
     });
-    showToast("Shopping stop added to your day.");
+    showToast(t("trip_view_shopping_stop_added"));
   };
 
   const handleIgnoreShoppingSuggestion = async (suggestion: ShoppingSuggestion) => {
@@ -1593,7 +1434,7 @@ export function TripView() {
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)]">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
-          <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Loading\u2026</p>
+          <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{t("landing_loading")}</p>
         </div>
       </div>
     );
@@ -1624,7 +1465,7 @@ export function TripView() {
       {activeTripIsDraft && (
         <div className="sticky top-0 z-50 bg-[var(--color-warning)]/10 border-b border-[var(--color-warning)]/20 px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-xs font-bold text-[var(--color-warning)]">
-            Estás viendo un viaje de ejemplo. Inicia sesión para guardarlo y editarlo.
+            {t("trip_view_draft_banner")}
           </p>
           <button
             onClick={async () => {
@@ -1637,7 +1478,7 @@ export function TripView() {
             }}
             className="px-4 py-2 bg-[var(--color-warning)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-warning)]/90 transition-all min-h-[36px]"
           >
-            Guardar
+            {t("save")}
           </button>
         </div>
       )}
@@ -1667,7 +1508,7 @@ export function TripView() {
                 setThemeMode(next as "light" | "dark" | "system");
               }}
               className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-              title={`Theme: ${themeMode}`}
+              title={t("trip_view_theme", { mode: t(`trip_view_theme_${themeMode}`) })}
             >
               {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
             </button>
@@ -1695,10 +1536,10 @@ export function TripView() {
                 {activeTrip && (
                   <div className="hidden sm:flex mr-2">
                     {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title="Solo lectura">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
                         <Share2 size={10} />
                         <span className="text-[9px] font-black uppercase tracking-widest">
-                          De {sharedTripInfo?.ownerEmail || "propietario"}
+                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
                         </span>
                       </div>
                     ) : (
@@ -1707,7 +1548,7 @@ export function TripView() {
                         className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
                       >
                         <Share2 size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Compartir</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
                       </button>
                     )}
                   </div>
@@ -1728,7 +1569,7 @@ export function TripView() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
               >
                 <ShieldCheck size={10} />
-                <span>Save</span>
+                <span>{t("save")}</span>
               </button>
             )}
           </div>
@@ -1792,7 +1633,7 @@ export function TripView() {
               className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-colors flex-shrink-0"
             >
               <Plus size={18} />
-              <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
+              <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">{t("trip_view_day")}</span>
             </button>
           )}
         </div>
@@ -1810,7 +1651,7 @@ export function TripView() {
               <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider truncate">{activeDay.city}</span>
             </div>
             <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
-              {activeDay.activities.length} {activeDay.activities.length === 1 ? "activity" : "activities"}
+              {t(activeDay.activities.length === 1 ? "trip_view_activity_count_one" : "trip_view_activity_count_other", { count: activeDay.activities.length })}
             </span>
             <div className="flex items-center gap-2 flex-1 min-w-[80px] max-w-[160px]">
               <div className="flex-1 h-1.5 bg-[var(--color-border)] rounded-full overflow-hidden">
@@ -1834,7 +1675,7 @@ export function TripView() {
                     onClick={() => setShowAdd(true)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary)] text-white text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-hover)] transition-colors"
                   >
-                    <Plus size={12} /> {t("add")}
+                    <Plus size={12} /> {t("trip_view_add")}
                   </button>
                   <button
                     onClick={() => runOptimizeDay(activeDayId, lang)}
@@ -1893,12 +1734,12 @@ export function TripView() {
                 {!isInvitee && (
                   <button
                     onClick={() => {
-                      if (confirm("Delete this entire day and all its activities?")) {
+                      if (confirm(t("trip_view_confirm_delete_day"))) {
                         removeTripDay(activeDayId);
                       }
                     }}
                     className="size-8 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] flex items-center justify-center transition-all border border-[var(--color-border)]"
-                    title="Remove Day"
+                    title={t("trip_view_remove_day")}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1917,14 +1758,14 @@ export function TripView() {
                 <CalendarDays size={32} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-[var(--color-text)]">No days found</h3>
-                <p className="text-sm text-[var(--color-text-muted)]">Add your first destination to start planning.</p>
+                <h3 className="text-lg font-black text-[var(--color-text)]">{t("trip_view_no_days_found")}</h3>
+                <p className="text-sm text-[var(--color-text-muted)]">{t("trip_view_no_days_hint")}</p>
               </div>
               <button
                 onClick={handleAddDay}
                 className="px-6 py-3 rounded-2xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/20"
               >
-                Add Day 1
+                {t("trip_view_add_first_day")}
               </button>
             </div>
           )}
@@ -1933,7 +1774,7 @@ export function TripView() {
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">Good opportunity today</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">{t("trip_view_shopping_opportunity_today")}</p>
                   <h3 className="mt-2 text-lg font-black text-[var(--color-text)]">
                     {visibleShoppingSuggestions[0].title}
                   </h3>
@@ -1954,13 +1795,13 @@ export function TripView() {
                   onClick={() => void handleShoppingPlanAdd(visibleShoppingSuggestions[0])}
                   className="rounded-2xl bg-[var(--color-primary)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[var(--color-primary)]/20"
                 >
-                  Add to plan
+                  {t("trip_view_add_to_plan")}
                 </button>
                 <button
                   onClick={() => void handleIgnoreShoppingSuggestion(visibleShoppingSuggestions[0])}
                   className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]"
                 >
-                  Ignore
+                  {t("trip_view_ignore")}
                 </button>
               </div>
             </div>
@@ -1990,6 +1831,33 @@ export function TripView() {
                     onDragEnd={handleSwipeEnd}
                     className="space-y-6 cursor-grab active:cursor-grabbing md:cursor-auto"
                   >
+                    {/* DAY / TRIP COMPLETED — persistent, static state (celebration animation lives in CelebrationOverlay) */}
+                    {activeDay && isDayComplete(activeDay) && (
+                      <div className="relative overflow-hidden rounded-2xl border border-[var(--color-primary-subtle)] bg-[var(--color-surface)] p-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+                        <span className="absolute inset-x-0 top-0 h-1 bg-[var(--color-celebration)]" aria-hidden="true" />
+                        <div className="size-10 shrink-0 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center">
+                          <Check size={20} strokeWidth={3} aria-hidden="true" />
+                        </div>
+                        <div className="flex-1 min-w-[180px]">
+                          <p className="text-base font-black tracking-tight text-[var(--color-text)]">
+                            {activeTrip && isTripComplete(activeTrip) ? t("tachao_trip") : t("tachao_day")}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-secondary)]">
+                            {activeTrip && isTripComplete(activeTrip) ? t("tachao_trip_sub") : t("tachao_day_sub")}
+                          </p>
+                        </div>
+                        {nextPendingDayId && (
+                          <button
+                            type="button"
+                            onClick={() => goToDay(nextPendingDayId)}
+                            className="min-h-10 px-4 rounded-xl bg-[var(--color-primary)] text-white text-xs font-bold hover:bg-[var(--color-primary-hover)] transition-colors"
+                          >
+                            {t("tachao_day_next")}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {/* SCHEDULED SECTION */}
                     {sortedActivities.some(a => a.state !== "completed") && (
                       <div className="space-y-4">
@@ -2003,9 +1871,9 @@ export function TripView() {
                             .map((activity) => (
                                <SortableActivityCard
                                  key={activity.id}
-                                 dayId={activeDayId}
                                  activity={activity}
                                  onComplete={(id) => handleComplete(activeDayId, id)}
+                                 onUncomplete={(id) => handleUncomplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
@@ -2016,20 +1884,21 @@ export function TripView() {
 
                      {/* COMPLETED SECTION */}
                     {sortedActivities.some(a => a.state === "completed") && (
-                      <div className="space-y-4 opacity-70">
+                      <div className="space-y-4">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-[var(--color-text-muted)]" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-muted)]">{t("memory_lane")}</h3>
+                           <div className="size-2 rounded-full bg-[var(--color-primary)]/50" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-secondary)]">{t("memory_lane")}</h3>
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
                                <SortableActivityCard
                                  key={activity.id}
-                                 dayId={activeDayId}
                                  activity={activity}
+                                 justCompleted={activity.id === justCompletedId}
                                  onComplete={(id) => handleComplete(activeDayId, id)}
+                                 onUncomplete={(id) => handleUncomplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
@@ -2059,17 +1928,21 @@ export function TripView() {
         </div>
 
         {/* SIDEBAR / MAP */}
-        {showMap && activeDay ? (
+        {showMap && activeDay && isDesktop ? (
           <div className="hidden lg:block sticky top-4 h-[calc(100vh-120px)]">
             <DayMapView
+              dayId={activeDay.id}
               activities={activeDay.activities}
               city={activeDay.city}
               anchor={mapAnchor ?? undefined}
               activeActivityId={activeMapActivityId}
+              canEdit={!isInvitee}
               onActivitySelect={(id) => {
                 setActiveMapActivityId(id);
-                document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                if (id) document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
+              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+              onOpenDetails={(id) => setEditingActivityId(id)}
               onClose={() => setShowMap(false)}
             />
           </div>
@@ -2077,7 +1950,7 @@ export function TripView() {
         <aside className="space-y-6">
           {/* AI QUICK ACTIONS */}
           <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">AI Quick Actions</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
             <div className="space-y-3">
               <button
                 onClick={() => runOptimizeDay(activeDayId, lang)}
@@ -2098,18 +1971,18 @@ export function TripView() {
                 <textarea
                   value={importText}
                   onChange={(e) => handleImportTextChange(e.target.value)}
-                  placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
+                  placeholder={t("paste_notes")}
                   className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
                 />
                 <div className="absolute bottom-3 right-3 flex items-center gap-2">
                   {voiceState === "preview" && (
                     <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
                       <Loader2 size={14} className="animate-spin" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{t("syncing_in", { seconds: previewCountdown })}</span>
                       <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
                         <X size={12} />
                       </button>
-                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
+                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title={t("edit_manually")}>
                         <Edit2 size={12} />
                       </button>
                     </div>
@@ -2229,7 +2102,7 @@ export function TripView() {
           {/* SHOPPING LIST */}
           <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Shopping List</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_shopping_list")}</h3>
               <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">
                 {sortedShoppingItems.length}
               </span>
@@ -2240,7 +2113,7 @@ export function TripView() {
                 <input
                   value={shoppingInput}
                   onChange={(e) => setShoppingInput(e.target.value)}
-                  placeholder={shoppingUi.input_placeholder}
+                  placeholder={shoppingUi.input_placeholder || t("trip_view_shopping_input_placeholder")}
                   className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2.5 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20"
                 />
                 <button
@@ -2248,7 +2121,7 @@ export function TripView() {
                   disabled={shoppingLoading || !shoppingInput.trim()}
                   className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
                 >
-                  {shoppingLoading ? "..." : "Add"}
+                  {shoppingLoading ? "..." : t("trip_view_add")}
                 </button>
               </div>
 
@@ -2258,7 +2131,7 @@ export function TripView() {
                   disabled={nearbyLoading}
                   className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:opacity-50"
                 >
-                  {nearbyLoading ? "Locating" : deviceLocation ? "Refresh nearby" : "Use my location"}
+                  {nearbyLoading ? t("map_locating") : deviceLocation ? t("trip_view_refresh_nearby") : t("map_use_my_location")}
                 </button>
                 {nearbyAttribution && (
                   <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
@@ -2302,13 +2175,13 @@ export function TripView() {
                           </p>
                           <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                             {item.category}
-                            {item.preferred_cities?.length ? ` · Best in ${item.preferred_cities.join(", ")}` : ""}
+                            {item.preferred_cities?.length ? ` · ${t("trip_view_best_in", { cities: item.preferred_cities.join(", ") })}` : ""}
                           </p>
                         </button>
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
-                              const nextName = window.prompt("Edit shopping item", item.name);
+                              const nextName = window.prompt(t("trip_view_edit_shopping_item"), item.name);
                               if (nextName && nextName.trim()) {
                                 void updateShoppingItem(item.id, { name: nextName.trim() });
                               }
@@ -2349,7 +2222,7 @@ export function TripView() {
                 ) : null}
               </div>
               <p className="text-2xl font-black text-[var(--color-text)]">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">est.</span>
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {budgetSummary.perDay.map((d) => (
@@ -2367,7 +2240,7 @@ export function TripView() {
               onClick={() => setShowTravelTools(!showTravelTools)}
               className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
             >
-              <span>Travel Tools</span>
+              <span>{t("trip_view_travel_tools")}</span>
               {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {showTravelTools && (
@@ -2386,7 +2259,7 @@ export function TripView() {
 
       {/* Mobile map overlay */}
       <AnimatePresence>
-        {showMap && activeDay && (
+        {showMap && activeDay && !isDesktop && (
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -2394,18 +2267,17 @@ export function TripView() {
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-50 bg-[var(--color-bg)] lg:hidden"
           >
+            {/* Mobile keeps the map open and shows the selection as a bottom card */}
             <DayMapView
+              dayId={activeDay.id}
               activities={activeDay.activities}
               city={activeDay.city}
               anchor={mapAnchor ?? undefined}
               activeActivityId={activeMapActivityId}
-              onActivitySelect={(id) => {
-                setActiveMapActivityId(id);
-                setShowMap(false);
-                setTimeout(() => {
-                  document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 350);
-              }}
+              canEdit={!isInvitee}
+              onActivitySelect={setActiveMapActivityId}
+              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+              onOpenDetails={(id) => setEditingActivityId(id)}
               onClose={() => setShowMap(false)}
             />
           </motion.div>
@@ -2456,7 +2328,7 @@ export function TripView() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-[var(--color-text)]">{t("new_activity")}</h3>
-                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Day {activeIndex + 1} · {activeDay?.city}</p>
+                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{t("trip_view_day_number", { number: activeIndex + 1 })} · {activeDay?.city}</p>
                 </div>
               </div>
 
@@ -2670,10 +2542,10 @@ export function TripView() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-sm bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)] p-8"
             >
-              <h2 className="text-xl font-black text-[var(--color-text)] mb-6">Edit Day</h2>
+              <h2 className="text-xl font-black text-[var(--color-text)] mb-6">{t("trip_view_edit_day")}</h2>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Destination City</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">{t("trip_view_destination_city")}</label>
                   <input 
                     type="text" 
                     value={editDayCity}
@@ -2682,7 +2554,7 @@ export function TripView() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Day Label</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">{t("trip_view_day_label")}</label>
                   <input 
                     type="text" 
                     value={editDayLabel}
@@ -2702,7 +2574,7 @@ export function TripView() {
                     }}
                     className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
                   >
-                    Save Changes
+                    {t("save_changes")}
                   </button>
                   <button
                     onClick={() => {
@@ -2711,7 +2583,7 @@ export function TripView() {
                     }}
                     className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-border)] transition-all"
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </div>
               </div>
@@ -2749,12 +2621,8 @@ export function TripView() {
 
       <CelebrationOverlay
         event={celebrationEvent}
-        onDismiss={() => setCelebrationEvent(null)}
-        onNextDay={(dayId) => {
-          setCelebrationEvent(null);
-          setSlideDirection(1);
-          setActiveDay(dayId);
-        }}
+        onDismiss={dismissCelebration}
+        onNextDay={goToDay}
       />
 
       <AnimatePresence>

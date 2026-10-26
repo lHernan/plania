@@ -1,76 +1,54 @@
 import { useCallback, useRef } from "react";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { computeCompletionCelebration, type CelebrationTier } from "@/lib/trip-progress";
 
-export type CelebrationTier = 1 | 2 | 3;
+export type { CelebrationTier };
 
 export type CelebrationEvent = {
+  id: number;
   tier: CelebrationTier;
   nextDayId?: string;
   activityTitle: string;
 };
 
+export type CompletionResult = {
+  ok: boolean;
+  event: CelebrationEvent | null;
+};
+
+/**
+ * Completes an activity from an explicit user action and decides its celebration.
+ * Celebrations only come from here — never from loading data or switching days.
+ */
 export function useCelebration() {
-  const celebratingRef = useRef(false);
+  const inFlightRef = useRef(new Set<string>());
+  const eventIdRef = useRef(0);
 
-  const celebrate = useCallback(
-    async (dayId: string, activityId: string): Promise<CelebrationEvent | null> => {
-      if (celebratingRef.current) return null;
+  const complete = useCallback(async (dayId: string, activityId: string): Promise<CompletionResult> => {
+    // Repeated taps on the same activity while its write is pending are ignored.
+    if (inFlightRef.current.has(activityId)) return { ok: true, event: null };
 
-      const state = useItineraryStore.getState();
-      const trip = state.activeTrip;
-      if (!trip) return null;
+    const state = useItineraryStore.getState();
+    const trip = state.activeTrip;
+    if (!trip) return { ok: false, event: null };
 
-      const day = trip.days.find((d) => d.id === dayId);
-      if (!day) return null;
+    // Computed BEFORE the store update; null when already completed.
+    const outcome = computeCompletionCelebration(trip, dayId, activityId);
+    if (!outcome) return { ok: true, event: null };
 
-      const activity = day.activities.find((a) => a.id === activityId);
-      if (!activity || activity.state === "completed") return null;
+    const title =
+      trip.days.find((d) => d.id === dayId)?.activities.find((a) => a.id === activityId)?.title ?? "";
 
-      // Count remaining BEFORE this completion
-      const remainingInDay = day.activities.filter(
-        (a) => a.id !== activityId && a.state !== "completed"
-      ).length;
+    inFlightRef.current.add(activityId);
+    try {
+      const ok = await state.updateActivityState(dayId, activityId, "completed");
+      if (!ok) return { ok: false, event: null };
+      eventIdRef.current += 1;
+      return { ok: true, event: { id: eventIdRef.current, ...outcome, activityTitle: title } };
+    } finally {
+      inFlightRef.current.delete(activityId);
+    }
+  }, []);
 
-      const remainingInTrip = trip.days.reduce((sum, d) => {
-        return (
-          sum +
-          d.activities.filter(
-            (a) => a.id !== activityId && a.state !== "completed"
-          ).length
-        );
-      }, 0);
-
-      // Empty day (0 activities total) is never treated as complete
-      if (day.activities.length === 0) return null;
-
-      let tier: CelebrationTier;
-      let nextDayId: string | undefined;
-
-      if (remainingInDay === 0 && remainingInTrip === 0) {
-        tier = 3;
-      } else if (remainingInDay === 0) {
-        tier = 2;
-        const activeIndex = trip.days.findIndex((d) => d.id === dayId);
-        const nextDay = trip.days[activeIndex + 1];
-        if (nextDay) nextDayId = nextDay.id;
-      } else {
-        tier = 1;
-      }
-
-      celebratingRef.current = true;
-
-      // Perform the store update
-      await state.updateActivityState(dayId, activityId, "completed");
-
-      // Reset guard after a short delay to allow animation
-      setTimeout(() => {
-        celebratingRef.current = false;
-      }, tier === 1 ? 2000 : 5000);
-
-      return { tier, nextDayId, activityTitle: activity.title };
-    },
-    []
-  );
-
-  return { celebrate };
+  return { complete };
 }
