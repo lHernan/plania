@@ -401,14 +401,14 @@ export function TripSwitcher() {
   );
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 max-w-[180px] md:max-w-[220px]"
+        className="flex min-w-0 items-center gap-1.5 max-w-[min(180px,100%)] md:max-w-[220px]"
       >
         <div className="flex flex-col items-start min-w-0">
           <span className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] leading-none mb-0.5 ios-compact-meta">{t("trip_selection_current_trip")}</span>
-          <span className="text-sm font-black text-[var(--color-text)] truncate max-w-[140px] md:max-w-[180px] leading-tight ios-compact-title">
+          <span className="text-sm font-black text-[var(--color-text)] truncate max-w-full md:max-w-[180px] leading-tight ios-compact-title">
             {activeTrip?.name ?? t("switcher_select_trip")}
           </span>
         </div>

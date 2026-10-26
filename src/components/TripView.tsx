@@ -71,7 +71,7 @@ import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
-import { ChatFab } from "@/components/ChatFab";
+import { FloatingActions } from "@/components/FloatingActions";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TravelContextEditor } from "@/components/TravelContextEditor";
 import { ArrivalAssistant } from "@/components/ArrivalAssistant";
@@ -714,6 +714,18 @@ export function TripView() {
   const [showMap, setShowMap] = useState(false);
   // Only one map instance is mounted: side panel on desktop, full-screen overlay on mobile.
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const isMobileMapOpen = showMap && !isDesktop;
+  // Publishes the sticky header's real height (it wraps with the day strip) so sticky
+  // panels below it, like the desktop map, size themselves instead of guessing offsets.
+  const headerObserverRef = useRef<ResizeObserver | null>(null);
+  const headerRef = useCallback((el: HTMLElement | null) => {
+    headerObserverRef.current?.disconnect();
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const publish = () => document.documentElement.style.setProperty("--app-header-h", `${el.offsetHeight}px`);
+    publish();
+    headerObserverRef.current = new ResizeObserver(publish);
+    headerObserverRef.current.observe(el);
+  }, []);
   const [activeMapActivityId, setActiveMapActivityId] = useState<string | null>(null);
   const [mapAnchor, setMapAnchor] = useState<{ lat: number; lng: number } | null>(null);
   const [showMapCityPrompt, setShowMapCityPrompt] = useState(false);
@@ -798,6 +810,11 @@ export function TripView() {
   };
 
   const [showAdd, setShowAdd] = useState(false);
+  // Same quick actions wherever they are docked (page corner or mobile map overlay).
+  const floatingActionsProps = {
+    onAdd: isInvitee ? undefined : () => setShowAdd(true),
+    showAgent: Boolean(activeTrip),
+  };
   const [showAddReservation, setShowAddReservation] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const editingActivity = useMemo(() => {
@@ -1483,14 +1500,18 @@ export function TripView() {
         </div>
       )}
       {/* COMPACT STICKY HEADER */}
-      <header className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-sm border-b border-[var(--color-border)]">
+      <header ref={headerRef} className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-sm border-b border-[var(--color-border)]">
         {/* Top bar: trip selector + controls */}
-        <div className="flex items-center justify-between px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
-          {/* Left: Trip Switcher */}
-          <TripSwitcher />
+        <div className="flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
+          {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
+              overflows narrow screens (an overflow widens the layout viewport and every
+              fixed overlay with it, e.g. the mobile map). */}
+          <div className="min-w-0 flex-1">
+            <TripSwitcher />
+          </div>
 
           {/* Right: user controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Theme toggle */}
             <button
               type="button"
@@ -1929,7 +1950,7 @@ export function TripView() {
 
         {/* SIDEBAR / MAP */}
         {showMap && activeDay && isDesktop ? (
-          <div className="hidden lg:block sticky top-4 h-[calc(100vh-120px)]">
+          <div className="hidden lg:block sticky top-[calc(var(--app-header-h,8.75rem)+1rem)] h-[calc(100dvh-var(--app-header-h,8.75rem)-2rem)]">
             <DayMapView
               dayId={activeDay.id}
               activities={activeDay.activities}
@@ -2260,7 +2281,7 @@ export function TripView() {
 
       {/* Mobile map overlay */}
       <AnimatePresence>
-        {showMap && activeDay && !isDesktop && (
+        {isMobileMapOpen && activeDay && (
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -2281,27 +2302,24 @@ export function TripView() {
               onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
               onOpenDetails={(id) => setEditingActivityId(id)}
               onClose={() => setShowMap(false)}
+              floatingActions={<FloatingActions {...floatingActionsProps} />}
             />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Ô×ò THE PRIMARY FAB */}
-      {!isInvitee && (
-        <motion.button
-          whileHover={{ scale: 1.1, rotate: 90 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setShowAdd(true)}
-          className="fixed bottom-8 right-24 md:hidden size-14 rounded-2xl bg-[var(--color-primary)] text-white shadow-2xl shadow-[var(--color-primary)]/20 flex items-center justify-center z-50 transition-all ring-4 ring-[var(--color-primary)]/10"
-        >
-          <Plus size={24} />
-        </motion.button>
+      {/* Over the mobile map overlay the same actions live in the map's bottom dock instead */}
+      {!(isMobileMapOpen && activeDay) && (
+        <FloatingActions
+          {...floatingActionsProps}
+          className="fixed right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+2rem)] z-50"
+        />
       )}
 
       {activeTrip && (
         <>
           <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} isOpen={travelContextOpen} onClose={() => setTravelContextOpen(false)} />
-          <ChatFab />
           <ChatPanel tripId={activeTrip.id} />
         </>
       )}

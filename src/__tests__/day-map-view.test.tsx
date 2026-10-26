@@ -411,9 +411,59 @@ describe("DayMapView directions", () => {
     expect(directions().searchParams.get("travelmode")).toBe("transit");
   });
 
+  it("keeps the details and completion actions next to directions after the layout change", () => {
+    renderMap(variedDay(), { activeActivityId: "a", floatingActions: <button>FAB</button> });
+    expect(screen.getByRole("link", { name: /Cómo llegar/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "FAB" })).toBeTruthy();
+  });
+
   it("keeps the details and completion actions next to directions", () => {
     renderMap(variedDay(), { activeActivityId: "a" });
     expect(screen.getByRole("button", { name: /Ver detalles/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Tachar" })).toBeTruthy();
+  });
+});
+
+describe("DayMapView bottom dock", () => {
+  const fab = () => screen.getByRole("button", { name: "FAB" });
+  const dockOf = (el: HTMLElement) => el.closest("[data-map-bottom-dock]") as HTMLElement | null;
+
+  it("stacks floating actions above the selected activity card in one dock", () => {
+    renderMap(variedDay(), { activeActivityId: "a", floatingActions: <button>FAB</button> });
+    const card = screen.getByRole("dialog", { name: "Temple" });
+    const dock = dockOf(card);
+    expect(dock).not.toBeNull();
+    expect(dockOf(fab())).toBe(dock);
+    // Floating actions come first, so they sit above the card and move up as it grows.
+    expect(fab().compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("lets the card flow in the dock instead of positioning itself", () => {
+    renderMap(variedDay(), { activeActivityId: "a" });
+    expect(screen.getByRole("dialog", { name: "Temple" }).className).not.toMatch(/\babsolute\b|\bfixed\b/);
+  });
+
+  it("keeps the floating actions in the dock when no card is open", () => {
+    renderMap(variedDay(), { floatingActions: <button>FAB</button> });
+    expect(dockOf(fab())).not.toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("stacks floating actions above the day-complete note too", () => {
+    renderMap(
+      [
+        makeActivity("a", { location: "Senso-ji", state: "completed" }),
+        makeActivity("b", { location: "Ueno Park", state: "completed" }),
+      ],
+      { floatingActions: <button>FAB</button> }
+    );
+    const note = screen.getByRole("note");
+    expect(dockOf(note)).toBe(dockOf(fab()));
+    expect(fab().compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("respects the bottom safe area", () => {
+    renderMap(variedDay(), { activeActivityId: "a" });
+    expect(dockOf(screen.getByRole("dialog"))!.className).toContain("safe-area-inset-bottom");
   });
 });

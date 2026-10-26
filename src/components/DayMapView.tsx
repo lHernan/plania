@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, ZoomControl, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { getCategoryStyle } from "@/components/SortableActivityCard";
+import { DESKTOP_QUERY } from "@/hooks/use-media-query";
 import { useGeocodeCache, type GeocodedLocation } from "@/hooks/use-geocode-cache";
 import { buildGoogleMapsNavigationUrl, type GoogleMapsTravelMode } from "@/lib/google-maps-links";
 import {
@@ -89,10 +90,13 @@ function MapCamera({
   positions,
   resetKey,
   activePosition,
+  getBottomOcclusion,
 }: {
   positions: [number, number][];
   resetKey: string;
   activePosition: [number, number] | null;
+  /** Pixels at the bottom of the map hidden by overlaid UI. */
+  getBottomOcclusion?: () => number;
 }) {
   const map = useMap();
   const userMovedRef = useRef(false);
@@ -141,14 +145,21 @@ function MapCamera({
     if (!activePosition || !isValidLatLng(activePosition)) return;
     try {
       map.stop();
+      const zoom = Math.max(map.getZoom(), 15);
+      // Center the selection in the area left visible above the bottom dock (card +
+      // floating actions), not in the middle of the whole map where the dock covers it.
+      const occluded = getBottomOcclusion?.() ?? 0;
+      const center = occluded > 0
+        ? map.unproject(map.project(activePosition, zoom).add([0, occluded / 2]), zoom)
+        : activePosition;
       // Use setView instead of flyTo — flyTo's hyperbolic interpolation
       // produces NaN when source and destination are very close
-      map.setView(activePosition, Math.max(map.getZoom(), 15), {
+      map.setView(center, zoom, {
         animate: true,
         duration: 0.3,
       });
     } catch { /* Leaflet view error — ignore */ }
-  }, [map, activePosition]);
+  }, [map, activePosition, getBottomOcclusion]);
 
   return null;
 }
@@ -218,6 +229,8 @@ type DayMapViewProps = {
   onToggleComplete: (activityId: string, completed: boolean) => void;
   onOpenDetails: (activityId: string) => void;
   onClose: () => void;
+  /** Page-level quick actions, docked above the card so they never overlap it (mobile overlay). */
+  floatingActions?: React.ReactNode;
 };
 
 const FILTERS: { value: MapStatusFilter; labelKey: string }[] = [
@@ -238,6 +251,7 @@ export default function DayMapView({
   onToggleComplete,
   onOpenDetails,
   onClose,
+  floatingActions,
 }: DayMapViewProps) {
   const { t } = useI18n();
   const { getCoords, geocodeActivities, isLoading } = useGeocodeCache();
@@ -245,6 +259,15 @@ export default function DayMapView({
   const [searchOpen, setSearchOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [showRoute, setShowRoute] = useState(true);
+  const bottomDockRef = useRef<HTMLDivElement>(null);
+  // How much of the map, from its bottom edge, the docked card and actions cover.
+  const getBottomOcclusion = useCallback(() => {
+    const dock = bottomDockRef.current;
+    const mapBox = dock?.parentElement?.getBoundingClientRect();
+    if (!dock || !mapBox) return 0;
+    const tops = Array.from(dock.children, (child) => child.getBoundingClientRect().top);
+    return tops.length > 0 ? Math.max(0, mapBox.bottom - Math.min(...tops)) : 0;
+  }, []);
   const [resultsOpen, setResultsOpen] = useState(false);
   const [travelMode, setTravelMode] = useState<GoogleMapsTravelMode>(
     () => readStoredTravelMode() ?? (preferMinimizeWalking ? "transit" : "walking")
@@ -378,10 +401,21 @@ export default function DayMapView({
     </button>
   );
 
+  // Early states have no card, but the docked quick actions must stay reachable.
+  const standaloneDock = floatingActions && (
+    <div
+      data-map-bottom-dock
+      className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+1.75rem)] z-[1000]"
+    >
+      {floatingActions}
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="relative flex flex-col items-center justify-center h-full bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
         <div className="absolute top-3 right-3">{closeButton}</div>
+        {standaloneDock}
         <Loader2 size={24} className="animate-spin text-[var(--color-primary)] mb-2" />
         <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
           {t("map_loading")}
@@ -394,6 +428,7 @@ export default function DayMapView({
     return (
       <div className="relative flex flex-col items-center justify-center gap-2 h-full p-8 text-center bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
         <div className="absolute top-3 right-3">{closeButton}</div>
+        {standaloneDock}
         <MapPinOff size={28} className="text-[var(--color-text-muted)]" aria-hidden="true" />
         <p className="text-sm font-bold text-[var(--color-text)]">{t("map_no_locations")}</p>
         <p className="text-xs text-[var(--color-text-secondary)] max-w-[240px]">{t("map_no_locations_hint")}</p>
@@ -610,17 +645,6 @@ export default function DayMapView({
         )}
       </div>
 
-      {/* Day completed: discreet memory note, never an empty state */}
-      {dayComplete && filter !== "pending" && !selected && (
-        <div
-          role="note"
-          className="absolute left-1/2 -translate-x-1/2 bottom-[calc(env(safe-area-inset-bottom,0px)+1.75rem)] z-[1000] w-[calc(100%-1.5rem)] max-w-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/95 px-4 py-3 shadow-sm backdrop-blur-sm"
-        >
-          <p className="text-sm font-black text-[var(--color-text)]">{t("tachao_day")}</p>
-          <p className="text-xs text-[var(--color-text-secondary)]">{t("map_day_complete_sub")}</p>
-        </div>
-      )}
-
       {/* Filter-specific empty state — the map stays visible */}
       {filterEmptyMessage && (
         <div
@@ -640,18 +664,43 @@ export default function DayMapView({
         </div>
       )}
 
-      {/* Selected activity: bottom card (mobile bottom-sheet style, compact panel on desktop) */}
-      {selected && (
-        <MarkerDetailCard
-          item={selected}
-          canEdit={canEdit}
-          travelMode={travelMode}
-          onTravelModeChange={changeTravelMode}
-          onClose={() => onActivitySelect(null)}
-          onOpenDetails={() => onOpenDetails(selected.activity.id)}
-          onToggleComplete={() => onToggleComplete(selected.activity.id, !isActivityCompleted(selected.activity))}
-        />
-      )}
+      {/*
+        BOTTOM DOCK: one flex column owns everything anchored to the bottom — floating
+        actions first, then the activity card or the day-complete note. Because they share
+        a container, the actions move up as the card grows; no element offsets itself.
+        Bounded below the top tools and above the tile attribution and safe area.
+      */}
+      <div
+        ref={bottomDockRef}
+        data-map-bottom-dock
+        className="absolute inset-x-3 top-[calc(env(safe-area-inset-top,0px)+7rem)] bottom-[calc(env(safe-area-inset-bottom,0px)+1.75rem)] z-[1000] flex flex-col justify-end gap-3 pointer-events-none"
+      >
+        {floatingActions && <div className="pointer-events-auto self-end shrink-0">{floatingActions}</div>}
+
+        {selected ? (
+          <MarkerDetailCard
+            item={selected}
+            canEdit={canEdit}
+            travelMode={travelMode}
+            onTravelModeChange={changeTravelMode}
+            onClose={() => onActivitySelect(null)}
+            onOpenDetails={() => onOpenDetails(selected.activity.id)}
+            onToggleComplete={() => onToggleComplete(selected.activity.id, !isActivityCompleted(selected.activity))}
+          />
+        ) : (
+          dayComplete &&
+          filter !== "pending" && (
+            // Day completed: discreet memory note, never an empty state
+            <div
+              role="note"
+              className="pointer-events-auto self-center w-full max-w-sm shrink-0 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/95 px-4 py-3 shadow-sm backdrop-blur-sm"
+            >
+              <p className="text-sm font-black text-[var(--color-text)]">{t("tachao_day")}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{t("map_day_complete_sub")}</p>
+            </div>
+          )
+        )}
+      </div>
 
       <MapContainer
         center={fitPositions[0] ?? markerPositions[0] ?? [allMarkers[0].coords.lat, allMarkers[0].coords.lng]}
@@ -670,6 +719,7 @@ export default function DayMapView({
           positions={fitPositions}
           resetKey={`${dayId}|${filter}|${filters.categories.join(",")}|${filters.query.trim()}`}
           activePosition={activePosition}
+          getBottomOcclusion={getBottomOcclusion}
         />
 
         {/* "You are here" blue dot */}
@@ -744,13 +794,25 @@ function MarkerDetailCard({
   const completed = isActivityCompleted(activity);
   // Null for invalid coordinates — then no navigation action is offered.
   const navigationUrl = buildGoogleMapsNavigationUrl(coords, travelMode);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Desktop map panel scrolls with the page until it sticks; if the card opens below the
+  // fold, reveal it with the smallest scroll. The mobile overlay is fixed, so it never needs this.
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card || !window.matchMedia(DESKTOP_QUERY).matches) return;
+    const { top, bottom } = card.getBoundingClientRect();
+    if (top >= 0 && bottom <= window.innerHeight) return;
+    card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activity.id]);
 
   return (
     <div
+      ref={cardRef}
       role="dialog"
       aria-label={activity.title}
-      // Lifted above the tile attribution line, which must stay visible.
-      className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom,0px)+1.75rem)] z-[1000] md:right-auto md:w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
+      // Flows inside the bottom dock; scrolls instead of pushing past the top tools.
+      className="pointer-events-auto relative min-h-0 overflow-y-auto md:self-start md:w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
     >
       <button
         type="button"
