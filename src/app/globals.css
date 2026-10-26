@@ -23,7 +23,7 @@
   --color-warning:        #966B32;
   --color-danger:         #B54747;
   --color-success:        #28734E;
-  --color-celebration:    #FFD700;
+  --color-celebration:    #F2C66D;
 
   --background: var(--color-bg);
   --foreground: var(--color-text);
@@ -46,7 +46,7 @@
   --color-warning:        #966B32;
   --color-danger:         #B54747;
   --color-success:        #28734E;
-  --color-celebration:    #FFD700;
+  --color-celebration:    #F2C66D;
 
   --background: var(--color-bg);
   --foreground: var(--color-text);

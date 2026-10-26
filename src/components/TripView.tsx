@@ -3,7 +3,7 @@
 // TripView — full itinerary UI rendered at /trips
 // AuthInitializer handles routing here once activeTrip is ready.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { enUS, es } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
@@ -88,6 +88,8 @@ import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
 import dynamic from "next/dynamic";
 
 const DayMapView = dynamic(() => import("@/components/DayMapView"), {
@@ -160,20 +162,26 @@ function SortableActivityCard({
   dayId,
   activity,
   onComplete,
+  onUncomplete,
   onEdit,
   onComment,
+  justCompleted = false,
 }: {
   dayId: string;
   activity: Activity;
   onComplete: (activityId: string) => void;
+  onUncomplete: (activityId: string) => void;
   onEdit: () => void;
   onComment?: () => void;
+  /** True only right after the user completed it, so loads and day switches never animate. */
+  justCompleted?: boolean;
 }) {
   const { t } = useI18n();
+  const reducedMotion = useReducedMotion();
+  const animateCompletion = justCompleted && !reducedMotion;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
   });
-  const updateState = useItineraryStore((s) => s.updateActivityState);
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
   const style = {
@@ -191,16 +199,16 @@ function SortableActivityCard({
       style={style}
       initial={{ opacity: 0, y: 10 }}
       animate={{
-        opacity: completed ? 0.7 : 1,
+        opacity: 1,
         y: 0,
         scale: isDragging ? 1.02 : 1,
       }}
       exit={{ opacity: 0, scale: 0.95 }}
-      layout
-      className={`group overflow-hidden rounded-2xl border transition-all duration-300 ${
+      layout={!reducedMotion}
+      className={`group overflow-hidden rounded-2xl border transition-[background-color,border-color,box-shadow] duration-500 cursor-pointer ${
         completed
-          ? "bg-[var(--color-surface-subtle)] opacity-60 border-[var(--color-border)]"
-          : "bg-[var(--color-surface)] border-[var(--color-border)] shadow-sm hover:shadow-md hover:border-[var(--color-border-strong)] cursor-pointer"
+          ? "bg-[var(--color-primary-subtle)]/50 border-[var(--color-primary-subtle)] hover:border-[var(--color-border-strong)]"
+          : "bg-[var(--color-surface)] border-[var(--color-border)] shadow-sm hover:shadow-md hover:border-[var(--color-border-strong)]"
       }`}
       onClick={onEdit}
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
@@ -225,7 +233,7 @@ function SortableActivityCard({
         <div className="flex flex-col items-center gap-2 shrink-0 ml-4 md:ml-6 pointer-events-none">
           <div className={`size-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
             completed
-              ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
+              ? "bg-[var(--color-surface)] text-[var(--color-primary)]/70"
               : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color}`
           }`}>
             {(() => {
@@ -256,19 +264,23 @@ function SortableActivityCard({
           <div className="flex items-center gap-2 mb-1">
              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
                 completed
-                  ? "bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]"
-                  : `${CATEGORY_STYLES[activity.category].bg} ${CATEGORY_STYLES[activity.category].color}`
+                  ? "bg-[var(--color-surface)] text-[var(--color-text-muted)]"
+                  : `${getCategoryStyle(activity.category).bg} ${getCategoryStyle(activity.category).color}`
              }`}>
               {t(activity.category)}
             </span>
-            <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-widest tabular-nums">
-              ┬À {activity.durationMin}{t("mins_short")}
-            </span>
+            {activity.durationMin ? (
+              <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-widest tabular-nums">
+                · {activity.durationMin}{t("mins_short")}
+              </span>
+            ) : null}
           </div>
-          
+
           <h4
-            className={`text-base font-extrabold leading-tight transition-all truncate ${
-              completed ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"
+            className={`text-base font-extrabold leading-tight transition-colors duration-500 truncate ${
+              completed
+                ? "text-[var(--color-text-secondary)] line-through decoration-[var(--color-primary)]/50 decoration-2"
+                : "text-[var(--color-text)]"
             }`}
           >
             {activity.title}
@@ -307,23 +319,48 @@ function SortableActivityCard({
               <MessageCircle size={15} />
             </button>
           )}
+          {/* 44px touch target around a compact visual checkbox */}
           <button
+            type="button"
+            role="checkbox"
+            aria-checked={completed}
+            aria-label={t(completed ? "activity_mark_pending_aria" : "activity_mark_completed_aria", { title: activity.title })}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               if (completed) {
-                updateState(dayId, activity.id, "pending");
+                onUncomplete(activity.id);
               } else {
                 onComplete(activity.id);
               }
             }}
-            className={`size-7 md:size-6 rounded-lg flex items-center justify-center transition-all duration-300 ${
-              completed
-                ? "bg-[var(--color-success)] border border-[var(--color-success)] text-white"
-                : "border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] bg-transparent active:scale-95"
-            }`}
+            className="group/check -m-2 size-11 md:size-9 shrink-0 flex items-center justify-center rounded-xl focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]"
           >
-            {completed && <Check size={14} strokeWidth={3} />}
+            <motion.span
+              animate={animateCompletion ? { scale: [1, 1.18, 1] } : undefined}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className={`size-7 md:size-6 rounded-lg flex items-center justify-center transition-colors duration-300 ${
+                completed
+                  ? "bg-[var(--color-primary)] border-2 border-[var(--color-primary)] text-white"
+                  : "border-2 border-[var(--color-border-strong)] group-hover/check:border-[var(--color-primary)] bg-[var(--color-surface)]"
+              }`}
+            >
+              {completed && (
+                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                  <motion.path
+                    d="M2.5 7.5l3 3 6-6.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    initial={animateCompletion ? { pathLength: 0 } : false}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  />
+                </svg>
+              )}
+            </motion.span>
           </button>
         </div>
       </div>
@@ -968,11 +1005,26 @@ export function TripView() {
   };
 
   const [celebrationEvent, setCelebrationEvent] = useState<CelebrationEvent | null>(null);
-  const { celebrate } = useCelebration();
+  const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
+  const { complete } = useCelebration();
+  const dismissCelebration = useCallback(() => setCelebrationEvent(null), []);
 
+  // Single entry point for list checkbox, swipe and map card, so both views stay in sync.
   const handleComplete = async (dayId: string, activityId: string) => {
-    const event = await celebrate(dayId, activityId);
+    setJustCompletedId(activityId);
+    const { ok, event } = await complete(dayId, activityId);
+    if (!ok) {
+      setJustCompletedId(null);
+      showToast(t("activity_state_save_failed"), "error");
+      return;
+    }
     if (event) setCelebrationEvent(event);
+  };
+
+  const handleUncomplete = async (dayId: string, activityId: string) => {
+    if (justCompletedId === activityId) setJustCompletedId(null);
+    const ok = await updateActivityState(dayId, activityId, "pending");
+    if (!ok) showToast(t("activity_state_save_failed"), "error");
   };
 
   const [showAdd, setShowAdd] = useState(false);
@@ -1296,6 +1348,23 @@ export function TripView() {
   };
 
   const activeIndex = activeTrip ? Math.max(0, activeTrip.days.findIndex((d) => d.id === activeDayId)) : 0;
+
+  // Next real day with pending activities (skips empty and completed days).
+  const nextPendingDayId = useMemo(
+    () => (activeTrip ? findNextPendingDayId(activeTrip.days, activeDayId) : undefined),
+    [activeTrip, activeDayId]
+  );
+
+  const goToDay = (dayId: string) => {
+    if (!activeTrip) return;
+    const targetIndex = activeTrip.days.findIndex((d) => d.id === dayId);
+    setSlideDirection(targetIndex >= activeIndex ? 1 : -1);
+    setCelebrationEvent(null);
+    setActiveDay(dayId);
+  };
+
+  // Switching days never replays completion animations.
+  useEffect(() => { setJustCompletedId(null); }, [activeDayId]);
 
   const handleSwipeEnd = (e: any, info: any) => {
     if (!activeTrip) return;
@@ -1990,6 +2059,33 @@ export function TripView() {
                     onDragEnd={handleSwipeEnd}
                     className="space-y-6 cursor-grab active:cursor-grabbing md:cursor-auto"
                   >
+                    {/* DAY / TRIP COMPLETED — persistent, static state (celebration animation lives in CelebrationOverlay) */}
+                    {activeDay && isDayComplete(activeDay) && (
+                      <div className="relative overflow-hidden rounded-2xl border border-[var(--color-primary-subtle)] bg-[var(--color-surface)] p-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+                        <span className="absolute inset-x-0 top-0 h-1 bg-[var(--color-celebration)]" aria-hidden="true" />
+                        <div className="size-10 shrink-0 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center">
+                          <Check size={20} strokeWidth={3} aria-hidden="true" />
+                        </div>
+                        <div className="flex-1 min-w-[180px]">
+                          <p className="text-base font-black tracking-tight text-[var(--color-text)]">
+                            {activeTrip && isTripComplete(activeTrip) ? t("tachao_trip") : t("tachao_day")}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-secondary)]">
+                            {activeTrip && isTripComplete(activeTrip) ? t("tachao_trip_sub") : t("tachao_day_sub")}
+                          </p>
+                        </div>
+                        {nextPendingDayId && (
+                          <button
+                            type="button"
+                            onClick={() => goToDay(nextPendingDayId)}
+                            className="min-h-10 px-4 rounded-xl bg-[var(--color-primary)] text-white text-xs font-bold hover:bg-[var(--color-primary-hover)] transition-colors"
+                          >
+                            {t("tachao_day_next")}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {/* SCHEDULED SECTION */}
                     {sortedActivities.some(a => a.state !== "completed") && (
                       <div className="space-y-4">
@@ -2006,6 +2102,7 @@ export function TripView() {
                                  dayId={activeDayId}
                                  activity={activity}
                                  onComplete={(id) => handleComplete(activeDayId, id)}
+                                 onUncomplete={(id) => handleUncomplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
@@ -2016,12 +2113,12 @@ export function TripView() {
 
                      {/* COMPLETED SECTION */}
                     {sortedActivities.some(a => a.state === "completed") && (
-                      <div className="space-y-4 opacity-70">
+                      <div className="space-y-4">
                         <div className="flex items-center gap-3 ml-2">
-                           <div className="size-2 rounded-full bg-[var(--color-text-muted)]" />
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-muted)]">{t("memory_lane")}</h3>
+                           <div className="size-2 rounded-full bg-[var(--color-primary)]/50" />
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-secondary)]">{t("memory_lane")}</h3>
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
@@ -2029,7 +2126,9 @@ export function TripView() {
                                  key={activity.id}
                                  dayId={activeDayId}
                                  activity={activity}
+                                 justCompleted={activity.id === justCompletedId}
                                  onComplete={(id) => handleComplete(activeDayId, id)}
+                                 onUncomplete={(id) => handleUncomplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                />
@@ -2062,14 +2161,18 @@ export function TripView() {
         {showMap && activeDay ? (
           <div className="hidden lg:block sticky top-4 h-[calc(100vh-120px)]">
             <DayMapView
+              dayId={activeDay.id}
               activities={activeDay.activities}
               city={activeDay.city}
               anchor={mapAnchor ?? undefined}
               activeActivityId={activeMapActivityId}
+              canEdit={!isInvitee}
               onActivitySelect={(id) => {
                 setActiveMapActivityId(id);
-                document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                if (id) document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
+              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+              onOpenDetails={(id) => setEditingActivityId(id)}
               onClose={() => setShowMap(false)}
             />
           </div>
@@ -2394,18 +2497,17 @@ export function TripView() {
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-50 bg-[var(--color-bg)] lg:hidden"
           >
+            {/* Mobile keeps the map open and shows the selection as a bottom card */}
             <DayMapView
+              dayId={activeDay.id}
               activities={activeDay.activities}
               city={activeDay.city}
               anchor={mapAnchor ?? undefined}
               activeActivityId={activeMapActivityId}
-              onActivitySelect={(id) => {
-                setActiveMapActivityId(id);
-                setShowMap(false);
-                setTimeout(() => {
-                  document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 350);
-              }}
+              canEdit={!isInvitee}
+              onActivitySelect={setActiveMapActivityId}
+              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+              onOpenDetails={(id) => setEditingActivityId(id)}
               onClose={() => setShowMap(false)}
             />
           </motion.div>
@@ -2749,12 +2851,8 @@ export function TripView() {
 
       <CelebrationOverlay
         event={celebrationEvent}
-        onDismiss={() => setCelebrationEvent(null)}
-        onNextDay={(dayId) => {
-          setCelebrationEvent(null);
-          setSlideDirection(1);
-          setActiveDay(dayId);
-        }}
+        onDismiss={dismissCelebration}
+        onNextDay={goToDay}
       />
 
       <AnimatePresence>

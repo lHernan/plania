@@ -4,12 +4,12 @@ import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
+// Restrained brand palette: greens plus the warm celebration accent.
 const COLORS = [
   "var(--color-primary)",
+  "var(--color-primary-subtle)",
   "var(--color-success)",
-  "var(--color-accent-ai)",
   "var(--color-celebration)",
-  "var(--color-warning)",
 ];
 
 type Particle = {
