@@ -37,17 +37,21 @@ export type TripSelectionOutput = {
     sections: [
       {
         type: "active";
+        /** English fallback kept for API compatibility; render `title_key` through i18n. */
         title: "Current Trip";
+        title_key: "trip_selection_current_trip";
         visible: boolean;
       },
       {
         type: "upcoming";
         title: "Upcoming Trips";
+        title_key: "trip_selection_upcoming_trips";
         visible: boolean;
       },
       {
         type: "past";
         title: "Past Trips";
+        title_key: "trip_selection_past_trips";
         visible: boolean;
         collapsed_by_default: true;
       },
@@ -58,11 +62,20 @@ export type TripSelectionOutput = {
       past: "✓";
     };
     hints: {
+      /** English fallbacks kept for API compatibility; render the `*_key` fields through i18n. */
       default_selection_label: string;
+      default_selection_label_key: TripSelectionLabelKey | null;
       empty_state: string | null;
+      empty_state_key: "trip_selection_empty_state" | null;
     };
   };
 };
+
+export type TripSelectionLabelKey =
+  | "trip_selection_reason_favorite"
+  | "trip_selection_reason_active_trip"
+  | "trip_selection_reason_closest_upcoming"
+  | "trip_selection_reason_most_recent_past";
 
 type ClassifiedTrip = TripSelectionInputTrip & {
   timing: TripTiming;
@@ -144,6 +157,10 @@ function buildSelectionLabel(reason: TripSelectionReason) {
     case "most_recent_past":
       return "Most recent past trip selected";
   }
+}
+
+function buildSelectionLabelKey(reason: TripSelectionReason): TripSelectionLabelKey {
+  return `trip_selection_reason_${reason}`;
 }
 
 function selectDefaultTrip(classifiedTrips: ClassifiedTrip[]) {
@@ -229,16 +246,19 @@ export function resolveTripSelection(input: TripSelectionInput): TripSelectionOu
         {
           type: "active",
           title: "Current Trip",
+          title_key: "trip_selection_current_trip",
           visible: activeTrips.length > 0,
         },
         {
           type: "upcoming",
           title: "Upcoming Trips",
+          title_key: "trip_selection_upcoming_trips",
           visible: upcomingTrips.length > 0,
         },
         {
           type: "past",
           title: "Past Trips",
+          title_key: "trip_selection_past_trips",
           visible: pastTrips.length > 0,
           collapsed_by_default: true,
         },
@@ -250,7 +270,9 @@ export function resolveTripSelection(input: TripSelectionInput): TripSelectionOu
       },
       hints: {
         default_selection_label: selectedTrip ? buildSelectionLabel(selectionReason) : "",
+        default_selection_label_key: selectedTrip ? buildSelectionLabelKey(selectionReason) : null,
         empty_state: classifiedTrips.length === 0 ? "No trips yet" : null,
+        empty_state_key: classifiedTrips.length === 0 ? "trip_selection_empty_state" : null,
       },
     },
   };

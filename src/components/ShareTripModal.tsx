@@ -260,7 +260,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                   onChange={(e) => setRole(e.target.value as "viewer" | "editor")}
                   className="bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl px-3 py-3 text-xs font-bold text-[var(--color-text-secondary)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 min-h-[44px]"
                   disabled={shareStatus.type === "loading"}
-                  aria-label="Permission"
+                  aria-label={t("share_modal_permission_label")}
                 >
                   <option value="viewer">{t("share_role_viewer")}</option>
                   <option value="editor">{t("share_role_editor")}</option>
@@ -393,7 +393,7 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                         value={share.role}
                         onChange={(e) => handleRoleChange(share.userId, e.target.value as "viewer" | "editor")}
                         className="bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl px-2 py-1 text-[10px] font-bold text-[var(--color-text-secondary)] outline-none min-h-[32px]"
-                        aria-label="Role"
+                        aria-label={t("share_modal_role_label")}
                       >
                         <option value="viewer">{t("share_role_viewer")}</option>
                         <option value="editor">{t("share_role_editor")}</option>

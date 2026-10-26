@@ -19,6 +19,7 @@ import jsQR from "jsqr";
 import { ActivityFile } from "@/lib/types";
 import { cacheDocumentForOffline, getCachedDocumentAvailability, getCachedDocumentBlobUrl, openDocumentInNewTab, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { useI18n } from "@/components/I18nProvider";
 
 interface WalletPreviewModalProps {
   file: ActivityFile;
@@ -28,6 +29,7 @@ interface WalletPreviewModalProps {
 }
 
 export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: WalletPreviewModalProps) {
+  const { t } = useI18n();
   const [qrContent, setQrContent] = useState<string | null>(null);
   const [isQrZoomed, setIsQrZoomed] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
   const [tempFocusArea, setTempFocusArea] = useState<import("@/lib/types").FocusArea | null>(file.focusArea || null);
   const [offlineStatus, setOfflineStatus] = useState<DocumentOfflineStatus>("pending");
   const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  // Holds an i18n key so the message re-renders in the active language.
   const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
   const [resolvedFileUrl, setResolvedFileUrl] = useState(file.fileUrl);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,7 +65,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
       setOfflineStatus(available ? "available" : "unavailable");
 
       if (!navigator.onLine && !available) {
-        setOfflineMessage("This file is not available offline");
+        setOfflineMessage("wallet_file_unavailable_offline");
         setResolvedFileUrl(file.fileUrl);
         setPdfPreviewUrl(null);
         return;
@@ -123,7 +126,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
       const cached = await cacheDocumentForOffline(file.fileUrl);
       setOfflineStatus(cached ? "available" : "failed");
       if (!cached && !navigator.onLine) {
-        setOfflineMessage("This file is not available offline");
+        setOfflineMessage("wallet_file_unavailable_offline");
       }
     } catch {
       setOfflineStatus("failed");
@@ -132,19 +135,19 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
 
   const offlineBadge = (() => {
     if (offlineStatus === "available") {
-      return { label: "Available offline", tone: "bg-[var(--color-primary)]/15 text-[var(--color-primary)] border-[var(--color-primary)]/20" };
+      return { label: t("offline_available"), tone: "bg-[var(--color-primary)]/15 text-[var(--color-primary)] border-[var(--color-primary)]/20" };
     }
 
     if (offlineStatus === "pending") {
-      return { label: "Caching offline", tone: "bg-[var(--color-warning)]/15 text-[var(--color-warning)] border-[var(--color-warning)]/20" };
+      return { label: t("offline_caching"), tone: "bg-[var(--color-warning)]/15 text-[var(--color-warning)] border-[var(--color-warning)]/20" };
     }
 
     if (offlineStatus === "failed") {
-      return { label: "Failed to cache", tone: "bg-[var(--color-danger)]/15 text-[var(--color-danger)] border-[var(--color-danger)]/20" };
+      return { label: t("offline_failed"), tone: "bg-[var(--color-danger)]/15 text-[var(--color-danger)] border-[var(--color-danger)]/20" };
     }
 
     return {
-      label: isOnline ? "Not cached yet" : "Offline unavailable",
+      label: isOnline ? t("offline_not_cached") : t("offline_unavailable"),
       tone: "bg-white/10 text-white/60 border-white/10",
     };
   })();
@@ -309,7 +312,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
       try {
         await navigator.share({
           title: activityTitle,
-          text: `Reservation for ${activityTitle}`,
+          text: t("wallet_share_text", { title: activityTitle }),
           url: file.fileUrl
         });
       } catch (err) {
@@ -356,7 +359,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
             {/* CARD HEADER */}
             <div className="p-8 pb-4 flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-primary)]">Reservation</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-primary)]">{t("reservation")}</p>
                 <h3 className="text-xl font-black text-white truncate w-48">{activityTitle}</h3>
                 <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${offlineBadge.tone}`}>
                   {offlineBadge.label}
@@ -387,16 +390,16 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
               <div className="w-full h-full rounded-[2rem] overflow-hidden bg-black/40 flex items-center justify-center relative">
                 {offlineMessage ? (
                   <div className="max-w-[18rem] space-y-3 px-6 text-center">
-                    <p className="text-sm font-black text-white">{offlineMessage}</p>
+                    <p className="text-sm font-black text-white">{t(offlineMessage)}</p>
                     <p className="text-xs font-medium text-white/40">
-                      Open it once while connected or use Download for offline before you travel.
+                      {t("wallet_offline_hint")}
                     </p>
                   </div>
                 ) : isRendering || isAiScanning ? (
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 size={32} className="text-[var(--color-primary)] animate-spin" />
                     <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
-                      {isAiScanning ? "AI Analyzing..." : "Optimizing PDF..."}
+                      {isAiScanning ? t("wallet_ai_analyzing") : t("wallet_optimizing_pdf")}
                     </p>
                   </div>
                 ) : (
@@ -462,7 +465,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                             }}
                           >
                             <div className="absolute -top-6 left-0 right-0 text-center">
-                              <span className="bg-[var(--color-primary)] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full">QR Area</span>
+                              <span className="bg-[var(--color-primary)] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full">{t("wallet_qr_area")}</span>
                             </div>
                           </div>
                         )}
@@ -482,14 +485,14 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                           onClick={(e) => { e.stopPropagation(); setZoomPosition("ai"); setIsQrZoomed(true); }}
                           className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] border border-white/20 px-6 py-3 rounded-full flex items-center gap-2 text-white font-black text-xs transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] uppercase tracking-[0.15em]"
                         >
-                          <QrCode size={16} /> Scan Focus
+                          <QrCode size={16} /> {t("wallet_scan_focus")}
                         </motion.button>
 
                         <motion.button
                           onClick={(e) => { e.stopPropagation(); setIsSelectingArea(true); }}
                           className="bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 px-4 py-3 rounded-full flex items-center gap-2 text-white font-bold text-[10px] transition-all shadow-xl uppercase tracking-widest"
                         >
-                          <Settings size={12} /> Edit
+                          <Settings size={12} /> {t("wallet_edit")}
                         </motion.button>
                       </>
                     ) : (
@@ -500,14 +503,14 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                           onClick={(e) => { e.stopPropagation(); runAiDeepScan(); }}
                           className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] border border-white/20 px-5 py-3 rounded-full flex items-center gap-2 text-white font-black text-[10px] transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] uppercase tracking-[0.15em]"
                         >
-                          <Sparkles size={14} className="animate-pulse" /> AI Scan
+                          <Sparkles size={14} className="animate-pulse" /> {t("wallet_ai_scan")}
                         </motion.button>
 
                         <motion.button
                           onClick={(e) => { e.stopPropagation(); setIsSelectingArea(true); }}
                           className="bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 px-4 py-3 rounded-full flex items-center gap-2 text-white font-bold text-[10px] transition-all shadow-xl uppercase tracking-widest"
                         >
-                          <Maximize2 size={12} /> Set Focus
+                          <Maximize2 size={12} /> {t("wallet_set_focus")}
                         </motion.button>
                       </>
                     )}
@@ -537,13 +540,13 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                   onClick={(e) => { e.stopPropagation(); setIsSelectingArea(false); }}
                   className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black py-4 rounded-3xl transition-all uppercase tracking-widest text-[10px]"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleSaveFocusArea(); }}
                   className="flex-1 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-black py-4 rounded-3xl transition-all shadow-lg shadow-[var(--color-primary)]/30 uppercase tracking-widest text-[10px]"
                 >
-                  Save Area
+                  {t("wallet_save_area")}
                 </button>
               </div>
             )}
@@ -570,13 +573,13 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                   </div>
                 ) : (
                   <div className="text-center space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50">Scan code not detected</p>
-                    <p className="text-xs text-white/40">{offlineMessage ?? "Use full preview for scanning"}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50">{t("wallet_scan_code_not_detected")}</p>
+                    <p className="text-xs text-white/40">{offlineMessage ? t(offlineMessage) : t("wallet_use_full_preview")}</p>
                   </div>
                 )}
                 
                 <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
-                  {offlineStatus === "available" ? "Ready offline" : "Tap card to view original"}
+                  {offlineStatus === "available" ? t("wallet_ready_offline") : t("wallet_tap_to_view_original")}
                 </p>
               </div>
             </div>
@@ -597,7 +600,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
             disabled={!isOnline && offlineStatus !== "available"}
             className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-neutral-100 active:scale-95 transition-all shadow-xl"
           >
-            <ExternalLink size={18} /> {file.fileType === "pdf" ? "Open PDF" : "Open Original"}
+            <ExternalLink size={18} /> {file.fileType === "pdf" ? t("wallet_open_pdf") : t("wallet_open_original")}
           </button>
 
           <button
@@ -609,7 +612,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
           >
             <span className="flex items-center gap-2">
               <Download size={16} />
-              {offlineStatus === "available" ? "Offline ready" : "Download offline"}
+              {offlineStatus === "available" ? t("offline_ready_short") : t("download_offline")}
             </span>
           </button>
           
@@ -623,7 +626,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
           {onDelete && (
             <button
               onClick={() => {
-                if (confirm("Delete this attachment?")) {
+                if (confirm(t("wallet_delete_confirm"))) {
                   onDelete();
                   onClose();
                 }
@@ -669,7 +672,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                   return (
                     <img 
                       src={pdfPreviewUrl || resolvedFileUrl} 
-                      alt="QR Zoom" 
+                      alt={t("wallet_qr_zoom_alt")} 
                       className="w-full h-full object-contain transition-transform duration-300"
                       style={{
                         transform: `scale(5) transtone(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`,
@@ -682,9 +685,9 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
               
               <div className="mt-12 flex flex-col items-center gap-2">
                 <p className="text-white font-black uppercase tracking-[0.3em] text-xs animate-pulse">
-                  {zoomPosition === "qr" ? "QR Scan Focus" : zoomPosition === "top" ? "Barcode Focus" : "Ready for Scanning"}
+                  {zoomPosition === "qr" ? t("wallet_qr_scan_focus") : zoomPosition === "top" ? t("wallet_barcode_focus") : t("wallet_ready_for_scanning")}
                 </p>
-                <p className="text-white/50 text-[10px] uppercase tracking-widest font-bold">Tap to close</p>
+                <p className="text-white/50 text-[10px] uppercase tracking-widest font-bold">{t("wallet_tap_to_close")}</p>
               </div>
 
               <div className="absolute bottom-12 flex gap-4">
@@ -692,7 +695,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                   onClick={(e) => { e.stopPropagation(); setZoomPosition("top"); }}
                   className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${zoomPosition === "top" ? 'bg-white text-black border-white' : 'bg-white/10 text-white border-white/20'}`}
                 >
-                  Top
+                  {t("wallet_zoom_top")}
                 </button>
                 {qrPos && (
                   <button 
@@ -706,7 +709,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                   onClick={(e) => { e.stopPropagation(); setZoomPosition("bottom"); }}
                   className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${zoomPosition === "bottom" ? 'bg-white text-black border-white' : 'bg-white/10 text-white border-white/20'}`}
                 >
-                  Bottom
+                  {t("wallet_zoom_bottom")}
                 </button>
               </div>
             </motion.div>

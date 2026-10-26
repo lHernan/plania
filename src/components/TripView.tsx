@@ -824,7 +824,7 @@ export function TripView() {
   const [shoppingSuggestions, setShoppingSuggestions] = useState<ShoppingSuggestion[]>([]);
   const [shoppingUi, setShoppingUi] = useState<ShoppingAssistantResponse["ui"]>({
     input_mode: "textbox",
-    input_placeholder: "Add things to buy (e.g. Japanese knife, souvenirs, sneakers...)",
+    input_placeholder: "",
     list_style: "todo",
     show_suggestions_card: false,
   });
@@ -852,7 +852,7 @@ export function TripView() {
   const handleImportSync = async (textToSync: string) => {
     if (!textToSync.trim() || isImporting) return;
     if (!isOnline) {
-      showToast("AI import comes back online automatically when you reconnect.", "error");
+      showToast(t("trip_view_ai_import_offline"), "error");
       cancelVoice();
       return;
     }
@@ -1253,7 +1253,7 @@ export function TripView() {
 
   const handleEnableDeviceLocation = async () => {
     if (!("geolocation" in navigator)) {
-      showToast("Geolocation is not supported in this browser.", "error");
+      showToast(t("map_location_not_supported"), "error");
       return;
     }
 
@@ -1292,14 +1292,15 @@ export function TripView() {
       setNearbyAttribution(data.attribution ?? null);
 
       if (places.length > 0) {
-        showToast("Nearby shops loaded.");
+        showToast(t("trip_view_nearby_shops_loaded"));
       } else if (data.warning) {
-        showToast("Location enabled. Using itinerary context for shopping suggestions.");
+        showToast(t("trip_view_location_enabled_itinerary_context"));
       } else {
-        showToast("Location enabled. No nearby shops were found.");
+        showToast(t("trip_view_location_enabled_no_shops"));
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Unable to load nearby places.", "error");
+      console.error("Unable to load nearby places", error);
+      showToast(t("trip_view_nearby_places_failed"), "error");
     } finally {
       setNearbyLoading(false);
     }
@@ -1385,15 +1386,16 @@ export function TripView() {
         shopping_list: shoppingItems,
       });
       if (result.wishlist_items.length === 0) {
-        showToast("Nothing new to add.", "error");
+        showToast(t("trip_view_shopping_nothing_new"), "error");
       } else {
         await addShoppingItems(result.wishlist_items);
         setShoppingInput("");
-        showToast("Shopping list updated.");
+        showToast(t("trip_view_shopping_list_updated"));
       }
       setShoppingUi(result.ui);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Shopping assistant failed.", "error");
+      console.error("Shopping assistant failed", error);
+      showToast(t("trip_view_shopping_assistant_failed"), "error");
     } finally {
       setShoppingLoading(false);
     }
@@ -1417,7 +1419,7 @@ export function TripView() {
       location: suggestion.location_suggestions[0]?.name || activeDay.city,
       sort_order: 0,
     });
-    showToast("Shopping stop added to your day.");
+    showToast(t("trip_view_shopping_stop_added"));
   };
 
   const handleIgnoreShoppingSuggestion = async (suggestion: ShoppingSuggestion) => {
@@ -1432,7 +1434,7 @@ export function TripView() {
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)]">
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
-          <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Loading\u2026</p>
+          <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{t("landing_loading")}</p>
         </div>
       </div>
     );
@@ -1463,7 +1465,7 @@ export function TripView() {
       {activeTripIsDraft && (
         <div className="sticky top-0 z-50 bg-[var(--color-warning)]/10 border-b border-[var(--color-warning)]/20 px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-xs font-bold text-[var(--color-warning)]">
-            Estás viendo un viaje de ejemplo. Inicia sesión para guardarlo y editarlo.
+            {t("trip_view_draft_banner")}
           </p>
           <button
             onClick={async () => {
@@ -1476,7 +1478,7 @@ export function TripView() {
             }}
             className="px-4 py-2 bg-[var(--color-warning)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-warning)]/90 transition-all min-h-[36px]"
           >
-            Guardar
+            {t("save")}
           </button>
         </div>
       )}
@@ -1506,7 +1508,7 @@ export function TripView() {
                 setThemeMode(next as "light" | "dark" | "system");
               }}
               className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-              title={`Theme: ${themeMode}`}
+              title={t("trip_view_theme", { mode: t(`trip_view_theme_${themeMode}`) })}
             >
               {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
             </button>
@@ -1534,10 +1536,10 @@ export function TripView() {
                 {activeTrip && (
                   <div className="hidden sm:flex mr-2">
                     {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title="Solo lectura">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
                         <Share2 size={10} />
                         <span className="text-[9px] font-black uppercase tracking-widest">
-                          De {sharedTripInfo?.ownerEmail || "propietario"}
+                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
                         </span>
                       </div>
                     ) : (
@@ -1546,7 +1548,7 @@ export function TripView() {
                         className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
                       >
                         <Share2 size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Compartir</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
                       </button>
                     )}
                   </div>
@@ -1567,7 +1569,7 @@ export function TripView() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
               >
                 <ShieldCheck size={10} />
-                <span>Save</span>
+                <span>{t("save")}</span>
               </button>
             )}
           </div>
@@ -1631,7 +1633,7 @@ export function TripView() {
               className="snap-center flex flex-col items-center justify-center min-w-[52px] h-[62px] py-2 px-1.5 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-colors flex-shrink-0"
             >
               <Plus size={18} />
-              <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">Day</span>
+              <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">{t("trip_view_day")}</span>
             </button>
           )}
         </div>
@@ -1649,7 +1651,7 @@ export function TripView() {
               <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider truncate">{activeDay.city}</span>
             </div>
             <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
-              {activeDay.activities.length} {activeDay.activities.length === 1 ? "activity" : "activities"}
+              {t(activeDay.activities.length === 1 ? "trip_view_activity_count_one" : "trip_view_activity_count_other", { count: activeDay.activities.length })}
             </span>
             <div className="flex items-center gap-2 flex-1 min-w-[80px] max-w-[160px]">
               <div className="flex-1 h-1.5 bg-[var(--color-border)] rounded-full overflow-hidden">
@@ -1673,7 +1675,7 @@ export function TripView() {
                     onClick={() => setShowAdd(true)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary)] text-white text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-hover)] transition-colors"
                   >
-                    <Plus size={12} /> {t("add")}
+                    <Plus size={12} /> {t("trip_view_add")}
                   </button>
                   <button
                     onClick={() => runOptimizeDay(activeDayId, lang)}
@@ -1732,12 +1734,12 @@ export function TripView() {
                 {!isInvitee && (
                   <button
                     onClick={() => {
-                      if (confirm("Delete this entire day and all its activities?")) {
+                      if (confirm(t("trip_view_confirm_delete_day"))) {
                         removeTripDay(activeDayId);
                       }
                     }}
                     className="size-8 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] flex items-center justify-center transition-all border border-[var(--color-border)]"
-                    title="Remove Day"
+                    title={t("trip_view_remove_day")}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1756,14 +1758,14 @@ export function TripView() {
                 <CalendarDays size={32} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-[var(--color-text)]">No days found</h3>
-                <p className="text-sm text-[var(--color-text-muted)]">Add your first destination to start planning.</p>
+                <h3 className="text-lg font-black text-[var(--color-text)]">{t("trip_view_no_days_found")}</h3>
+                <p className="text-sm text-[var(--color-text-muted)]">{t("trip_view_no_days_hint")}</p>
               </div>
               <button
                 onClick={handleAddDay}
                 className="px-6 py-3 rounded-2xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/20"
               >
-                Add Day 1
+                {t("trip_view_add_first_day")}
               </button>
             </div>
           )}
@@ -1772,7 +1774,7 @@ export function TripView() {
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">Good opportunity today</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">{t("trip_view_shopping_opportunity_today")}</p>
                   <h3 className="mt-2 text-lg font-black text-[var(--color-text)]">
                     {visibleShoppingSuggestions[0].title}
                   </h3>
@@ -1793,13 +1795,13 @@ export function TripView() {
                   onClick={() => void handleShoppingPlanAdd(visibleShoppingSuggestions[0])}
                   className="rounded-2xl bg-[var(--color-primary)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[var(--color-primary)]/20"
                 >
-                  Add to plan
+                  {t("trip_view_add_to_plan")}
                 </button>
                 <button
                   onClick={() => void handleIgnoreShoppingSuggestion(visibleShoppingSuggestions[0])}
                   className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]"
                 >
-                  Ignore
+                  {t("trip_view_ignore")}
                 </button>
               </div>
             </div>
@@ -1948,7 +1950,7 @@ export function TripView() {
         <aside className="space-y-6">
           {/* AI QUICK ACTIONS */}
           <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">AI Quick Actions</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
             <div className="space-y-3">
               <button
                 onClick={() => runOptimizeDay(activeDayId, lang)}
@@ -1969,18 +1971,18 @@ export function TripView() {
                 <textarea
                   value={importText}
                   onChange={(e) => handleImportTextChange(e.target.value)}
-                  placeholder="Paste your notes like:&#10;14:00 Lunch at Bukchon&#10;16:00 Photo session..."
+                  placeholder={t("paste_notes")}
                   className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
                 />
                 <div className="absolute bottom-3 right-3 flex items-center gap-2">
                   {voiceState === "preview" && (
                     <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
                       <Loader2 size={14} className="animate-spin" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Syncing in {previewCountdown}s</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{t("syncing_in", { seconds: previewCountdown })}</span>
                       <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
                         <X size={12} />
                       </button>
-                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title="Edit manually">
+                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title={t("edit_manually")}>
                         <Edit2 size={12} />
                       </button>
                     </div>
@@ -2100,7 +2102,7 @@ export function TripView() {
           {/* SHOPPING LIST */}
           <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Shopping List</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_shopping_list")}</h3>
               <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">
                 {sortedShoppingItems.length}
               </span>
@@ -2111,7 +2113,7 @@ export function TripView() {
                 <input
                   value={shoppingInput}
                   onChange={(e) => setShoppingInput(e.target.value)}
-                  placeholder={shoppingUi.input_placeholder}
+                  placeholder={shoppingUi.input_placeholder || t("trip_view_shopping_input_placeholder")}
                   className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2.5 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20"
                 />
                 <button
@@ -2119,7 +2121,7 @@ export function TripView() {
                   disabled={shoppingLoading || !shoppingInput.trim()}
                   className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
                 >
-                  {shoppingLoading ? "..." : "Add"}
+                  {shoppingLoading ? "..." : t("trip_view_add")}
                 </button>
               </div>
 
@@ -2129,7 +2131,7 @@ export function TripView() {
                   disabled={nearbyLoading}
                   className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:opacity-50"
                 >
-                  {nearbyLoading ? "Locating" : deviceLocation ? "Refresh nearby" : "Use my location"}
+                  {nearbyLoading ? t("map_locating") : deviceLocation ? t("trip_view_refresh_nearby") : t("map_use_my_location")}
                 </button>
                 {nearbyAttribution && (
                   <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
@@ -2173,13 +2175,13 @@ export function TripView() {
                           </p>
                           <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                             {item.category}
-                            {item.preferred_cities?.length ? ` · Best in ${item.preferred_cities.join(", ")}` : ""}
+                            {item.preferred_cities?.length ? ` · ${t("trip_view_best_in", { cities: item.preferred_cities.join(", ") })}` : ""}
                           </p>
                         </button>
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
-                              const nextName = window.prompt("Edit shopping item", item.name);
+                              const nextName = window.prompt(t("trip_view_edit_shopping_item"), item.name);
                               if (nextName && nextName.trim()) {
                                 void updateShoppingItem(item.id, { name: nextName.trim() });
                               }
@@ -2220,7 +2222,7 @@ export function TripView() {
                 ) : null}
               </div>
               <p className="text-2xl font-black text-[var(--color-text)]">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">est.</span>
+                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {budgetSummary.perDay.map((d) => (
@@ -2238,7 +2240,7 @@ export function TripView() {
               onClick={() => setShowTravelTools(!showTravelTools)}
               className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
             >
-              <span>Travel Tools</span>
+              <span>{t("trip_view_travel_tools")}</span>
               {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {showTravelTools && (
@@ -2326,7 +2328,7 @@ export function TripView() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-[var(--color-text)]">{t("new_activity")}</h3>
-                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Day {activeIndex + 1} · {activeDay?.city}</p>
+                  <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{t("trip_view_day_number", { number: activeIndex + 1 })} · {activeDay?.city}</p>
                 </div>
               </div>
 
@@ -2540,10 +2542,10 @@ export function TripView() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-sm bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)] p-8"
             >
-              <h2 className="text-xl font-black text-[var(--color-text)] mb-6">Edit Day</h2>
+              <h2 className="text-xl font-black text-[var(--color-text)] mb-6">{t("trip_view_edit_day")}</h2>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Destination City</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">{t("trip_view_destination_city")}</label>
                   <input 
                     type="text" 
                     value={editDayCity}
@@ -2552,7 +2554,7 @@ export function TripView() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">Day Label</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] ml-1">{t("trip_view_day_label")}</label>
                   <input 
                     type="text" 
                     value={editDayLabel}
@@ -2572,7 +2574,7 @@ export function TripView() {
                     }}
                     className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
                   >
-                    Save Changes
+                    {t("save_changes")}
                   </button>
                   <button
                     onClick={() => {
@@ -2581,7 +2583,7 @@ export function TripView() {
                     }}
                     className="px-6 py-4 rounded-2xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] font-bold text-xs uppercase tracking-widest hover:bg-[var(--color-border)] transition-all"
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </div>
               </div>

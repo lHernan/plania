@@ -111,12 +111,12 @@ export function ActivityCommentsModal({
               <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
             </div>
           ) : comments.length === 0 ? (
-            <p className="text-xs text-[var(--color-text-muted)] text-center py-6">Sin comentarios aún</p>
+            <p className="text-xs text-[var(--color-text-muted)] text-center py-6">{t("comments_empty")}</p>
           ) : (
             comments.map((c) => (
               <div key={c.id} className="bg-[var(--color-surface-subtle)] rounded-2xl px-4 py-3 space-y-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold text-[var(--color-primary)] truncate">{c.userEmail || "Usuario"}</p>
+                  <p className="text-[10px] font-bold text-[var(--color-primary)] truncate">{c.userEmail || t("comments_unknown_user")}</p>
                   {user && user.id === c.userId && (
                     <button onClick={() => handleDelete(c.id)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)]">
                       <Trash2 size={12} />
@@ -137,7 +137,7 @@ export function ActivityCommentsModal({
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
-              placeholder="Escribe un comentario..."
+              placeholder={t("comments_placeholder")}
               className="flex-1 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 min-h-[40px]"
             />
             <button

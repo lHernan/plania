@@ -5,8 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CloudOff } from "lucide-react";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { useI18n } from "@/components/I18nProvider";
 
 export function OfflineStatus() {
+  const { t } = useI18n();
   const isOnline = useOfflineStore((s) => s.isOnline);
   const setOnline = useOfflineStore((s) => s.setOnline);
   const refreshPendingCount = useOfflineStore((s) => s.refreshPendingCount);
@@ -56,7 +58,7 @@ export function OfflineStatus() {
         >
           <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 ios-compact-shell">
             <CloudOff size={14} />
-            <span>You are offline</span>
+            <span>{t("offline_banner_message")}</span>
           </div>
         </motion.div>
       ) : null}

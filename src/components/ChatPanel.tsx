@@ -6,11 +6,12 @@ import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useChatStore } from "@/store/use-chat-store";
 
-const QUICK_PROMPTS = [
-  "What's next on my itinerary?",
-  "Summarize my day",
-  "Find schedule gaps",
-  "What trip details are missing?",
+// i18n keys; the translated text is what gets filled into the input and sent to the agent.
+const QUICK_PROMPT_KEYS = [
+  "chat_quick_prompt_next",
+  "chat_quick_prompt_summary",
+  "chat_quick_prompt_gaps",
+  "chat_quick_prompt_missing",
 ];
 
 export function ChatPanel({ tripId }: { tripId: string }) {
@@ -122,7 +123,7 @@ export function ChatPanel({ tripId }: { tripId: string }) {
 
             <div className="border-t border-[var(--color-border)] px-5 py-3">
               <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {QUICK_PROMPTS.map((prompt) => (
+                {QUICK_PROMPT_KEYS.map((promptKey) => t(promptKey)).map((prompt) => (
                   <button
                     key={prompt}
                     type="button"

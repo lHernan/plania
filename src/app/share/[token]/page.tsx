@@ -38,7 +38,8 @@ export default function SharePage() {
   const [info, setInfo] = useState<ShareInfo | null>(null);
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Server-provided messages are shown verbatim; local fallbacks are i18n keys translated at render time.
+  const [error, setError] = useState<{ text: string } | { key: string } | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
 
@@ -55,13 +56,13 @@ export default function SharePage() {
         const tripDataRes = tripRes.ok ? await tripRes.json() : null;
         if (cancelled) return;
         if (!infoRes.ok) {
-          setError(infoData.error ?? "Enlace no válido");
+          setError(infoData.error ? { text: infoData.error } : { key: "share_page_invalid_link" });
         } else {
           setInfo(infoData as ShareInfo);
           if (tripDataRes) setTripData(tripDataRes as TripData);
         }
       } catch {
-        if (!cancelled) setError("Error de conexión");
+        if (!cancelled) setError({ key: "share_error_connection" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -86,10 +87,10 @@ export default function SharePage() {
         if (data.tripId) await switchTrip(data.tripId);
         router.push("/trips");
       } else {
-        setError(data.error ?? "No se pudo aceptar");
+        setError(data.error ? { text: data.error } : { key: "share_page_accept_failed" });
       }
     } catch {
-      setError("Error de conexión");
+      setError({ key: "share_error_connection" });
     } finally {
       setAccepting(false);
     }
@@ -108,7 +109,7 @@ export default function SharePage() {
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)] p-6">
         <div className="max-w-md w-full text-center space-y-4">
           <AlertCircle className="mx-auto text-[var(--color-danger)]" size={40} />
-          <p className="text-sm font-bold text-[var(--color-text-secondary)]">{error ?? "Enlace no válido"}</p>
+          <p className="text-sm font-bold text-[var(--color-text-secondary)]">{error ? ("key" in error ? t(error.key) : error.text) : t("share_page_invalid_link")}</p>
         </div>
       </div>
     );
@@ -138,14 +139,14 @@ export default function SharePage() {
             <div className="flex-1 min-w-0">
               <h1 className="text-xl md:text-2xl font-black text-[var(--color-text)] truncate">{info.tripName}</h1>
               <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
-                {info.role === "editor" ? "Editor" : "Viewer"} · {info.startDate ?? ""}{info.endDate ? ` → ${info.endDate}` : ""}
+                {info.role === "editor" ? t("share_role_editor") : t("share_role_viewer")} · {info.startDate ?? ""}{info.endDate ? ` → ${info.endDate}` : ""}
               </p>
             </div>
           </div>
 
           {info.accepted && (
             <div className="flex items-center gap-2 text-[var(--color-primary)] text-sm font-bold">
-              <CheckCircle2 size={16} /> Already accepted
+              <CheckCircle2 size={16} /> {t("share_page_already_accepted")}
             </div>
           )}
 
@@ -156,7 +157,7 @@ export default function SharePage() {
           >
             {accepting ? <Loader2 className="animate-spin" size={18} /> : (
               <>
-                {user ? "Accept & open trip" : "Sign in to accept"}
+                {user ? t("share_page_accept_and_open") : t("share_page_sign_in_to_accept")}
                 <ArrowRight size={16} />
               </>
             )}
@@ -183,7 +184,7 @@ export default function SharePage() {
                     {day.label && <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{day.label}</span>}
                   </div>
                   {acts.length === 0 ? (
-                    <p className="text-xs text-[var(--color-text-muted)] italic">Sin actividades</p>
+                    <p className="text-xs text-[var(--color-text-muted)] italic">{t("share_page_no_activities")}</p>
                   ) : (
                     <ul className="space-y-2">
                       {acts.map((a) => (
@@ -192,7 +193,7 @@ export default function SharePage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-[var(--color-text)] truncate">{a.title}</p>
                             <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
-                              {a.time}{a.duration_min ? ` · ${a.duration_min} min` : ""}{a.location ? ` · ${a.location}` : ""}
+                              {a.time}{a.duration_min ? ` · ${t("share_page_duration_min", { minutes: a.duration_min })}` : ""}{a.location ? ` · ${a.location}` : ""}
                             </p>
                           </div>
                         </li>
