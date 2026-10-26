@@ -19,7 +19,9 @@ import {
 import type {
   Activity,
   ActivityFile,
+  ActivityOrigin,
   ActivityState,
+  BookingDetails,
   CriticalReservation,
   FocusArea,
   SharedTripSummary,
@@ -67,6 +69,8 @@ type ActivityDb = {
   sort_order: number;
   time_confidence?: number | null;
   time_inferred?: boolean | null;
+  origin?: ActivityOrigin | null;
+  booking?: BookingDetails | null;
 };
 
 type TripDb = {
@@ -101,6 +105,8 @@ type ReservationDb = {
   status: CriticalReservation["status"];
   price?: number | null;
 };
+
+export type NewActivity = Omit<Activity, "id" | "tripId" | "userId">;
 
 type Store = {
   activeTrip: TripPlan | null;
@@ -147,6 +153,11 @@ type Store = {
   toggleBooking: (bookingId: string) => Promise<void>;
   duplicateActivity: (dayId: string, activityId: string) => Promise<void>;
   addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId" | "userId">[]) => Promise<void>;
+  /**
+   * Inserts several activities (possibly on different days) in one request with client-generated
+   * ids, refetching once. Online only. All-or-nothing: on failure nothing stays in the itinerary.
+   */
+  addActivitiesBatch: (activities: NewActivity[]) => Promise<{ ok: true; ids: string[] } | { ok: false; error: string }>;
   addReservation: (reservation: Omit<CriticalReservation, "id" | "userId">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
@@ -196,6 +207,8 @@ const mapActivityFromDb = (db: ActivityDb): Activity => ({
   sort_order: db.sort_order,
   timeConfidence: db.time_confidence ?? undefined,
   timeInferred: db.time_inferred ?? false,
+  origin: db.origin ?? "manual",
+  booking: db.booking ?? undefined,
 });
 
 const mapActivityToDb = (activity: Partial<Activity>) => ({
@@ -216,6 +229,8 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   sort_order: activity.sort_order,
   time_confidence: activity.timeConfidence,
   time_inferred: activity.timeInferred,
+  origin: activity.origin,
+  booking: activity.booking,
 });
 
 function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
@@ -1811,6 +1826,61 @@ export const useItineraryStore = create<Store>((set, get) => {
         sort_order: activity.sort_order + 1,
         files: [],
       });
+    },
+
+    addActivitiesBatch: async (activities) => {
+      const activeTrip = get().activeTrip;
+      if (!activeTrip) return { ok: false, error: "No active trip" };
+      if (!isOnline()) return { ok: false, error: "offline" };
+      if (activities.length === 0) return { ok: true, ids: [] };
+
+      const created: Activity[] = activities.map((activity) => ({
+        ...activity,
+        id: crypto.randomUUID(),
+        tripId: activeTrip.id,
+        userId: String(activeTrip.userId ?? ""),
+      }));
+      const createdIds = new Set(created.map((a) => a.id));
+
+      await writeState((state) => ({
+        activeTrip: state.activeTrip
+          ? {
+              ...state.activeTrip,
+              days: state.activeTrip.days.map((day) => {
+                const additions = created.filter((a) => a.dayId === day.id);
+                return additions.length ? { ...day, activities: sortActivities([...day.activities, ...additions]) } : day;
+              }),
+            }
+          : null,
+      }));
+
+      const { error } = await supabase.from("activities").insert(
+        created.map((activity) => ({
+          ...mapActivityToDb(activity),
+          id: activity.id,
+          trip_id: activeTrip.id,
+          user_id: activeTrip.userId,
+        }))
+      );
+
+      if (error) {
+        // All-or-nothing: a failed batch never leaves a partial itinerary behind.
+        await writeState((state) => ({
+          activeTrip: state.activeTrip
+            ? {
+                ...state.activeTrip,
+                days: state.activeTrip.days.map((day) => ({
+                  ...day,
+                  activities: day.activities.filter((a) => !createdIds.has(a.id)),
+                })),
+              }
+            : null,
+        }));
+        return { ok: false, error: error.message };
+      }
+
+      await get().fetchActiveTrip(activeTrip.id, true);
+      return { ok: true, ids: created.map((a) => a.id) };
     },
 
     addImportedActivities: async (dayId, activities) => {
