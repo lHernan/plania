@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import en from "@/i18n/locales/en.json";
 import es from "@/i18n/locales/es.json";
 
@@ -59,5 +61,13 @@ describe("i18n locales", () => {
   it("share_success and landing_logged_in_as support interpolation", () => {
     expect((es as Record<string, string>)["share_success"]).toContain("{email}");
     expect((es as Record<string, string>)["landing_logged_in_as"]).toContain("{email}");
+  });
+
+  it.each(["en", "es"])("%s.json declares every key only once", (lang) => {
+    // JSON.parse silently keeps the last duplicate, so read the raw file.
+    const raw = readFileSync(path.resolve(__dirname, `../i18n/locales/${lang}.json`), "utf8");
+    const keys = [...raw.matchAll(/^\s*"([^"]+)"\s*:/gm)].map((m) => m[1]);
+    const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
+    expect(duplicates).toEqual([]);
   });
 });
