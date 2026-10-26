@@ -122,3 +122,17 @@ export async function runAiVision(systemPrompt: string, userPrompt: string, imag
     },
   ]);
 }
+
+/** Sends one text part plus several images (e.g. scanned PDF pages) in a single user message. */
+export async function runAiVisionPages(systemPrompt: string, userPrompt: string, imageUris: string[]) {
+  return runAiMessages([
+    { role: "system", content: systemPrompt },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: userPrompt },
+        ...imageUris.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+      ],
+    },
+  ]);
+}
