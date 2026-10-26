@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
 import { extractJsonObject } from "@/lib/ai/json-response";
+import { buildPlanningAddendum, buildPlanningUserPrompt, parsePlanningInput } from "@/lib/bookings/planning-prompt";
 
 function buildSystemPrompt(lang: string) {
   const langRule = lang === "es"
@@ -67,6 +68,24 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { text, fallbackDate, lang } = body;
+
+    // Planning mode ("Generate itinerary"): same importer, prompt and schema, plus trip context.
+    if (body?.planning !== undefined && body?.planning !== null) {
+      const planning = parsePlanningInput(body.planning);
+      if (!planning) {
+        return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+      }
+      const resolvedLang = lang || "en";
+      const content = await runAiPrompt(
+        buildSystemPrompt(resolvedLang) + "\n\n" + buildPlanningAddendum(resolvedLang),
+        buildPlanningUserPrompt(planning.context, planning.request),
+      );
+      const parsed = extractJsonObject<{ activities?: unknown; conflicts?: unknown }>(content);
+      if (!parsed) {
+        return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+      }
+      return NextResponse.json(parsed);
+    }
 
     if (!text) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
