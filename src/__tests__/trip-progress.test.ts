@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   computeCompletionCelebration,
+  availableCategories,
+  buildRouteLegs,
   filterActivitiesByMapStatus,
+  filterMapActivities,
+  hasNarrowingMapFilters,
   findNextPendingDayId,
   isDayComplete,
   isTripComplete,
@@ -128,5 +132,80 @@ describe("filterActivitiesByMapStatus", () => {
     filterActivitiesByMapStatus(items, "completed");
     filterActivitiesByMapStatus(items, "pending");
     expect(JSON.stringify(items)).toBe(snapshot);
+  });
+});
+
+describe("filterMapActivities", () => {
+  const items = [
+    activity("a"),
+    { ...activity("b", "completed"), title: "Café Bréton", category: "food" as const, location: "Rue de Bretagne" },
+    { ...activity("c"), title: "Louvre", category: "sightseeing" as const, location: "Musée du Louvre" },
+    { ...activity("d"), title: "Bistrot", category: "food" as const },
+  ];
+  const ids = (list: Activity[]) => list.map((a) => a.id);
+
+  it("returns everything with no filters", () => {
+    expect(ids(filterMapActivities(items, { status: "all", categories: [], query: "" }))).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("matches the query against title or location, ignoring case and accents", () => {
+    expect(ids(filterMapActivities(items, { status: "all", categories: [], query: "cafe breton" }))).toEqual(["b"]);
+    expect(ids(filterMapActivities(items, { status: "all", categories: [], query: "MUSEE" }))).toEqual(["c"]);
+    expect(ids(filterMapActivities(items, { status: "all", categories: [], query: "  bretagne " }))).toEqual(["b"]);
+  });
+
+  it("keeps any of the selected categories", () => {
+    expect(ids(filterMapActivities(items, { status: "all", categories: ["food"], query: "" }))).toEqual(["b", "d"]);
+    expect(ids(filterMapActivities(items, { status: "all", categories: ["food", "sightseeing"], query: "" }))).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("combines status, categories and query", () => {
+    expect(ids(filterMapActivities(items, { status: "pending", categories: ["food"], query: "" }))).toEqual(["d"]);
+    expect(ids(filterMapActivities(items, { status: "completed", categories: ["food"], query: "bre" }))).toEqual(["b"]);
+    expect(ids(filterMapActivities(items, { status: "pending", categories: ["food"], query: "louvre" }))).toEqual([]);
+  });
+
+  it("never mutates the activities", () => {
+    const snapshot = JSON.stringify(items);
+    filterMapActivities(items, { status: "completed", categories: ["food"], query: "x" });
+    expect(JSON.stringify(items)).toBe(snapshot);
+  });
+});
+
+describe("hasNarrowingMapFilters", () => {
+  it("is false only for the default filters", () => {
+    expect(hasNarrowingMapFilters({ status: "all", categories: [], query: "  " })).toBe(false);
+    expect(hasNarrowingMapFilters({ status: "pending", categories: [], query: "" })).toBe(true);
+    expect(hasNarrowingMapFilters({ status: "all", categories: ["food"], query: "" })).toBe(true);
+    expect(hasNarrowingMapFilters({ status: "all", categories: [], query: "x" })).toBe(true);
+  });
+});
+
+describe("availableCategories", () => {
+  it("lists only categories present in the day, in the canonical order", () => {
+    const items = [
+      { ...activity("a"), category: "shopping" as const },
+      { ...activity("b"), category: "food" as const },
+      { ...activity("c"), category: "food" as const },
+    ];
+    expect(availableCategories(items)).toEqual(["food", "shopping"]);
+  });
+});
+
+describe("buildRouteLegs", () => {
+  const stop = (id: string, state: ActivityState = "pending") => ({ id, completed: state === "completed", position: [0, Number(id.charCodeAt(0))] as [number, number] });
+
+  it("connects stops in itinerary order", () => {
+    const legs = buildRouteLegs([stop("a"), stop("b"), stop("c")]);
+    expect(legs.map((l) => [l.fromId, l.toId])).toEqual([["a", "b"], ["b", "c"]]);
+  });
+
+  it("marks a leg as done only when both ends are completed", () => {
+    const legs = buildRouteLegs([stop("a", "completed"), stop("b", "completed"), stop("c")]);
+    expect(legs.map((l) => l.done)).toEqual([true, false]);
+  });
+
+  it("has no legs for fewer than two stops", () => {
+    expect(buildRouteLegs([stop("a")])).toEqual([]);
   });
 });

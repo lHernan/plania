@@ -32,3 +32,21 @@ export function buildTripMapUrl(locations: string[]) {
   url.searchParams.set("travelmode", "walking");
   return url.toString();
 }
+
+/**
+ * Directions to an exact point, starting from the traveler's current location.
+ * Returns null for invalid coordinates so callers never offer a broken link.
+ */
+export function buildGoogleMapsNavigationUrl(
+  destination: { lat: number; lng: number },
+  travelMode: GoogleMapsTravelMode
+) {
+  const { lat, lng } = destination;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+
+  const url = new URL("https://www.google.com/maps/dir/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("destination", `${lat},${lng}`);
+  url.searchParams.set("travelmode", travelMode);
+  return url.toString();
+}

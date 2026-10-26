@@ -1,4 +1,4 @@
-import type { Activity, TripDay, TripPlan } from "@/lib/types";
+import type { Activity, ActivityCategory, TripDay, TripPlan } from "@/lib/types";
 
 export type CelebrationTier = 1 | 2 | 3;
 
@@ -64,4 +64,60 @@ export function filterActivitiesByMapStatus(activities: Activity[], filter: MapS
   if (filter === "pending") return activities.filter((a) => !isActivityCompleted(a));
   if (filter === "completed") return activities.filter(isActivityCompleted);
   return [...activities];
+}
+
+export type MapFilters = {
+  status: MapStatusFilter;
+  categories: ActivityCategory[];
+  query: string;
+};
+
+export const DEFAULT_MAP_FILTERS: MapFilters = { status: "all", categories: [], query: "" };
+
+// Same order as the ActivityCategory union, so chips never reshuffle.
+const CATEGORY_ORDER: ActivityCategory[] = [
+  "sightseeing", "reservation", "transport", "hotel", "food", "shopping", "photos", "nightlife", "other",
+];
+
+// Case- and accent-insensitive, so "cafe" finds "Café".
+function normalizeSearch(value: string): string {
+  return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+export function matchesMapQuery(activity: Activity, query: string): boolean {
+  const needle = normalizeSearch(query);
+  if (!needle) return true;
+  return [activity.title, activity.location ?? ""].some((field) => normalizeSearch(field).includes(needle));
+}
+
+/** Status, categories (any of) and search combined. Visibility only — never touches activity state. */
+export function filterMapActivities(activities: Activity[], filters: MapFilters): Activity[] {
+  return filterActivitiesByMapStatus(activities, filters.status).filter(
+    (a) =>
+      (filters.categories.length === 0 || filters.categories.includes(a.category)) &&
+      matchesMapQuery(a, filters.query)
+  );
+}
+
+export function hasNarrowingMapFilters(filters: MapFilters): boolean {
+  return filters.status !== "all" || filters.categories.length > 0 || normalizeSearch(filters.query) !== "";
+}
+
+export function availableCategories(activities: Activity[]): ActivityCategory[] {
+  const present = new Set(activities.map((a) => a.category));
+  return CATEGORY_ORDER.filter((c) => present.has(c));
+}
+
+export type RouteStop = { id: string; completed: boolean; position: [number, number] };
+export type RouteLeg = { fromId: string; toId: string; done: boolean; positions: [[number, number], [number, number]] };
+
+/**
+ * Straight segments between consecutive stops in itinerary order — a visual sequence,
+ * not a street route. A leg counts as done only when both of its ends are completed.
+ */
+export function buildRouteLegs(stops: RouteStop[]): RouteLeg[] {
+  return stops.slice(1).map((to, i) => {
+    const from = stops[i];
+    return { fromId: from.id, toId: to.id, done: from.completed && to.completed, positions: [from.position, to.position] };
+  });
 }

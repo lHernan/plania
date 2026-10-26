@@ -1937,6 +1937,7 @@ export function TripView() {
               anchor={mapAnchor ?? undefined}
               activeActivityId={activeMapActivityId}
               canEdit={!isInvitee}
+              preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
               onActivitySelect={(id) => {
                 setActiveMapActivityId(id);
                 if (id) document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2275,6 +2276,7 @@ export function TripView() {
               anchor={mapAnchor ?? undefined}
               activeActivityId={activeMapActivityId}
               canEdit={!isInvitee}
+              preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
               onActivitySelect={setActiveMapActivityId}
               onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
               onOpenDetails={(id) => setEditingActivityId(id)}
