@@ -1478,9 +1478,13 @@ export function TripView() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] pb-32 ios-compact-shell">
+    <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${showMap && isDesktop ? "pb-0" : "pb-32"} ios-compact-shell`}>
+      {/* One sticky stack for everything pinned to the top: the sample-trip notice and the
+          header stack instead of both sticking at top-0 over each other. Its measured height
+          (--app-header-h) includes the notice, so panels below offset correctly. */}
+      <div ref={headerRef} className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-sm">
       {activeTripIsDraft && (
-        <div className="sticky top-0 z-50 bg-[var(--color-warning)]/10 border-b border-[var(--color-warning)]/20 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="bg-[var(--color-warning)]/10 border-b border-[var(--color-warning)]/20 px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-xs font-bold text-[var(--color-warning)]">
             {t("trip_view_draft_banner")}
           </p>
@@ -1500,7 +1504,7 @@ export function TripView() {
         </div>
       )}
       {/* COMPACT STICKY HEADER */}
-      <header ref={headerRef} className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-sm border-b border-[var(--color-border)]">
+      <header className="border-b border-[var(--color-border)]">
         {/* Top bar: trip selector + controls */}
         <div className="flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
           {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
@@ -1659,6 +1663,7 @@ export function TripView() {
           )}
         </div>
       </header>
+      </div>
 
       {/* Day Summary Bar */}
       {activeDay && (
@@ -1950,7 +1955,11 @@ export function TripView() {
 
         {/* SIDEBAR / MAP */}
         {showMap && activeDay && isDesktop ? (
-          <div className="hidden lg:block sticky top-[calc(var(--app-header-h,8.75rem)+1rem)] h-[calc(100dvh-var(--app-header-h,8.75rem)-2rem)]">
+          // The grid item stretches with the row and owns the bottom spacing, so the sticky
+          // panel can stay pinned through the whole scroll range (a sticky element never
+          // leaves its grid area; page padding outside the grid would push it under the header).
+          <div className="hidden lg:block">
+          <div className="sticky top-[calc(var(--app-header-h,8.75rem)+1rem)] h-[calc(100dvh-var(--app-header-h,8.75rem)-2rem)]">
             <DayMapView
               dayId={activeDay.id}
               activities={activeDay.activities}
@@ -1967,6 +1976,8 @@ export function TripView() {
               onOpenDetails={(id) => setEditingActivityId(id)}
               onClose={() => setShowMap(false)}
             />
+          </div>
+          <div aria-hidden="true" className="h-32" />
           </div>
         ) : (
         <aside className="space-y-6">
