@@ -45,7 +45,8 @@ import {
   Sun,
   Moon,
   Monitor,
-  Compass
+  Compass,
+  FileUp
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -70,6 +71,7 @@ import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
+import { BookingImportModal } from "@/components/BookingImportModal";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -708,6 +710,7 @@ export function TripView() {
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showBookingImport, setShowBookingImport] = useState(false);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
@@ -784,6 +787,16 @@ export function TripView() {
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  // Booking import needs a signed-in owner: invitees never see it, guests and the sample trip sign in first.
+  const canImportBookings = Boolean(activeTrip) && !isInvitee;
+  const openBookingImport = () => {
+    if (!user || user.is_anonymous) {
+      setShowAuthModal(true);
+      return;
+    }
+    setShowBookingImport(true);
   };
 
   const [celebrationEvent, setCelebrationEvent] = useState<CelebrationEvent | null>(null);
@@ -1944,6 +1957,20 @@ export function TripView() {
                         <p className="text-[var(--color-text-secondary)] text-sm max-w-[240px] mx-auto mt-2 leading-relaxed">
                           {t("empty_itinerary_hint")}
                         </p>
+                        {canImportBookings && (
+                          <div className="mt-6 space-y-2">
+                            <p className="text-[var(--color-text-secondary)] text-xs max-w-[280px] mx-auto leading-relaxed">
+                              {t("booking_import_empty_day_hint")}
+                            </p>
+                            <button
+                              onClick={openBookingImport}
+                              className="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-xl border border-[var(--color-primary)]/30 text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] transition-colors"
+                            >
+                              <FileUp size={16} />
+                              {t("booking_import_action")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </motion.div>
@@ -2000,6 +2027,15 @@ export function TripView() {
                 <Compass size={16} />
                 {t("trip_context")}
               </button>
+              {canImportBookings && (
+                <button
+                  onClick={openBookingImport}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary)]/15 transition-colors"
+                >
+                  <FileUp size={16} />
+                  {t("booking_import_action")}
+                </button>
+              )}
               <div className="relative">
                 <textarea
                   value={importText}
@@ -2628,6 +2664,14 @@ export function TripView() {
         onClose={() => setShowAuthModal(false)} 
         onShowToast={(msg) => showToast(msg)}
       />
+
+      {showBookingImport && activeTrip && !isInvitee && (
+        <BookingImportModal
+          key={activeTrip.id}
+          onClose={() => setShowBookingImport(false)}
+          onToast={(msg, type) => showToast(msg, type)}
+        />
+      )}
 
       <AnimatePresence>
         {showShareModal && activeTrip && (

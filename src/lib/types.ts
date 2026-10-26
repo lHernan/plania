@@ -110,6 +110,8 @@ export type BookingDetails = {
   dropoffLocation?: string;
   details?: string;
   fieldStatus: Partial<Record<BookingField, BookingFieldStatus>>;
+  /** Fields the user reviewed or edited before confirming; fieldStatus keeps what the AI reported. */
+  userConfirmedFields?: BookingField[];
   source?: { fileName: string; sha256: string };
 };
 
