@@ -19,7 +19,9 @@ import {
 import type {
   Activity,
   ActivityFile,
+  ActivityOrigin,
   ActivityState,
+  BookingDetails,
   CriticalReservation,
   FocusArea,
   SharedTripSummary,
@@ -67,6 +69,8 @@ type ActivityDb = {
   sort_order: number;
   time_confidence?: number | null;
   time_inferred?: boolean | null;
+  origin?: ActivityOrigin | null;
+  booking?: BookingDetails | null;
 };
 
 type TripDb = {
@@ -101,6 +105,8 @@ type ReservationDb = {
   status: CriticalReservation["status"];
   price?: number | null;
 };
+
+export type NewActivity = Omit<Activity, "id" | "tripId" | "userId">;
 
 type Store = {
   activeTrip: TripPlan | null;
@@ -147,6 +153,11 @@ type Store = {
   toggleBooking: (bookingId: string) => Promise<void>;
   duplicateActivity: (dayId: string, activityId: string) => Promise<void>;
   addImportedActivities: (dayId: string, activities: Omit<Activity, "id" | "dayId" | "sort_order" | "tripId" | "userId">[]) => Promise<void>;
+  /**
+   * Inserts several activities (possibly on different days) in one request with client-generated
+   * ids, refetching once. Online only. All-or-nothing: on failure nothing stays in the itinerary.
+   */
+  addActivitiesBatch: (activities: NewActivity[]) => Promise<{ ok: true; ids: string[] } | { ok: false; error: string }>;
   addReservation: (reservation: Omit<CriticalReservation, "id" | "userId">) => Promise<void>;
   patchReservation: (reservationId: string, patch: Partial<CriticalReservation>) => Promise<void>;
   removeReservation: (reservationId: string) => Promise<void>;
@@ -176,7 +187,7 @@ const mapActivityFileFromDb = (db: ActivityFileDb): ActivityFile => ({
   focusArea: db.focus_area ?? undefined,
 });
 
-const mapActivityFromDb = (db: ActivityDb): Activity => ({
+export const mapActivityFromDb = (db: ActivityDb): Activity => ({
   id: db.id,
   dayId: db.day_id,
   tripId: db.trip_id,
@@ -196,6 +207,10 @@ const mapActivityFromDb = (db: ActivityDb): Activity => ({
   sort_order: db.sort_order,
   timeConfidence: db.time_confidence ?? undefined,
   timeInferred: db.time_inferred ?? false,
+  // Undefined (not "manual") when the column is absent, so rows read before the migration
+  // never write an origin column back.
+  origin: db.origin ?? undefined,
+  booking: db.booking ?? undefined,
 });
 
 const mapActivityToDb = (activity: Partial<Activity>) => ({
@@ -216,7 +231,20 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   sort_order: activity.sort_order,
   time_confidence: activity.timeConfidence,
   time_inferred: activity.timeInferred,
+  // Only when set: postgrest-js turns every key of an array insert into a column, so an
+  // undefined origin would be sent as NULL (or as an unknown column before the migration).
+  ...(activity.origin !== undefined ? { origin: activity.origin } : {}),
+  ...(activity.booking !== undefined ? { booking: activity.booking } : {}),
 });
+
+/**
+ * Array inserts list the union of all row keys as columns (postgrest-js), so rows must share
+ * the same keys: when any row carries an origin, the others get "manual" instead of NULL.
+ */
+function withUniformOrigin<T extends { origin?: ActivityOrigin }>(rows: T[]): T[] {
+  if (!rows.some((row) => row.origin !== undefined)) return rows;
+  return rows.map((row) => (row.origin === undefined ? { ...row, origin: "manual" as const } : row));
+}
 
 function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
   return {
@@ -1813,6 +1841,61 @@ export const useItineraryStore = create<Store>((set, get) => {
       });
     },
 
+    addActivitiesBatch: async (activities) => {
+      const activeTrip = get().activeTrip;
+      if (!activeTrip) return { ok: false, error: "No active trip" };
+      if (!isOnline()) return { ok: false, error: "offline" };
+      if (activities.length === 0) return { ok: true, ids: [] };
+
+      const created: Activity[] = activities.map((activity) => ({
+        ...activity,
+        id: crypto.randomUUID(),
+        tripId: activeTrip.id,
+        userId: String(activeTrip.userId ?? ""),
+      }));
+      const createdIds = new Set(created.map((a) => a.id));
+
+      await writeState((state) => ({
+        activeTrip: state.activeTrip
+          ? {
+              ...state.activeTrip,
+              days: state.activeTrip.days.map((day) => {
+                const additions = created.filter((a) => a.dayId === day.id);
+                return additions.length ? { ...day, activities: sortActivities([...day.activities, ...additions]) } : day;
+              }),
+            }
+          : null,
+      }));
+
+      const { error } = await supabase.from("activities").insert(
+        withUniformOrigin(created.map((activity) => ({
+          ...mapActivityToDb(activity),
+          id: activity.id,
+          trip_id: activeTrip.id,
+          user_id: activeTrip.userId,
+        })))
+      );
+
+      if (error) {
+        // All-or-nothing: a failed batch never leaves a partial itinerary behind.
+        await writeState((state) => ({
+          activeTrip: state.activeTrip
+            ? {
+                ...state.activeTrip,
+                days: state.activeTrip.days.map((day) => ({
+                  ...day,
+                  activities: day.activities.filter((a) => !createdIds.has(a.id)),
+                })),
+              }
+            : null,
+        }));
+        return { ok: false, error: error.message };
+      }
+
+      await get().fetchActiveTrip(activeTrip.id, true);
+      return { ok: true, ids: created.map((a) => a.id) };
+    },
+
     addImportedActivities: async (dayId, activities) => {
       for (const [index, activity] of activities.entries()) {
         await get().addActivity({
@@ -2151,15 +2234,23 @@ export const useItineraryStore = create<Store>((set, get) => {
 
         if (!response.ok) throw new Error(await response.text());
         const data = (await response.json()) as { optimizedActivities: Activity[] };
-        const oldIds = day.activities.map((activity) => activity.id);
+        // Confirmed bookings are context for the optimizer but are never deleted, moved or re-inserted.
+        const bookingIds = new Set(day.activities.filter((a) => a.origin === "booking").map((a) => a.id));
+        const movable = day.activities.filter((a) => !bookingIds.has(a.id));
+        const originById = new Map(movable.map((a) => [a.id, a.origin]));
+        const optimized = data.optimizedActivities.filter((a) => !bookingIds.has(a.id));
+
+        const oldIds = movable.map((activity) => activity.id);
         if (oldIds.length > 0) {
           await supabase.from("activities").delete().in("id", oldIds);
         }
 
-        await supabase.from("activities").insert(
-          data.optimizedActivities.map((activity, index) => ({
+        const { error: insertError } = await supabase.from("activities").insert(
+          withUniformOrigin(optimized.map((activity, index) => ({
             ...mapActivityToDb({
               ...activity,
+              origin: originById.get(activity.id),
+              booking: undefined,
               dayId,
               tripId: activeTrip.id,
               userId: String(activeTrip.userId ?? ""),
@@ -2169,8 +2260,21 @@ export const useItineraryStore = create<Store>((set, get) => {
             user_id: activeTrip.userId,
             day_id: dayId,
             sort_order: index,
-          }))
+          })))
         );
+
+        if (insertError && movable.length > 0) {
+          // Never leave the day emptied by a failed re-insert: put the originals back.
+          await supabase.from("activities").insert(
+            withUniformOrigin(movable.map((activity) => ({
+              ...mapActivityToDb(activity),
+              id: activity.id,
+              trip_id: activeTrip.id,
+              user_id: activeTrip.userId,
+            })))
+          );
+          set({ error: insertError.message });
+        }
 
         await get().fetchActiveTrip(activeTrip.id, true);
       } catch (error) {

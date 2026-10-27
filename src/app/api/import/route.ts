@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
+import { getAuthClient } from "@/lib/supabase-server";
 import { extractJsonObject } from "@/lib/ai/json-response";
+import { buildPlanningAddendum, buildPlanningUserPrompt, parsePlanningInput } from "@/lib/bookings/planning-prompt";
+
+// A whole-trip plan is a long JSON reply, and reasoning models spend output tokens before
+// answering: with the default budget the reply came back truncated (finish_reason "length").
+const PLANNING_MAX_TOKENS = 16000;
 
 function buildSystemPrompt(lang: string) {
   const langRule = lang === "es"
@@ -67,6 +73,31 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { text, fallbackDate, lang } = body;
+
+    // Planning mode ("Generate itinerary"): same importer, prompt and schema, plus trip context.
+    if (body?.planning !== undefined && body?.planning !== null) {
+      // Planning sends the whole trip context and spends AI credits: signed-in users only.
+      // (The plain text import keeps its existing, unauthenticated behavior.)
+      const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+      if (authError || !authData?.user) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+      const planning = parsePlanningInput(body.planning);
+      if (!planning) {
+        return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+      }
+      const resolvedLang = lang || "en";
+      const content = await runAiPrompt(
+        buildSystemPrompt(resolvedLang) + "\n\n" + buildPlanningAddendum(resolvedLang),
+        buildPlanningUserPrompt(planning.context, planning.request),
+        { maxTokens: PLANNING_MAX_TOKENS },
+      );
+      const parsed = extractJsonObject<{ activities?: unknown; conflicts?: unknown }>(content);
+      if (!parsed) {
+        return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+      }
+      return NextResponse.json(parsed);
+    }
 
     if (!text) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });

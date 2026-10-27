@@ -64,7 +64,71 @@ export type Activity = {
   files?: ActivityFile[];
   timeConfidence?: number;
   timeInferred?: boolean;
+  /** manual (default), booking = confirmed commitment from a document, suggested = accepted AI proposal. */
+  origin?: ActivityOrigin;
+  /** Structured details when origin is "booking". */
+  booking?: BookingDetails;
 };
+
+export type ActivityOrigin = "manual" | "booking" | "suggested";
+
+export type BookingType =
+  | "flight"
+  | "lodging"
+  | "car_rental"
+  | "train"
+  | "ferry"
+  | "bus"
+  | "transfer"
+  | "ticket"
+  | "other";
+
+/** Which moment of a booking an activity represents (a stay has check-in and check-out). */
+export type BookingRole = "single" | "departure" | "check_in" | "check_out" | "pickup" | "dropoff";
+
+/** extracted = read from the document, estimated = derived by Tachao, needs_confirmation = missing or ambiguous. */
+export type BookingFieldStatus = "extracted" | "estimated" | "needs_confirmation";
+
+/** Local wall-clock moment; timeZone is an IANA zone when known (e.g. "Atlantic/Canary"). */
+export type BookingMoment = { date?: string; time?: string; timeZone?: string };
+
+export type BookingDetails = {
+  version: 1;
+  type: BookingType;
+  role: BookingRole;
+  /** Shared by the activities created from one booking (e.g. pickup + dropoff). */
+  groupId: string;
+  title: string;
+  provider?: string;
+  reference?: string;
+  start?: BookingMoment;
+  end?: BookingMoment;
+  from?: string;
+  to?: string;
+  address?: string;
+  pickupLocation?: string;
+  dropoffLocation?: string;
+  details?: string;
+  fieldStatus: Partial<Record<BookingField, BookingFieldStatus>>;
+  /** Fields the user reviewed or edited before confirming; fieldStatus keeps what the AI reported. */
+  userConfirmedFields?: BookingField[];
+  source?: { fileName: string; sha256: string };
+};
+
+export type BookingField =
+  | "title"
+  | "provider"
+  | "reference"
+  | "startDate"
+  | "startTime"
+  | "endDate"
+  | "endTime"
+  | "timeZone"
+  | "from"
+  | "to"
+  | "address"
+  | "pickupLocation"
+  | "dropoffLocation";
 
 export type BookingUrgency = "safe" | "this_week" | "today";
 
