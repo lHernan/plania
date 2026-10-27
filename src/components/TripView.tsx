@@ -1258,7 +1258,7 @@ export function TripView() {
           <p className="text-[var(--color-text-secondary)] text-sm mb-8">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full bg-[var(--color-text)] text-white rounded-2xl py-4 font-bold"
+            className="w-full bg-[var(--color-text)] text-[var(--color-surface)] rounded-2xl py-4 font-bold"
           >
             {t("retry_connection")}
           </button>
@@ -2322,7 +2322,7 @@ export function TripView() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-2xl z-[110] font-bold text-xs uppercase tracking-widest ${
-              toast.type === "success" ? "bg-[var(--color-text)] text-white" : "bg-[var(--color-danger)] text-white"
+              toast.type === "success" ? "bg-[var(--color-text)] text-[var(--color-surface)]" : "bg-[var(--color-danger)] text-white"
             }`}
           >
             {toast.msg}

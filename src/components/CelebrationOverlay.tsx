@@ -77,14 +77,14 @@ export function CelebrationOverlay({ event, onDismiss, onNextDay }: Props) {
             exit={reduced ? { opacity: 0 } : { y: -12, opacity: 0, scale: 0.96 }}
             transition={reduced ? { duration: 0.15 } : { type: "spring", damping: 22, stiffness: 320 }}
             aria-hidden="true"
-            className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+4.5rem)] z-[130] -translate-x-1/2 flex items-center gap-3 rounded-2xl bg-[var(--color-text)] py-2.5 pl-2.5 pr-5 text-white shadow-lg"
+            className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+4.5rem)] z-[130] -translate-x-1/2 flex items-center gap-3 rounded-2xl bg-[var(--color-text)] py-2.5 pl-2.5 pr-5 text-[var(--color-surface)] shadow-lg"
           >
-            <span className="flex size-7 items-center justify-center rounded-full bg-[var(--color-primary)]">
+            <span className="flex size-7 items-center justify-center rounded-full bg-[var(--color-primary)] text-white">
               <Check size={15} strokeWidth={3} />
             </span>
             <span className="flex flex-col">
               <span className="text-sm font-black tracking-tight">{t("tachao_activity")}</span>
-              <span className="text-[11px] font-medium text-white/70">{toastSub}</span>
+              <span className="text-[11px] font-medium text-[var(--color-surface)]/70">{toastSub}</span>
             </span>
           </motion.div>
         )}
