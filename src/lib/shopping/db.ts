@@ -124,18 +124,25 @@ export async function loadShoppingItems(input: {
     return { items: input.cachedItems, remote: !isMissingShoppingTable(error) };
   }
 
-  const rows = (data ?? []) as ShoppingItemDb[];
-  if (rows.length > 0 || input.cachedItems.length === 0 || !input.canUpload || wasUploaded(input.tripId)) {
-    if (rows.length > 0) markUploaded(input.tripId);
-    return { items: rows.map(mapShoppingItemFromDb), remote: true };
-  }
+  const serverItems = ((data ?? []) as ShoppingItemDb[]).map(mapShoppingItemFromDb);
+  if (!input.canUpload || wasUploaded(input.tripId)) return { items: serverItems, remote: true };
 
-  const items = input.cachedItems.map((item) => (isUuid(item.id) ? item : { ...item, id: crypto.randomUUID() }));
-  const { error: uploadError } = await input.client.from(SHOPPING_TABLE).upsert(items.map((item) => shoppingItemToDb(item, input.tripId)));
-  if (uploadError) {
-    console.error("Shopping list upload failed:", uploadError);
-    return { items: input.cachedItems, remote: true };
+  // Each device may hold its own list from before the sync: add what the server lacks
+  // (by id or by name), whether or not another device uploaded first.
+  const known = new Set(serverItems.flatMap((item) => [item.id, keyOf(item.name)]));
+  const missing = input.cachedItems
+    .filter((item) => !known.has(item.id) && !known.has(keyOf(item.name)))
+    .map((item) => (isUuid(item.id) ? item : { ...item, id: crypto.randomUUID() }));
+  if (missing.length > 0) {
+    const { error: uploadError } = await input.client.from(SHOPPING_TABLE).upsert(missing.map((item) => shoppingItemToDb(item, input.tripId)));
+    if (uploadError) {
+      // Keep this device's copy visible; the next load tries again.
+      console.error("Shopping list upload failed:", uploadError);
+      return { items: [...serverItems, ...input.cachedItems.filter((item) => !known.has(item.id) && !known.has(keyOf(item.name)))], remote: true };
+    }
   }
   markUploaded(input.tripId);
-  return { items, remote: true };
+  return { items: [...serverItems, ...missing], remote: true };
 }
+
+const keyOf = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();

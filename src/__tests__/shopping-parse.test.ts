@@ -65,6 +65,11 @@ describe("rule-based parsing (guests and AI failures)", () => {
   const names = (text: string) =>
     runShoppingAssistant({ type: "wishlist_input", text, shopping_list: [] }).wishlist_items.map((i) => i.name);
 
+  it("keeps names short enough to be saved", () => {
+    const [long] = names("x".repeat(300));
+    expect(long.length).toBe(120);
+  });
+
   it("adds each thing separately without the verb, in sentence case", () => {
     expect(names("comprar mojo picon, recuerdo para la abuela")).toEqual(["Mojo picon", "Recuerdo para la abuela"]);
   });

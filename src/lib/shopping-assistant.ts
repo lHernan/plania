@@ -219,7 +219,8 @@ function parseWishlistInput(input: ShoppingAssistantWishlistInput): ShoppingAssi
   ];
 
   for (const rawItem of rawItems) {
-    const normalizedName = sentenceCase(rawItem.text);
+    // Long run-on dictation is cut: the saved list (and the AI path) caps names at 120.
+    const normalizedName = sentenceCase(rawItem.text).slice(0, 120).trim();
     const key = normalizeKey(normalizedName);
     if (!key || existingKeys.has(key) || seenKeys.has(key)) continue;
     seenKeys.add(key);

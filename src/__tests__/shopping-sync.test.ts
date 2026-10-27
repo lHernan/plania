@@ -169,7 +169,7 @@ describe("loadShoppingItems", () => {
 
   it("reads the trip's list from Supabase", async () => {
     remote.rows = [{ id: "r1", trip_id: TRIP, name: "Queso palmero", category: "food", notes: null, preferred_cities: null, preferred_country: null, priority: "medium", status: "purchased", shop_categories: ["commercial.food_and_drink"] }];
-    const result = await loadShoppingItems({ client, tripId: TRIP, cachedItems: [item("old", "Viejo")], canUpload: true });
+    const result = await loadShoppingItems({ client, tripId: TRIP, cachedItems: [item("old", "Viejo")], canUpload: false });
     expect(result).toEqual({ remote: true, items: [item("r1", "Queso palmero", { status: "purchased", shopCategories: ["commercial.food_and_drink"] })] });
     expect(shoppingCalls().map((c) => c.op)).toEqual(["select"]);
   });
@@ -186,6 +186,19 @@ describe("loadShoppingItems", () => {
     // Deleted everywhere later: the old copy on this device does not come back.
     remote.calls = [];
     expect(await loadShoppingItems({ client, tripId: TRIP, cachedItems: cached, canUpload: true })).toEqual({ remote: true, items: [] });
+    expect(shoppingCalls().map((c) => c.op)).toEqual(["select"]);
+  });
+
+  it("adds what only this device had even when another device uploaded first", async () => {
+    remote.rows = [{ id: "r1", trip_id: TRIP, name: "Turrón", category: "food", notes: null, preferred_cities: null, preferred_country: null, priority: "medium", status: "pending", shop_categories: null }];
+    const cached = [item("shopping-local-1", "Imanes"), item("other-id", "turrón")];
+    const result = await loadShoppingItems({ client, tripId: TRIP, cachedItems: cached, canUpload: true });
+    expect(result.items.map((i) => i.name)).toEqual(["Turrón", "Imanes"]);
+    const upload = shoppingCalls().find((c) => c.op === "upsert")!;
+    expect((upload.payload as { name: string }[]).map((r) => r.name)).toEqual(["Imanes"]);
+
+    remote.calls = [];
+    await loadShoppingItems({ client, tripId: TRIP, cachedItems: cached, canUpload: true });
     expect(shoppingCalls().map((c) => c.op)).toEqual(["select"]);
   });
 
