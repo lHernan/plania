@@ -425,7 +425,7 @@
   "trip_view_ignore": "Ignorar",
   "trip_view_ai_quick_actions": "Acciones rápidas con IA",
   "trip_view_shopping_list": "Lista de compras",
-  "trip_view_shopping_input_placeholder": "Qué quieres comprar (p. ej., mojo picón, recuerdo para la abuela)",
+  "trip_view_shopping_input_placeholder": "Ej.: mojo picón, imanes",
   "trip_view_refresh_nearby": "Actualizar cercanos",
   "trip_view_best_in": "Mejor en {cities}",
   "trip_view_edit_shopping_item": "Editar artículo de compras",
@@ -716,5 +716,6 @@
   "shopping_alert_dismiss": "Cerrar aviso",
   "shopping_location_denied": "Activa el permiso de ubicación para buscar tiendas cercanas.",
   "shopping_tracking_on": "Te avisaremos si pasas cerca de una tienda para tu lista (con la app abierta).",
-  "tachao_shopping_sub": "«{item}» ya es tuyo"
+  "tachao_shopping_sub": "«{item}» ya es tuyo",
+  "shopping_input_label": "Qué quieres comprar"
 }

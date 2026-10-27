@@ -425,7 +425,7 @@
   "trip_view_ignore": "Ignore",
   "trip_view_ai_quick_actions": "AI Quick Actions",
   "trip_view_shopping_list": "Shopping List",
-  "trip_view_shopping_input_placeholder": "What do you want to buy (e.g. local cheese, a gift for grandma)",
+  "trip_view_shopping_input_placeholder": "E.g. local cheese, magnets",
   "trip_view_refresh_nearby": "Refresh nearby",
   "trip_view_best_in": "Best in {cities}",
   "trip_view_edit_shopping_item": "Edit shopping item",
@@ -716,5 +716,6 @@
   "shopping_alert_dismiss": "Dismiss notice",
   "shopping_location_denied": "Allow location access to look for nearby shops.",
   "shopping_tracking_on": "We'll let you know when you pass a shop for your list (while the app is open).",
-  "tachao_shopping_sub": "“{item}” is yours"
+  "tachao_shopping_sub": "“{item}” is yours",
+  "shopping_input_label": "What do you want to buy"
 }

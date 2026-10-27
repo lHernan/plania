@@ -218,7 +218,7 @@ export function ShoppingListPanel({
                 voice.textEdited();
               }}
               placeholder={t("trip_view_shopping_input_placeholder")}
-              aria-label={t("trip_view_shopping_input_placeholder")}
+              aria-label={t("shopping_input_label")}
               className={`w-full rounded-xl border bg-[var(--color-surface-subtle)] py-2.5 pl-3 pr-10 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20 ${
                 voice.state === "listening" ? "border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10" : "border-[var(--color-border)]"
               }`}
