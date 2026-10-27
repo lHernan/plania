@@ -68,7 +68,7 @@ import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
-import { WalletPreviewModal } from "@/components/WalletPreviewModal";
+import { DocumentViewer } from "@/components/DocumentViewer";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
@@ -707,6 +707,12 @@ export function TripView() {
     return null;
   }, [activeTrip, editingActivityId]);
   const [previewFile, setPreviewFile] = useState<ActivityFile | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
+  /** From the activity card: the pass opens straight away, without the edit modal. */
+  const openPass = (file: ActivityFile, title: string) => {
+    setPreviewTitle(title);
+    setPreviewFile(file);
+  };
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -1710,6 +1716,7 @@ export function TripView() {
                                  onUncomplete={(id) => handleUncomplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                                 onOpenFile={(file) => openPass(file, activity.title)}
                                />
                              ))}
                          </div>
@@ -1735,6 +1742,7 @@ export function TripView() {
                                  onUncomplete={(id) => handleUncomplete(activeDayId, id)}
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
+                                 onOpenFile={(file) => openPass(file, activity.title)}
                                />
                            ))}
                          </div>
@@ -2130,7 +2138,10 @@ export function TripView() {
             onSave={(updates) => patchActivity(activeDayId, editingActivity.id, updates)}
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}
             onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}
-            onPreviewFile={(file) => setPreviewFile(file)}
+            onPreviewFile={(file) => {
+              setPreviewTitle("");
+              setPreviewFile(file);
+            }}
           />
         )}
       </AnimatePresence>
@@ -2138,10 +2149,10 @@ export function TripView() {
 
 
       {previewFile && (
-        <WalletPreviewModal
+        <DocumentViewer
           file={previewFile}
           onClose={() => setPreviewFile(null)}
-          activityTitle={editingActivity?.title || ""}
+          activityTitle={previewTitle || editingActivity?.title || ""}
           onDelete={() => {
             deleteActivityFile(previewFile.id);
             setPreviewFile(null);
