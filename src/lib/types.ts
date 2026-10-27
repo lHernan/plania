@@ -246,6 +246,8 @@ export type ShoppingItem = {
   preferred_country: string | null;
   priority: "low" | "medium" | "high";
   status: ShoppingItemStatus;
+  /** Kinds of shop that sell it (Geoapify place categories, see lib/shopping/shop-kinds). */
+  shopCategories?: string[];
 };
 
 export type ShoppingCandidatePlace = {
@@ -277,6 +279,8 @@ export type ShoppingAssistantUi = {
 
 export type ShoppingAssistantResponse = {
   ui: ShoppingAssistantUi;
+  /** wishlist_input only: who split the text. */
+  source?: "ai" | "rules";
   wishlist_items: ShoppingItem[];
   suggestions: ShoppingSuggestion[];
 };
@@ -284,6 +288,7 @@ export type ShoppingAssistantResponse = {
 export type ShoppingAssistantWishlistInput = {
   type: "wishlist_input";
   text: string;
+  lang?: "es" | "en";
   shopping_list?: ShoppingItem[];
 };
 

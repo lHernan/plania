@@ -83,7 +83,7 @@ export function isPlaceholderCity(city: string): boolean {
 const isMovable = (activity: Activity) =>
   activity.origin !== "booking" && (activity.state === "pending" || activity.state === "delayed");
 
-function haversineKm(a: Coords, b: Coords): number {
+export function haversineKm(a: Coords, b: Coords): number {
   const rad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = rad(b.lat - a.lat);
   const dLng = rad(b.lng - a.lng);

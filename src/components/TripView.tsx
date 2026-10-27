@@ -73,6 +73,7 @@ import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
+import { ShoppingListPanel } from "@/components/ShoppingListPanel";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
@@ -692,10 +693,6 @@ export function TripView() {
     addReservation,
     patchReservation,
     removeReservation,
-    addShoppingItems,
-    toggleShoppingItemStatus,
-    updateShoppingItem,
-    removeShoppingItem,
     ignoreShoppingSuggestion,
     addTripDay,
     removeTripDay,
@@ -860,7 +857,6 @@ export function TripView() {
   const [editingDay, setEditingDay] = useState<TripDay | null>(null);
   const [editDayCity, setEditDayCity] = useState("");
   const [editDayLabel, setEditDayLabel] = useState("");
-  const [shoppingInput, setShoppingInput] = useState("");
   const [shoppingSuggestions, setShoppingSuggestions] = useState<ShoppingSuggestion[]>([]);
   const [shoppingUi, setShoppingUi] = useState<ShoppingAssistantResponse["ui"]>({
     input_mode: "textbox",
@@ -868,12 +864,8 @@ export function TripView() {
     list_style: "todo",
     show_suggestions_card: false,
   });
-  const [shoppingLoading, setShoppingLoading] = useState(false);
   const [selectedShoppingItemId, setSelectedShoppingItemId] = useState<string | null>(null);
-  const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<{ name: string; area: string | null }[]>([]);
-  const [nearbyAttribution, setNearbyAttribution] = useState<string | null>(null);
-  const [nearbyLoading, setNearbyLoading] = useState(false);
   
   const [voiceState, setVoiceState] = useState<"idle" | "listening" | "preview" | "syncing">("idle");
   const [previewCountdown, setPreviewCountdown] = useState(0);
@@ -1291,61 +1283,6 @@ export function TripView() {
     void loadShoppingSuggestions();
   }, [activeDay, activeTrip, activeTrip?.name, ignoredSuggestionKeys, mergedCandidatePlaces, shoppingItems]);
 
-  const handleEnableDeviceLocation = async () => {
-    if (!("geolocation" in navigator)) {
-      showToast(t("map_location_not_supported"), "error");
-      return;
-    }
-
-    setNearbyLoading(true);
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          timeout: 8000,
-          maximumAge: 60_000,
-        });
-      });
-
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-      setDeviceLocation({ lat, lon });
-
-      const res = await fetch("/api/places/nearby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat,
-          lon,
-          radius_m: 1800,
-          limit: 12,
-        }),
-      });
-
-      const data = (await res.json()) as {
-        places?: { name: string; area: string | null }[];
-        attribution?: string | null;
-        warning?: string;
-      };
-      const places = Array.isArray(data.places) ? data.places : [];
-      setNearbyPlaces(places);
-      setNearbyAttribution(data.attribution ?? null);
-
-      if (places.length > 0) {
-        showToast(t("trip_view_nearby_shops_loaded"));
-      } else if (data.warning) {
-        showToast(t("trip_view_location_enabled_itinerary_context"));
-      } else {
-        showToast(t("trip_view_location_enabled_no_shops"));
-      }
-    } catch (error) {
-      console.error("Unable to load nearby places", error);
-      showToast(t("trip_view_nearby_places_failed"), "error");
-    } finally {
-      setNearbyLoading(false);
-    }
-  };
-
   const handleMapToggle = () => {
     if (showMap) {
       setShowMap(false);
@@ -1408,31 +1345,6 @@ export function TripView() {
       setEditDayCity(isPlaceholderCity(activeDay.city) ? "" : activeDay.city);
       setEditDayLabel(activeDay.label);
       openMapAfterDayEditRef.current = true;
-    }
-  };
-
-  const handleAddShoppingItems = async () => {
-    if (!shoppingInput.trim()) return;
-    setShoppingLoading(true);
-    try {
-      const result = await callShoppingAssistant({
-        type: "wishlist_input",
-        text: shoppingInput,
-        shopping_list: shoppingItems,
-      });
-      if (result.wishlist_items.length === 0) {
-        showToast(t("trip_view_shopping_nothing_new"), "error");
-      } else {
-        await addShoppingItems(result.wishlist_items);
-        setShoppingInput("");
-        showToast(t("trip_view_shopping_list_updated"));
-      }
-      setShoppingUi(result.ui);
-    } catch (error) {
-      console.error("Shopping assistant failed", error);
-      showToast(t("trip_view_shopping_assistant_failed"), "error");
-    } finally {
-      setShoppingLoading(false);
     }
   };
 
@@ -2173,110 +2085,15 @@ export function TripView() {
           </div>
 
           {/* SHOPPING LIST */}
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_shopping_list")}</h3>
-              <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">
-                {sortedShoppingItems.length}
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  value={shoppingInput}
-                  onChange={(e) => setShoppingInput(e.target.value)}
-                  placeholder={shoppingUi.input_placeholder || t("trip_view_shopping_input_placeholder")}
-                  className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2.5 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20"
-                />
-                <button
-                  onClick={() => void handleAddShoppingItems()}
-                  disabled={shoppingLoading || !shoppingInput.trim()}
-                  className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
-                >
-                  {shoppingLoading ? "..." : t("trip_view_add")}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  onClick={() => void handleEnableDeviceLocation()}
-                  disabled={nearbyLoading}
-                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-primary)]/30 hover:text-[var(--color-primary)] disabled:opacity-50"
-                >
-                  {nearbyLoading ? t("map_locating") : deviceLocation ? t("trip_view_refresh_nearby") : t("map_use_my_location")}
-                </button>
-                {nearbyAttribution && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
-                    {nearbyAttribution}
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {sortedShoppingItems.length === 0 && (
-                  <div className="rounded-xl border-2 border-dashed border-[var(--color-border)] px-4 py-6 flex flex-col items-center gap-2 text-[var(--color-text-muted)]">
-                    <ShoppingBag size={24} />
-                    <span className="text-[11px] font-bold uppercase tracking-widest">{t("no_shopping_items_yet")}</span>
-                  </div>
-                )}
-
-                {sortedShoppingItems.map((item) => {
-                  const isSelected = selectedShoppingItemId === item.id;
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-xl border px-3 py-2.5 transition-all ${
-                        isSelected
-                          ? "border-[var(--color-primary)]/30 bg-[var(--color-primary-subtle)]"
-                          : "border-[var(--color-border)] bg-[var(--color-surface)]"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={item.status === "purchased"}
-                          onChange={() => void toggleShoppingItemStatus(item.id)}
-                          className="mt-1 size-4 rounded border-[var(--color-border-strong)] accent-[var(--color-primary)]"
-                        />
-                        <button
-                          onClick={() => setSelectedShoppingItemId(isSelected ? null : item.id)}
-                          className="flex-1 text-left"
-                        >
-                          <p className={`text-sm font-bold ${item.status === "purchased" ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"}`}>
-                            {item.name}
-                          </p>
-                          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
-                            {item.category}
-                            {item.preferred_cities?.length ? ` · ${t("trip_view_best_in", { cities: item.preferred_cities.join(", ") })}` : ""}
-                          </p>
-                        </button>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              const nextName = window.prompt(t("trip_view_edit_shopping_item"), item.name);
-                              if (nextName && nextName.trim()) {
-                                void updateShoppingItem(item.id, { name: nextName.trim() });
-                              }
-                            }}
-                            className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          <button
-                            onClick={() => void removeShoppingItem(item.id)}
-                            className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          <ShoppingListPanel
+            canEdit={!isInvitee}
+            today={todayStr}
+            selectedItemId={selectedShoppingItemId}
+            onSelectItem={setSelectedShoppingItemId}
+            onToast={showToast}
+            onBought={(itemName) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: itemName, kind: "shopping" })}
+            onNearbyPlaces={setNearbyPlaces}
+          />
 
           {/* BUDGET SUMMARY */}
           {activeTrip && budgetSummary.total > 0 && (

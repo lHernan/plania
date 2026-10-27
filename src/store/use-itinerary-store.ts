@@ -3,6 +3,14 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import type { DayPlanOps } from "@/lib/day-genius/apply";
+import {
+  SHOPPING_TABLE,
+  isMissingShoppingTable,
+  isUuid,
+  loadShoppingItems,
+  shoppingItemToDb,
+  shoppingPatchToDb,
+} from "@/lib/shopping/db";
 import { removeCachedDocument } from "@/lib/offline-documents";
 import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
 import {
@@ -319,6 +327,34 @@ function buildTripPlan(
   };
 }
 
+/** Set when Supabase has no shopping_items table yet: the list then stays on this device. */
+let shoppingTableMissing = false;
+
+type DbWriteError = { code?: string; message?: string } | null;
+
+/** One shopping list change in Supabase; the same code serves live writes and the offline replay. */
+async function writeShoppingChange(
+  operation: OfflineMutationQueueEntry["operation"],
+  payload: Record<string, unknown>,
+  idMap: Map<string, string>,
+): Promise<DbWriteError> {
+  if (operation === "create") {
+    const tripId = String(payload.tripId);
+    const items = (payload.items as ShoppingItem[]) ?? [];
+    const rows = items.map((item) => shoppingItemToDb(item, idMap.get(tripId) ?? tripId));
+    // Upsert: replaying a create that already reached the server must not fail.
+    const { error } = await supabase.from(SHOPPING_TABLE).upsert(rows);
+    return error;
+  }
+  const itemId = String(payload.itemId);
+  if (operation === "update") {
+    const { error } = await supabase.from(SHOPPING_TABLE).update(shoppingPatchToDb(payload.patch as Partial<ShoppingItem>)).eq("id", itemId);
+    return error;
+  }
+  const { error } = await supabase.from(SHOPPING_TABLE).delete().eq("id", itemId);
+  return error;
+}
+
 function sortActivities(activities: Activity[]) {
   return [...activities].sort((left, right) => {
     if (left.sort_order !== right.sort_order) return left.sort_order - right.sort_order;
@@ -503,6 +539,21 @@ export const useItineraryStore = create<Store>((set, get) => {
     await useOfflineStore.getState().refreshPendingCount();
   };
 
+  /**
+   * Mirrors a shopping list change in Supabase (or the offline queue). The sample trip stays
+   * on this device, and so does everything while the shopping_items migration is missing.
+   */
+  const syncShopping = async (operation: OfflineMutationQueueEntry["operation"], payload: Record<string, unknown>) => {
+    if (get().activeTripIsDraft || shoppingTableMissing) return;
+    if (!isOnline()) {
+      await enqueueMutation(operation, "shopping_item", payload);
+      return;
+    }
+    const error = await writeShoppingChange(operation, payload, new Map());
+    // A missing table only means the migration is pending: the change stays on this device.
+    if (error && !isMissingShoppingTable(error)) set({ error: error.message ?? "Shopping list sync failed" });
+  };
+
   const hydrateFromCache = async (tripId?: string) => {
     const userId = getCurrentUserId();
     if (!userId) {
@@ -600,9 +651,17 @@ export const useItineraryStore = create<Store>((set, get) => {
       (files ?? []) as ActivityFileDb[]
     );
     const cachedTrip = userId ? (await loadOfflineTripCache(userId))?.tripPlans?.[baseTripPlan.id] : null;
+    const shopping = await loadShoppingItems({
+      client: supabase as never,
+      tripId: baseTripPlan.id,
+      cachedItems: cachedTrip?.shoppingItems ?? [],
+      // Only the owner uploads the items that lived on this device before the sync existed.
+      canUpload: Boolean(userId) && trip.user_id === userId,
+    });
+    shoppingTableMissing = !shopping.remote;
     const tripPlan: TripPlan = normalizeTripPlan({
       ...baseTripPlan,
-      shoppingItems: cachedTrip?.shoppingItems ?? [],
+      shoppingItems: shopping.items,
       ignoredShoppingSuggestionKeys: cachedTrip?.ignoredShoppingSuggestionKeys ?? [],
     });
 
@@ -781,6 +840,12 @@ export const useItineraryStore = create<Store>((set, get) => {
       if (orderedActivityIds.length === 0) return;
       const { error } = await supabase.from("activities").upsert(orderedActivityIds);
       if (error) throw error;
+      return;
+    }
+
+    if (entry.target === "shopping_item") {
+      const error = await writeShoppingChange(entry.operation, payload, idMap);
+      if (error && !isMissingShoppingTable(error)) throw error;
       return;
     }
 
@@ -1351,6 +1416,15 @@ export const useItineraryStore = create<Store>((set, get) => {
           set({ loading: false, error: actsError.message });
           return { error: actsError.message };
         }
+      }
+
+      // The shopping list started on the sample trip comes along (best effort: without the
+      // shopping_items table it simply stays empty on the saved trip).
+      if (activeTrip.shoppingItems.length > 0) {
+        const { error: shoppingError } = await supabase.from(SHOPPING_TABLE).insert(
+          activeTrip.shoppingItems.map((item) => shoppingItemToDb({ ...item, id: isUuid(item.id) ? item.id : crypto.randomUUID() }, newTripId)),
+        );
+        if (shoppingError && !isMissingShoppingTable(shoppingError)) console.error("Shopping list copy failed:", shoppingError);
       }
 
       set({ activeTripIsDraft: false });
@@ -2003,40 +2077,40 @@ export const useItineraryStore = create<Store>((set, get) => {
     },
 
     addShoppingItems: async (items) => {
-      await writeState((current) => {
-        if (!current.activeTrip) return {};
+      const activeTrip = get().activeTrip;
+      if (!activeTrip) return;
+      const existingKeys = new Set(activeTrip.shoppingItems.map((item) => item.name.trim().toLowerCase()));
+      const nextItems = items
+        .filter((item) => !existingKeys.has(item.name.trim().toLowerCase()))
+        .map((item) => ({
+          ...item,
+          // A real UUID from the start: it is the row id in Supabase, online or replayed later.
+          id: item.id && isUuid(item.id) ? item.id : crypto.randomUUID(),
+          status: item.status || "pending",
+        }));
+      if (nextItems.length === 0) return;
 
-        const existingKeys = new Set(current.activeTrip.shoppingItems.map((item) => item.name.trim().toLowerCase()));
-        const nextItems = items
-          .filter((item) => !existingKeys.has(item.name.trim().toLowerCase()))
-          .map((item) => ({
-            ...item,
-            id: item.id || createOfflineId("shopping"),
-            status: item.status || "pending",
-          }));
-
-        return {
-          activeTrip: {
-            ...current.activeTrip,
-            shoppingItems: [...current.activeTrip.shoppingItems, ...nextItems],
-          },
-        };
-      });
+      await writeState((current) => ({
+        activeTrip: current.activeTrip
+          ? { ...current.activeTrip, shoppingItems: [...current.activeTrip.shoppingItems, ...nextItems] }
+          : null,
+      }));
+      await syncShopping("create", { tripId: activeTrip.id, items: nextItems });
     },
 
     toggleShoppingItemStatus: async (itemId) => {
+      const item = get().activeTrip?.shoppingItems.find((entry) => entry.id === itemId);
+      if (!item) return;
+      const status = item.status === "purchased" ? "pending" : "purchased";
       await writeState((current) => ({
         activeTrip: current.activeTrip
           ? {
               ...current.activeTrip,
-              shoppingItems: current.activeTrip.shoppingItems.map((item) =>
-                item.id === itemId
-                  ? { ...item, status: item.status === "purchased" ? "pending" : "purchased" }
-                  : item
-              ),
+              shoppingItems: current.activeTrip.shoppingItems.map((entry) => (entry.id === itemId ? { ...entry, status } : entry)),
             }
           : null,
       }));
+      await syncShopping("update", { itemId, patch: { status } });
     },
 
     updateShoppingItem: async (itemId, patch) => {
@@ -2050,6 +2124,7 @@ export const useItineraryStore = create<Store>((set, get) => {
             }
           : null,
       }));
+      await syncShopping("update", { itemId, patch });
     },
 
     removeShoppingItem: async (itemId) => {
@@ -2061,6 +2136,7 @@ export const useItineraryStore = create<Store>((set, get) => {
             }
           : null,
       }));
+      await syncShopping("delete", { itemId });
     },
 
     ignoreShoppingSuggestion: async (ignoreKey) => {

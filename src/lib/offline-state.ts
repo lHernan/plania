@@ -21,7 +21,8 @@ export type OfflineMutationTarget =
   | "activity_reorder"
   | "reservation"
   | "activity_file"
-  | "file_focus_area";
+  | "file_focus_area"
+  | "shopping_item";
 
 export type OfflineAuthCache = {
   user: User | null;
