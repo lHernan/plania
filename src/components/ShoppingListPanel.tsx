@@ -6,6 +6,8 @@ import { useI18n } from "@/components/I18nProvider";
 import { useVoiceDictation } from "@/hooks/use-voice-dictation";
 import { authHeaders } from "@/lib/auth-headers";
 import { haversineKm } from "@/lib/day-genius/context";
+import { parseShoppingTextWithRules } from "@/lib/shopping-assistant";
+import { planRefinement } from "@/lib/shopping/refine";
 import { findNearbyForItems, nearbyAlerts, type NearbyAlert, type NearbyMatch } from "@/lib/shopping/nearby";
 import type { ShoppingAssistantResponse, ShoppingCandidatePlace, ShoppingItem } from "@/lib/types";
 import { useItineraryStore } from "@/store/use-itinerary-store";
@@ -17,6 +19,9 @@ const RESEARCH_DISTANCE_M = 200;
 type Position = { lat: number; lon: number };
 
 const metersBetween = (a: Position, b: Position) => haversineKm({ lat: a.lat, lng: a.lon }, { lat: b.lat, lng: b.lon }) * 1000;
+
+/** Read at the moment of use: async flows must see the list as it is now, not as it was rendered. */
+const currentItems = () => useItineraryStore.getState().activeTrip?.shoppingItems ?? EMPTY_ITEMS;
 
 const mapsUrl = (place: NearbyMatch) => `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lon}`;
 
@@ -44,7 +49,6 @@ export function ShoppingListPanel({
   const removeShoppingItem = useItineraryStore((s) => s.removeShoppingItem);
 
   const [input, setInput] = useState("");
-  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [locating, setLocating] = useState(false);
@@ -55,11 +59,11 @@ export function ShoppingListPanel({
   const watchRef = useRef<number | null>(null);
   const lastSearchRef = useRef<Position | null>(null);
   const seenAlertsRef = useRef(new Set<string>());
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
   // t changes identity on every provider render; reading it from a ref avoids extra searches.
   const parentRef = useRef({ onToast, onNearbyPlaces, t });
-  parentRef.current = { onToast, onNearbyPlaces, t };
+  useEffect(() => {
+    parentRef.current = { onToast, onNearbyPlaces, t };
+  });
   /** The traveler just asked for a search: report when nothing fits. */
   const askedRef = useRef(false);
 
@@ -71,31 +75,47 @@ export function ShoppingListPanel({
   const visibleAlerts = alerts.filter((alert) => items.some((i) => i.id === alert.itemId && i.status === "pending"));
   const pendingKey = items.filter((i) => i.status === "pending").map((i) => i.id).join(",");
 
-  const addFromText = async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || adding) return;
-    setAdding(true);
+  /** Asks the AI for better names, categories and shop kinds; the items are already in the list. */
+  const refineWithAi = async (text: string, provisional: ShoppingItem[]) => {
+    const headers = await authHeaders();
+    if (!headers.Authorization) return; // Guests keep the instant split.
+    const provisionalIds = new Set(provisional.map((item) => item.id));
     try {
       const response = await fetch("/api/shopping-assistant", {
         method: "POST",
-        headers: await authHeaders(),
-        body: JSON.stringify({ type: "wishlist_input", text: trimmed, lang, shopping_list: itemsRef.current }),
+        headers,
+        body: JSON.stringify({
+          type: "wishlist_input",
+          text,
+          lang,
+          shopping_list: currentItems().filter((item) => !provisionalIds.has(item.id)),
+        }),
       });
-      if (!response.ok) throw new Error(`status ${response.status}`);
+      if (!response.ok) return;
       const result = (await response.json()) as ShoppingAssistantResponse;
-      if (result.wishlist_items.length === 0) {
-        onToast(t("trip_view_shopping_nothing_new"), "error");
-        return;
-      }
-      await addShoppingItems(result.wishlist_items);
-      setInput("");
-      onToast(t("shopping_added", { items: result.wishlist_items.map((i) => i.name).join(", ") }));
+      if (result.source !== "ai") return;
+      const plan = planRefinement(provisional, currentItems(), result.wishlist_items);
+      for (const { id, patch } of plan.updates) await updateShoppingItem(id, patch);
+      for (const id of plan.removeIds) await removeShoppingItem(id);
+      if (plan.additions.length > 0) await addShoppingItems(plan.additions.map((item) => ({ ...item, id: crypto.randomUUID() })));
     } catch (error) {
-      console.error("Shopping assistant failed", error);
-      onToast(t("trip_view_shopping_assistant_failed"), "error");
-    } finally {
-      setAdding(false);
+      console.error("Shopping list refinement failed", error);
     }
+  };
+
+  const addFromText = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    // Instant split on the device: the AI can take many seconds and only polishes the result.
+    const provisional = parseShoppingTextWithRules(trimmed, currentItems()).map((item) => ({ ...item, id: crypto.randomUUID() }));
+    if (provisional.length === 0) {
+      onToast(t("trip_view_shopping_nothing_new"), "error");
+      return;
+    }
+    await addShoppingItems(provisional);
+    setInput("");
+    onToast(t("shopping_added", { items: provisional.map((i) => i.name).join(", ") }));
+    void refineWithAi(trimmed, provisional);
   };
 
   const voice = useVoiceDictation({
@@ -120,7 +140,7 @@ export function ShoppingListPanel({
   useEffect(() => {
     if (!position) return;
     let cancelled = false;
-    void findNearbyForItems(itemsRef.current, position)
+    void findNearbyForItems(currentItems(), position)
       .then((result) => {
         if (cancelled) return;
         const asked = askedRef.current;
@@ -133,7 +153,7 @@ export function ShoppingListPanel({
         setMatches(result.matches);
         setAttribution(result.attribution);
         parentRef.current.onNearbyPlaces(result.places.map((p) => ({ name: p.name, area: p.area })));
-        const fresh = nearbyAlerts({ items: itemsRef.current, matches: result.matches, date: today, seen: seenAlertsRef.current });
+        const fresh = nearbyAlerts({ items: currentItems(), matches: result.matches, date: today, seen: seenAlertsRef.current });
         if (fresh.length > 0) setAlerts((current) => [...fresh, ...current]);
       })
       .catch(() => {
@@ -253,10 +273,10 @@ export function ShoppingListPanel({
           </div>
           <button
             type="submit"
-            disabled={adding || !input.trim()}
+            disabled={!input.trim()}
             className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
           >
-            {adding ? <Loader2 size={14} className="animate-spin" aria-label={t("trip_view_add")} /> : t("trip_view_add")}
+            {t("trip_view_add")}
           </button>
         </div>
         {voice.state === "preview" && (

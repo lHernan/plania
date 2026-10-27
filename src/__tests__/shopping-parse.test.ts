@@ -69,9 +69,11 @@ describe("rule-based parsing (guests and AI failures)", () => {
     expect(names("comprar mojo picon, recuerdo para la abuela")).toEqual(["Mojo picon", "Recuerdo para la abuela"]);
   });
 
-  it("recognizes the same phrase on every call", () => {
-    expect(names("recuerdos")).toEqual(["Souvenirs"]);
-    expect(names("recuerdos")).toEqual(["Souvenirs"]);
+  it("recognizes the same phrase on every call, keeping the traveler's own words", () => {
+    const first = runShoppingAssistant({ type: "wishlist_input", text: "imanes", shopping_list: [] }).wishlist_items;
+    expect(first.map((i) => [i.name, i.category])).toEqual([["Imanes", "souvenir"]]);
+    expect(names("imanes")).toEqual(["Imanes"]);
+    expect(names("magnets and socks")).toEqual(["Magnets", "Socks"]);
   });
 });
 

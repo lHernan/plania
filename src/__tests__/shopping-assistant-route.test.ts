@@ -32,7 +32,9 @@ describe("POST /api/shopping-assistant wishlist_input", () => {
   it("splits a guest's text with the rules, without calling the AI", async () => {
     const res = await post(wishlist);
     expect(res.status).toBe(200);
-    expect(await names(res)).toEqual(["Mojo picon", "Recuerdo para la abuela"]);
+    const body = await res.json();
+    expect(body.wishlist_items.map((i: { name: string }) => i.name)).toEqual(["Mojo picon", "Recuerdo para la abuela"]);
+    expect(body.source).toBe("rules");
     expect(runAiPrompt).not.toHaveBeenCalled();
   });
 
@@ -52,6 +54,7 @@ describe("POST /api/shopping-assistant wishlist_input", () => {
     }));
     const res = await post(wishlist);
     const body = await res.json();
+    expect(body.source).toBe("ai");
     expect(body.wishlist_items.map((i: { name: string; shopCategories: string[] }) => [i.name, i.shopCategories])).toEqual([
       ["Mojo picón", ["commercial.supermarket"]],
       ["Recuerdo para la abuela", ["commercial.gift_and_souvenir"]],

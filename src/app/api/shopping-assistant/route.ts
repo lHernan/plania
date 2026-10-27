@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     const response = runShoppingAssistant(body);
     if (body.type === "wishlist_input") {
       const aiItems = await parseWithAi(request, body);
+      response.source = aiItems ? "ai" : "rules";
       if (aiItems) response.wishlist_items = aiItems;
     }
     return NextResponse.json(response);

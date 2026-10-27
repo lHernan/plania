@@ -279,6 +279,8 @@ export type ShoppingAssistantUi = {
 
 export type ShoppingAssistantResponse = {
   ui: ShoppingAssistantUi;
+  /** wishlist_input only: who split the text. */
+  source?: "ai" | "rules";
   wishlist_items: ShoppingItem[];
   suggestions: ShoppingSuggestion[];
 };

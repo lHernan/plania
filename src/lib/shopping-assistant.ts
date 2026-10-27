@@ -169,15 +169,19 @@ function splitWishlistText(text: string) {
     .filter(Boolean);
 }
 
+/** A known phrase keeps the traveler's own words; its canonical name only drives category and hints. */
+type MappedPhrase = { text: string; canonical: string };
+
 function extractMappedWishlistItems(rawText: string) {
   let remaining = rawText;
-  const extracted: string[] = [];
+  const extracted: MappedPhrase[] = [];
 
   for (const entry of PHRASE_ITEM_MAP) {
     // The patterns are global: test() would resume from the previous call's lastIndex.
     entry.pattern.lastIndex = 0;
-    if (entry.pattern.test(remaining)) {
-      extracted.push(entry.name);
+    const match = remaining.match(entry.pattern);
+    if (match) {
+      extracted.push({ text: match[0], canonical: entry.name });
       remaining = remaining.replace(entry.pattern, " ");
     }
   }
@@ -209,23 +213,26 @@ function parseWishlistInput(input: ShoppingAssistantWishlistInput): ShoppingAssi
   const mapped = extractMappedWishlistItems(input.text);
   // When every phrase was mapped nothing remains; re-reading the full text would duplicate them.
   const rest = mapped.extracted.length > 0 ? mapped.remaining : input.text;
-  const rawItems = [...mapped.extracted, ...splitWishlistText(rest)];
+  const rawItems: MappedPhrase[] = [
+    ...mapped.extracted,
+    ...splitWishlistText(rest).map((text) => ({ text, canonical: text })),
+  ];
 
   for (const rawItem of rawItems) {
-    const normalizedName = sentenceCase(rawItem);
+    const normalizedName = sentenceCase(rawItem.text);
     const key = normalizeKey(normalizedName);
     if (!key || existingKeys.has(key) || seenKeys.has(key)) continue;
     seenKeys.add(key);
 
-    const locationPreference = inferLocationPreference(normalizedName);
+    const locationPreference = inferLocationPreference(rawItem.canonical);
     response.wishlist_items.push({
       id: "",
       name: normalizedName,
-      category: inferCategory(normalizedName),
+      category: inferCategory(rawItem.canonical),
       notes: null,
       preferred_cities: locationPreference.preferred_cities,
       preferred_country: locationPreference.preferred_country,
-      priority: inferPriority(normalizedName),
+      priority: inferPriority(rawItem.canonical),
       status: "pending",
     });
   }
@@ -357,6 +364,11 @@ function generateSuggestions(input: ShoppingAssistantSuggestionInput): ShoppingA
   response.suggestions = suggestions;
   response.ui.show_suggestions_card = suggestions.length > 0;
   return response;
+}
+
+/** Instant, offline split used before (or instead of) the AI. */
+export function parseShoppingTextWithRules(text: string, shoppingList: ShoppingItem[]): ShoppingItem[] {
+  return parseWishlistInput({ type: "wishlist_input", text, shopping_list: shoppingList }).wishlist_items;
 }
 
 export function runShoppingAssistant(input: ShoppingAssistantRequest): ShoppingAssistantResponse {
