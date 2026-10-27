@@ -46,8 +46,28 @@ describe("findNearbyForItems", () => {
     expect(result.attribution).toBe("Powered by Geoapify / OpenStreetMap");
   });
 
+  it("searches every kind a long list needs, packing them into a few requests", async () => {
+    const kinds = [
+      "commercial.food_and_drink.spices", "commercial.gift_and_souvenir", "commercial.clothing.shoes", "commercial.health_and_beauty.cosmetics",
+      "commercial.books", "commercial.toy_and_game", "commercial.florist", "commercial.jewelry",
+    ];
+    fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
+      const asked: string[] = JSON.parse(init.body as string).categories.split(",");
+      return new Response(JSON.stringify({ places: asked.map((kind, n) => ({ name: kind, area: null, address: null, lat: here.lat + n * 0.0001, lon: here.lon, categories: [kind] })) }));
+    });
+    const result = await findNearbyForItems(kinds.map((kind, n) => item(`i${n}`, kind, { shopCategories: [kind] })), here);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(6);
+    expect(kinds.map((_, n) => result.matches[`i${n}`]?.[0]?.name)).toEqual(kinds);
+    expect(result.failed).toBe(false);
+  });
+
+  it("says when every search failed", async () => {
+    fetchMock.mockRejectedValue(new Error("offline"));
+    expect(await findNearbyForItems([item("mojo", "Mojo")], here)).toMatchObject({ matches: {}, failed: true });
+  });
+
   it("skips the search when nothing is pending and survives a failing kind", async () => {
-    expect(await findNearbyForItems([item("done", "Queso", { status: "purchased" })], here)).toEqual({ matches: {}, places: [], attribution: null });
+    expect(await findNearbyForItems([item("done", "Queso", { status: "purchased" })], here)).toEqual({ matches: {}, places: [], attribution: null, failed: false });
     expect(fetchMock).not.toHaveBeenCalled();
 
     fetchMock.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(new Response(JSON.stringify({ places: [regalos] })));

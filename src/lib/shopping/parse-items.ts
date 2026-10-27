@@ -33,13 +33,12 @@ export function buildShoppingParseSystemPrompt(lang: string): string {
   ].join("\n");
 }
 
+const MAX_EXISTING = 60;
+
 export function buildShoppingParseUserPrompt(text: string, existing: Pick<ShoppingItem, "name">[]): string {
-  return [
-    `Existing list: ${JSON.stringify(existing.map((item) => item.name).slice(0, 100))}`,
-    SHOPPING_TEXT_OPEN,
-    text,
-    SHOPPING_TEXT_CLOSE,
-  ].join("\n");
+  // The existing names come from the client too: capped, and inside the data fence.
+  const names = existing.slice(0, MAX_EXISTING).map((item) => String(item.name).slice(0, MAX_NAME));
+  return [SHOPPING_TEXT_OPEN, `Existing list: ${JSON.stringify(names)}`, `New text: ${text}`, SHOPPING_TEXT_CLOSE].join("\n");
 }
 
 const keyOf = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();

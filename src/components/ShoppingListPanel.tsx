@@ -57,13 +57,18 @@ export function ShoppingListPanel({
   const seenAlertsRef = useRef(new Set<string>());
   const itemsRef = useRef(items);
   itemsRef.current = items;
-  const parentRef = useRef({ onToast, onNearbyPlaces });
-  parentRef.current = { onToast, onNearbyPlaces };
+  // t changes identity on every provider render; reading it from a ref avoids extra searches.
+  const parentRef = useRef({ onToast, onNearbyPlaces, t });
+  parentRef.current = { onToast, onNearbyPlaces, t };
+  /** The traveler just asked for a search: report when nothing fits. */
+  const askedRef = useRef(false);
 
   const sorted = useMemo(
     () => [...items.filter((i) => i.status === "pending"), ...items.filter((i) => i.status !== "pending")],
     [items],
   );
+  // A notice is about a pending item; once bought it no longer applies.
+  const visibleAlerts = alerts.filter((alert) => items.some((i) => i.id === alert.itemId && i.status === "pending"));
   const pendingKey = items.filter((i) => i.status === "pending").map((i) => i.id).join(",");
 
   const addFromText = async (text: string) => {
@@ -118,6 +123,13 @@ export function ShoppingListPanel({
     void findNearbyForItems(itemsRef.current, position)
       .then((result) => {
         if (cancelled) return;
+        const asked = askedRef.current;
+        askedRef.current = false;
+        if (result.failed) {
+          parentRef.current.onToast(parentRef.current.t("trip_view_nearby_places_failed"), "error");
+          return;
+        }
+        if (asked && Object.keys(result.matches).length === 0) parentRef.current.onToast(parentRef.current.t("shopping_nearby_none"));
         setMatches(result.matches);
         setAttribution(result.attribution);
         parentRef.current.onNearbyPlaces(result.places.map((p) => ({ name: p.name, area: p.area })));
@@ -125,12 +137,12 @@ export function ShoppingListPanel({
         if (fresh.length > 0) setAlerts((current) => [...fresh, ...current]);
       })
       .catch(() => {
-        if (!cancelled) parentRef.current.onToast(t("trip_view_nearby_places_failed"), "error");
+        if (!cancelled) parentRef.current.onToast(parentRef.current.t("trip_view_nearby_places_failed"), "error");
       });
     return () => {
       cancelled = true;
     };
-  }, [pendingKey, position, t, today]);
+  }, [pendingKey, position, today]);
 
   useEffect(() => () => {
     if (watchRef.current !== null) navigator.geolocation?.clearWatch(watchRef.current);
@@ -147,6 +159,7 @@ export function ShoppingListPanel({
         setLocating(false);
         const here = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         lastSearchRef.current = here;
+        askedRef.current = true;
         setPosition(here);
         if (watchRef.current === null) {
           onToast(t("shopping_tracking_on"));
@@ -180,9 +193,9 @@ export function ShoppingListPanel({
         <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">{sorted.length}</span>
       </div>
 
-      {alerts.length > 0 && (
+      {visibleAlerts.length > 0 && (
         <ul className="space-y-2" aria-live="polite">
-          {alerts.map((alert) => (
+          {visibleAlerts.map((alert) => (
             <li key={alert.key} className="flex items-start gap-2 rounded-xl bg-[var(--color-primary-subtle)] p-3 text-xs text-[var(--color-primary)]">
               <MapPin size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
               <a href={mapsUrl(alert.place)} target="_blank" rel="noopener noreferrer" className="flex-1 font-semibold">

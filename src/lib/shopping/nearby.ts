@@ -25,12 +25,16 @@ export type NearbyResult = {
   /** Every place found, for the shopping suggestions. */
   places: NearbyPlace[];
   attribution: string | null;
+  /** Every search failed (offline, provider down): nothing was really looked up. */
+  failed: boolean;
 };
 
 export const SEARCH_RADIUS_M = 1500;
 /** Close enough to walk there now. */
 export const ALERT_RADIUS_M = 300;
 const PER_SEARCH = 10;
+/** The nearby route returns at most this many places per request. */
+const PER_PACKED_SEARCH = 20;
 const MAX_SEARCHES = 6;
 const MATCHES_PER_ITEM = 2;
 
@@ -38,11 +42,11 @@ type Position = { lat: number; lon: number };
 
 const distanceM = (from: Position, to: Position) => Math.round((haversineKm({ lat: from.lat, lng: from.lon }, { lat: to.lat, lng: to.lon }) * 1000) / 10) * 10;
 
-async function searchKinds(kinds: string[], at: Position): Promise<{ places: NearbyPlace[]; attribution: string | null }> {
+async function searchKinds(kinds: string[], at: Position, limit: number): Promise<{ places: NearbyPlace[]; attribution: string | null }> {
   const response = await fetch("/api/places/nearby", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat: at.lat, lon: at.lon, radius_m: SEARCH_RADIUS_M, limit: PER_SEARCH, categories: kinds.join(",") }),
+    body: JSON.stringify({ lat: at.lat, lon: at.lon, radius_m: SEARCH_RADIUS_M, limit, categories: kinds.join(",") }),
   });
   const data = (await response.json()) as { places?: Partial<NearbyPlace>[]; attribution?: string | null };
   const places = (Array.isArray(data.places) ? data.places : []).filter(
@@ -59,8 +63,16 @@ export async function findNearbyForItems(items: ShoppingItem[], at: Position): P
     const kinds = shopKindsFor(item);
     searches.set(kinds.join(","), kinds);
   }
-  const kindSets = [...searches.values()].slice(0, MAX_SEARCHES);
-  const results = await Promise.allSettled(kindSets.map((kinds) => searchKinds(kinds, at)));
+  let requests = [...searches.values()].map((kinds) => ({ kinds, limit: PER_SEARCH }));
+  if (requests.length > MAX_SEARCHES) {
+    // Too many combinations: spread every distinct kind over the allowed requests so none is left out.
+    const distinct = [...new Set(requests.flatMap((r) => r.kinds))];
+    requests = Array.from({ length: MAX_SEARCHES }, (_, n) => ({
+      kinds: distinct.filter((_, index) => index % MAX_SEARCHES === n),
+      limit: PER_PACKED_SEARCH,
+    })).filter((r) => r.kinds.length > 0);
+  }
+  const results = await Promise.allSettled(requests.map((r) => searchKinds(r.kinds, at, r.limit)));
 
   const places: NearbyPlace[] = [];
   const seen = new Set<string>();
@@ -86,7 +98,7 @@ export async function findNearbyForItems(items: ShoppingItem[], at: Position): P
       .slice(0, MATCHES_PER_ITEM);
     if (found.length > 0) matches[item.id] = found;
   }
-  return { matches, places, attribution };
+  return { matches, places, attribution, failed: results.length > 0 && results.every((r) => r.status === "rejected") };
 }
 
 export type NearbyAlert = { key: string; itemId: string; itemName: string; place: NearbyMatch };

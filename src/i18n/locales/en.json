@@ -717,5 +717,6 @@
   "shopping_location_denied": "Allow location access to look for nearby shops.",
   "shopping_tracking_on": "We'll let you know when you pass a shop for your list (while the app is open).",
   "tachao_shopping_sub": "“{item}” is yours",
-  "shopping_input_label": "What do you want to buy"
+  "shopping_input_label": "What do you want to buy",
+  "shopping_nearby_none": "We didn't find shops nearby for your list."
 }

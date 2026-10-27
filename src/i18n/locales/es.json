@@ -717,5 +717,6 @@
   "shopping_location_denied": "Activa el permiso de ubicación para buscar tiendas cercanas.",
   "shopping_tracking_on": "Te avisaremos si pasas cerca de una tienda para tu lista (con la app abierta).",
   "tachao_shopping_sub": "«{item}» ya es tuyo",
-  "shopping_input_label": "Qué quieres comprar"
+  "shopping_input_label": "Qué quieres comprar",
+  "shopping_nearby_none": "No encontramos tiendas cerca para tu lista."
 }

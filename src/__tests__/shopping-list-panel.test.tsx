@@ -228,3 +228,39 @@ describe("ShoppingListPanel", () => {
     expect(screen.queryByText(/ahí podrías comprar/)).toBeNull();
   });
 });
+
+describe("ShoppingListPanel nearby feedback", () => {
+  const at = (lat: number, lon: number) => ({ coords: { latitude: lat, longitude: lon } }) as GeolocationPosition;
+  beforeEach(() => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition: (ok: PositionCallback) => ok(at(28.6835, -17.7642)), watchPosition: () => 3, clearWatch: vi.fn() },
+    });
+    useItineraryStore.setState({ activeTrip: trip([item("mojo", "Mojo picón", { shopCategories: ["commercial.marketplace"] })]) });
+  });
+
+  it("says when no shop nearby fits the list", async () => {
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ places: [] })));
+    render();
+    fireEvent.click(screen.getByRole("button", { name: /Usar mi ubicación/ }));
+    await waitFor(() => expect(onToast).toHaveBeenCalledWith("No encontramos tiendas cerca para tu lista."));
+  });
+
+  it("says when the search failed", async () => {
+    fetchMock.mockRejectedValue(new Error("offline"));
+    render();
+    fireEvent.click(screen.getByRole("button", { name: /Usar mi ubicación/ }));
+    await waitFor(() => expect(onToast).toHaveBeenCalledWith("No se pudieron cargar los lugares cercanos.", "error"));
+  });
+
+  it("drops the notice once the item is bought", async () => {
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+      places: [{ name: "Mercado de Santa Cruz", area: null, address: null, lat: 28.6841, lon: -17.7648, categories: ["commercial.marketplace"] }],
+    })));
+    render();
+    fireEvent.click(screen.getByRole("button", { name: /Usar mi ubicación/ }));
+    expect(await screen.findByText(/ahí podrías comprar «Mojo picón»/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mojo picón" }));
+    await waitFor(() => expect(screen.queryByText(/ahí podrías comprar/)).toBeNull());
+  });
+});
