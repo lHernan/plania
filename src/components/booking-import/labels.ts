@@ -29,6 +29,7 @@ export function fieldLabel(t: T, field: BookingField | string): string {
 export function warningLabel(t: T, code: string): string {
   if (code.startsWith("missing:")) return t("booking_import_warning_missing", { field: fieldLabel(t, code.slice(8)) });
   if (code.startsWith("invalid:")) return t("booking_import_warning_invalid", { field: fieldLabel(t, code.slice(8)) });
+  if (code.startsWith("year_inferred:")) return t("booking_import_warning_year_inferred", { field: fieldLabel(t, code.slice(14)) });
   switch (code) {
     case "unknown_type":
       return t("booking_import_warning_unknown_type");

@@ -1,4 +1,5 @@
 import { getAuthClient } from "@/lib/supabase-server";
+import { resolveInferredYears } from "@/lib/bookings/year-inference";
 import { NextResponse } from "next/server";
 import { runAiPrompt, runAiVisionPages } from "@/lib/ai/provider";
 import { extractJsonArray, extractJsonObject } from "@/lib/ai/json-response";
@@ -22,11 +23,18 @@ type ExtractRequest = {
   pages: { index: number; text: string }[];
   images: string[];
   lang: "es" | "en";
+  tripStartDate?: string;
+  tripEndDate?: string;
 };
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseRequest(body: unknown): ExtractRequest | null {
   if (typeof body !== "object" || body === null) return null;
-  const { fileName, sha256, pages, images, lang } = body as Record<string, unknown>;
+  const { fileName, sha256, pages, images, lang, tripStartDate, tripEndDate } = body as Record<string, unknown>;
+  for (const date of [tripStartDate, tripEndDate]) {
+    if (date !== undefined && (typeof date !== "string" || !ISO_DATE.test(date))) return null;
+  }
 
   if (typeof fileName !== "string" || !fileName.trim() || fileName.length > 255) return null;
   if (typeof sha256 !== "string" || !/^[a-f0-9]{64}$/.test(sha256)) return null;
@@ -55,6 +63,8 @@ function parseRequest(body: unknown): ExtractRequest | null {
     pages: pages as ExtractRequest["pages"],
     images: imageList as string[],
     lang: lang ?? "en",
+    tripStartDate: tripStartDate as string | undefined,
+    tripEndDate: tripEndDate as string | undefined,
   };
 }
 
@@ -82,11 +92,16 @@ export async function POST(req: Request) {
 
   const warnings: string[] = [];
   const systemPrompt = buildExtractionSystemPrompt(input.lang);
+  const reference = {
+    today: new Date().toISOString().slice(0, 10),
+    tripStartDate: input.tripStartDate,
+    tripEndDate: input.tripEndDate,
+  };
   let content: string;
   try {
     const textPages = hasText ? input.pages : [];
     if (hasText && isDocumentTruncated(input.pages)) warnings.push("text_truncated");
-    const userPrompt = buildExtractionUserPrompt({ fileName: input.fileName, pages: textPages });
+    const userPrompt = buildExtractionUserPrompt({ fileName: input.fileName, pages: textPages }, reference);
     if (input.images.length > 0) {
       // Scanned pages (alone or mixed with text pages) go together with any readable text,
       // so no page is silently ignored.
@@ -109,6 +124,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ bookings: [], warnings: [...warnings, "unparseable_response"] });
   }
 
-  const bookings = normalizeExtractedBookings(parsed, { fileName: input.fileName, sha256: input.sha256 });
+  // Models fill in missing years from their training data; resolve them from the trip dates,
+  // the printed weekday and today, and flag them as estimated.
+  const bookings = resolveInferredYears(
+    normalizeExtractedBookings(parsed, { fileName: input.fileName, sha256: input.sha256 }),
+    { ...reference, text: hasText ? input.pages.map((page) => page.text).join("\n") : undefined }
+  );
   return NextResponse.json({ bookings, warnings });
 }

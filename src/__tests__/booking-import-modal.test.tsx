@@ -216,6 +216,9 @@ describe("BookingImportModal", () => {
     expect(fetchCalls("/api/bookings/extract")).toHaveLength(2);
     const [, init] = fetchCalls("/api/bookings/extract")[0];
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer fake-token");
+    // The trip dates travel with each document so dates printed without a year can be completed.
+    const trip = useItineraryStore.getState().activeTrip!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({ tripStartDate: trip.startDate, tripEndDate: trip.endDate });
 
     // A failed file never blocks the others from being reviewed…
     expect((screen.getByRole("button", { name: "Revisar reservas" }) as HTMLButtonElement).disabled).toBe(false);

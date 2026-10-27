@@ -60,7 +60,8 @@ export function buildExtractionSystemPrompt(lang?: "es" | "en"): string {
     '  - "estimated": derived by you from reliable context (e.g. a time zone inferred from an airport or city).',
     '  - "needs_confirmation": present but ambiguous, partial or unclear.',
     "- Dates are YYYY-MM-DD. Times are HH:mm in 24h, local to the place where that moment happens.",
-    "- If a date is ambiguous (e.g. 03/04 without context, or no year), return it with status needs_confirmation.",
+    '- If the document omits the year (e.g. "Sat, Oct 31"), complete it from the REFERENCE given after the document: the trip dates first, otherwise the next occurrence on or after today (a printed weekday must match). Mark that date estimated. Never use any other year.',
+    "- If a date is otherwise ambiguous (e.g. 03/04 without context), return it with status needs_confirmation.",
     "- Time zones are IANA names (e.g. Europe/Madrid, Atlantic/Canary). Infer them from airports or cities when possible and mark them estimated.",
     "- Flights: start = departure, end = arrival, from/to = airports or cities.",
     "- Lodging: start = check-in, end = check-out, address = property address.",
@@ -97,7 +98,12 @@ export function isDocumentTruncated(pages: { index: number; text: string }[]): b
   return documentBody(pages).length > MAX_DOCUMENT_CHARS;
 }
 
-export function buildExtractionUserPrompt(doc: { fileName: string; pages: { index: number; text: string }[] }): string {
+export type ExtractionReference = { today: string; tripStartDate?: string; tripEndDate?: string };
+
+export function buildExtractionUserPrompt(
+  doc: { fileName: string; pages: { index: number; text: string }[] },
+  reference?: ExtractionReference
+): string {
   let body = documentBody(doc.pages);
   const truncated = body.length > MAX_DOCUMENT_CHARS;
   if (truncated) body = body.slice(0, MAX_DOCUMENT_CHARS);
@@ -111,6 +117,11 @@ export function buildExtractionUserPrompt(doc: { fileName: string; pages: { inde
     OPEN,
     body,
     CLOSE,
+    // Trusted context, outside the document delimiters: used to complete dates printed without a year.
+    reference ? `REFERENCE (trusted): TODAY: ${reference.today}` : "",
+    reference?.tripStartDate && reference.tripEndDate
+      ? `REFERENCE (trusted): TRIP DATES: ${reference.tripStartDate} to ${reference.tripEndDate}`
+      : "",
   ].filter(Boolean).join("\n");
 }
 

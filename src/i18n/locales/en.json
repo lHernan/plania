@@ -657,5 +657,6 @@
   "booking_import_discard_title": "Leave without saving?",
   "booking_import_discard_body": "You'll lose the import in progress. Nothing has been saved yet.",
   "booking_import_keep_working": "Keep reviewing",
-  "booking_import_discard_confirm": "Leave without saving"
+  "booking_import_discard_confirm": "Leave without saving",
+  "booking_import_warning_year_inferred": "The document doesn't show the year of {field}: it was completed from your trip dates. Please check it."
 }

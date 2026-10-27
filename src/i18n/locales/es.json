@@ -657,5 +657,6 @@
   "booking_import_discard_title": "¿Salir sin guardar?",
   "booking_import_discard_body": "Perderás la importación en curso. Todavía no se ha guardado nada.",
   "booking_import_keep_working": "Seguir revisando",
-  "booking_import_discard_confirm": "Salir sin guardar"
+  "booking_import_discard_confirm": "Salir sin guardar",
+  "booking_import_warning_year_inferred": "El documento no indica el año de {field}: lo completamos con las fechas de tu viaje. Revísalo."
 }

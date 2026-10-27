@@ -26,6 +26,15 @@ const MIGRATION_FILE = "src/lib/booking_import_migration.sql";
 
 type Step = "files" | "review" | "plan";
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Trip dates for the extraction route, only when both are valid ISO dates. */
+export function tripDatesForExtraction(trip: { startDate?: string; endDate?: string } | null | undefined) {
+  const start = trip?.startDate;
+  const end = trip?.endDate;
+  return start && end && ISO_DATE.test(start) && ISO_DATE.test(end) ? { tripStartDate: start, tripEndDate: end } : {};
+}
+
 async function authHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -118,6 +127,8 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
           pages: read.pages,
           ...(read.imagePages.length ? { images: read.imagePages } : {}),
           lang,
+          // Lets the server complete dates printed without a year (e.g. "Sat, Oct 31").
+          ...tripDatesForExtraction(activeTrip),
         }),
       });
     } catch {
@@ -137,7 +148,7 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
     } catch {
       fail("extraction_failed");
     }
-  }, [lang, patchFile]);
+  }, [lang, patchFile, activeTrip]);
 
   // At most CONCURRENCY documents are read/analyzed at once; one failure never blocks the rest.
   const pump = useCallback(() => {
