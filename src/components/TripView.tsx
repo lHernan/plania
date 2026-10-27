@@ -799,6 +799,15 @@ export function TripView() {
     setShowBookingImport(true);
   };
 
+  // The genie calls the AI for a signed-in owner; guests and the sample trip sign in first.
+  const openDayGenius = (dayId: string) => {
+    if (!user || user.is_anonymous) {
+      setShowAuthModal(true);
+      return;
+    }
+    setGeniusDayId(dayId);
+  };
+
   const [celebrationEvent, setCelebrationEvent] = useState<CelebrationEvent | null>(null);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
   const { complete } = useCelebration();
@@ -1717,7 +1726,7 @@ export function TripView() {
                     <Plus size={12} /> {t("trip_view_add")}
                   </button>
                   <button
-                    onClick={() => setGeniusDayId(activeDayId)}
+                    onClick={() => openDayGenius(activeDayId)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
                   >
                     <Sparkles size={12} />
@@ -2012,7 +2021,7 @@ export function TripView() {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
             <div className="space-y-3">
               <button
-                onClick={() => setGeniusDayId(activeDayId)}
+                onClick={() => openDayGenius(activeDayId)}
                 disabled={isInvitee}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
               >
