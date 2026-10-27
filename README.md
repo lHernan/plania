@@ -92,7 +92,13 @@ Open [http://localhost:3000](http://localhost:3000).
 5. Output directory: default (`.next`).
 6. Deploy.
 
-No extra environment variables are required for this version.
+## AI models
+
+AI calls go to an OpenAI-compatible chat completions endpoint:
+
+- `AI_API_URL`, `AI_API_KEY`, `AI_MODEL`: primary provider. `AI_MODEL` is a comma-separated list tried in order; the next model is tried only after a network error, 408, 429 or 5xx (any other 4xx, such as an unknown model, stops the list).
+- `AI_FALLBACK_API_URL`, `AI_FALLBACK_API_KEY`, `AI_FALLBACK_MODEL`: optional second provider, used only when the primary ends with 429 or 5xx.
+- `AI_MODEL_FAST`, `AI_FALLBACK_MODEL_FAST`: optional cheaper models for simple tasks (packing list, QR/barcode detection). When unset, those tasks use `AI_MODEL` / `AI_FALLBACK_MODEL`.
 
 ## Future Roadmap
 

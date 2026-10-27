@@ -30,21 +30,27 @@ export type AiRequestOptions = {
    * so long JSON replies need more than the default or they come back truncated.
    */
   maxTokens?: number;
+  /**
+   * fast: simple tasks that a cheaper model handles well (AI_MODEL_FAST /
+   * AI_FALLBACK_MODEL_FAST, each falling back to the regular model when unset).
+   */
+  tier?: "fast";
 };
 
 const DEFAULT_MAX_TOKENS = 4000;
 
-function getProviderConfig(fallback = false): ProviderConfig {
+function getProviderConfig(fallback = false, tier?: AiRequestOptions["tier"]): ProviderConfig {
+  const fast = tier === "fast";
   return fallback
     ? {
         url: process.env.AI_FALLBACK_API_URL || "",
         key: process.env.AI_FALLBACK_API_KEY || "",
-        models: process.env.AI_FALLBACK_MODEL || "",
+        models: (fast && process.env.AI_FALLBACK_MODEL_FAST) || process.env.AI_FALLBACK_MODEL || "",
       }
     : {
         url: process.env.AI_API_URL || "",
         key: process.env.AI_API_KEY || "",
-        models: process.env.AI_MODEL || "gpt-4o-mini",
+        models: (fast && process.env.AI_MODEL_FAST) || process.env.AI_MODEL || "gpt-4o-mini",
       };
 }
 
@@ -86,7 +92,7 @@ async function tryModels(config: ProviderConfig, messages: AiMessage[], maxToken
 }
 
 export async function runAiMessages(messages: AiMessage[], options: AiRequestOptions = {}) {
-  const primary = getProviderConfig();
+  const primary = getProviderConfig(false, options.tier);
   if (!primary.key || !primary.url) {
     throw new Error("Primary AI configuration missing");
   }
@@ -94,7 +100,7 @@ export async function runAiMessages(messages: AiMessage[], options: AiRequestOpt
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   let result = await tryModels(primary, messages, maxTokens);
   if (!result.success && result.response && [429, 500, 502, 503, 504].includes(result.response.status)) {
-    const fallback = getProviderConfig(true);
+    const fallback = getProviderConfig(true, options.tier);
     if (fallback.key && fallback.url && fallback.models) {
       result = await tryModels(fallback, messages, maxTokens);
     }
@@ -121,7 +127,7 @@ export async function runAiPrompt(systemPrompt: string, userPrompt: string, opti
   ], options);
 }
 
-export async function runAiVision(systemPrompt: string, userPrompt: string, imageUri: string) {
+export async function runAiVision(systemPrompt: string, userPrompt: string, imageUri: string, options?: AiRequestOptions) {
   return runAiMessages([
     { role: "system", content: systemPrompt },
     {
@@ -131,7 +137,7 @@ export async function runAiVision(systemPrompt: string, userPrompt: string, imag
         { type: "image_url", image_url: { url: imageUri } },
       ],
     },
-  ]);
+  ], options);
 }
 
 /** Sends one text part plus several images (e.g. scanned PDF pages) in a single user message. */
