@@ -73,6 +73,7 @@ import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
+import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -1343,11 +1344,6 @@ export function TripView() {
     } finally {
       setNearbyLoading(false);
     }
-  };
-
-  const isPlaceholderCity = (city: string) => {
-    const c = city.trim().toLowerCase();
-    return !c || c === "new destination" || c === "new city";
   };
 
   const handleMapToggle = () => {

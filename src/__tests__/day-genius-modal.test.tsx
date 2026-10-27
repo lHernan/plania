@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { makeActivity, renderWithI18n } from "./helpers/dom";
+import { I18nProvider } from "@/components/I18nProvider";
 import type { TripPlan } from "@/lib/types";
 
 vi.mock("@/lib/supabase", () => ({
@@ -15,7 +16,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
-const { DayGeniusModal } = await import("@/components/DayGeniusModal");
+const { DayGeniusModal, GENIUS_TIMEOUT_MS, GEOCODE_TIMEOUT_MS } = await import("@/components/DayGeniusModal");
 
 const trip: TripPlan = {
   id: "t",
@@ -68,6 +69,18 @@ function respond(geniusStatus = 200) {
 }
 
 const geniusBody = () => JSON.parse(fetchMock.mock.calls.find(([url]) => url === "/api/day-genius")![1].body as string);
+/** Lets pending promises and React updates settle while timers are fake. */
+async function settle(ms = 0) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+  for (let i = 0; i < 10; i += 1) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+  }
+}
+
 const applyButton = () => screen.queryByRole("button", { name: /Aplicar/ });
 
 beforeEach(() => {
@@ -155,6 +168,81 @@ describe("DayGeniusModal", () => {
     respond();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     expect(await screen.findByText("Museo Insular")).toBeTruthy();
+  });
+
+  it("runs once per open even when the parent re-renders with a new onClose", async () => {
+    const view = renderWithI18n(<DayGeniusModal dayId="d2" onClose={() => onClose()} onToast={onToast} />);
+    view.rerender(<I18nProvider><DayGeniusModal dayId="d2" onClose={() => onClose()} onToast={onToast} /></I18nProvider>);
+    view.rerender(<I18nProvider><DayGeniusModal dayId="d2" onClose={() => onClose()} onToast={onToast} /></I18nProvider>);
+    expect(await screen.findByText("Museo Insular")).toBeTruthy();
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/geocode")).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/day-genius")).toHaveLength(1);
+  });
+
+  it("stops waiting and offers a retry when the genie takes too long", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date("2026-11-02T12:20:00Z"));
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/geocode") return Promise.resolve(new Response(JSON.stringify({ results: [] })));
+      return new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    });
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    await settle();
+    expect(fetchMock).toHaveBeenCalledWith("/api/day-genius", expect.anything());
+    await settle(GENIUS_TIMEOUT_MS + 1000);
+    expect(screen.getByText(/El genio no pudo reorganizar el día/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeTruthy();
+  });
+
+  it("does not wait for a geocoder that never answers", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date("2026-11-02T12:20:00Z"));
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/geocode") return new Promise(() => {});
+      return Promise.resolve(new Response(JSON.stringify(geniusReply)));
+    });
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    await settle();
+    expect(screen.queryByText("Museo Insular")).toBeNull();
+    await settle(GEOCODE_TIMEOUT_MS + 1000);
+    expect(screen.getByText("Museo Insular")).toBeTruthy();
+    expect(geniusBody().context.travel).toEqual([]);
+  });
+
+  it("suggests plans for a day that only has a flight and a check-in", async () => {
+    const flight = makeActivity("flight", {
+      dayId: "d2", title: "Vuelo MAD → SPC", category: "transport", origin: "booking", location: "Madrid Barajas", time: "08:00", durationMin: 165, sort_order: 0,
+      booking: { version: 1, groupId: "f", title: "Vuelo", type: "flight", role: "departure", fieldStatus: {}, end: { date: "2026-11-02", time: "09:45" } },
+    });
+    const hotel = makeActivity("hotel", {
+      dayId: "d2", title: "Check-in Hotel Hacienda", category: "hotel", origin: "booking", location: "Hotel Hacienda San Jorge", time: "15:00", durationMin: 30, sort_order: 1,
+      booking: { version: 1, groupId: "h", title: "Hotel", type: "lodging", role: "check_in", fieldStatus: {} },
+    });
+    useItineraryStore.setState({ activeTrip: { ...trip, days: [{ ...trip.days[0], activities: [flight, hotel] }, trip.days[1]] } });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/geocode") {
+        return new Response(JSON.stringify({ results: [{ location: "Madrid Barajas", lat: 40.49, lng: -3.57 }, { location: "Hotel Hacienda San Jorge", lat: 28.66, lng: -17.76 }] }));
+      }
+      return new Response(JSON.stringify({ ...geniusReply, changes: [geniusReply.changes[1]] }));
+    });
+
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    expect(await screen.findByText("Museo Insular")).toBeTruthy();
+    const body = geniusBody();
+    expect(body.context.movable).toEqual([]);
+    expect(body.context.fixed.map((f: { id: string }) => f.id)).toEqual(["flight", "hotel"]);
+    // The weather is the one where the traveler ends the day, not the departure airport.
+    expect(body.weatherCoords).toEqual({ lat: 28.66, lng: -17.76 });
+    expect(screen.getByText("Ideas para tu tiempo libre desde las 12:20")).toBeTruthy();
+  });
+
+  it("asks for a city when the day has nothing to place suggestions near", async () => {
+    useItineraryStore.setState({ activeTrip: { ...trip, days: [{ ...trip.days[0], city: "New destination", activities: [] }, trip.days[1]] } });
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    expect(await screen.findByText("Añade la ciudad de este día para que el genio pueda sugerirte planes.")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("shows the apply error and keeps the modal open", async () => {

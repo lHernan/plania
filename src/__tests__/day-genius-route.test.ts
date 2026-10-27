@@ -153,6 +153,20 @@ describe("POST /api/day-genius", () => {
     expect(runAiPrompt).not.toHaveBeenCalled();
   });
 
+  it("suggests plans for a day with nothing planned", async () => {
+    runAiPrompt.mockResolvedValue(JSON.stringify({
+      summary: "Tarde libre tras el vuelo",
+      suggestions: [{ title: "Paseo por Santa Cruz", category: "sightseeing", time: "13:00", duration_minutes: 90, reason: "Cerca del hotel" }],
+    }));
+    const res = await post({ ...valid, context: { ...context, movable: [], fixed: [context.fixed[1]] } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.changes).toEqual([expect.objectContaining({ kind: "add", suggestion: expect.objectContaining({ title: "Paseo por Santa Cruz" }) })]);
+    const [system, user] = runAiPrompt.mock.calls[0];
+    expect(system).toMatch(/movable is empty/);
+    expect(user).toContain('"movable":[]');
+  });
+
   it("does not forward unknown fields to the model", async () => {
     runAiPrompt.mockResolvedValue(JSON.stringify({ summary: "ok" }));
     await post({ ...valid, context: { ...context, secret: "do not send", movable: [{ ...context.movable[0], notes: "private" }] } });

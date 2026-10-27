@@ -40,6 +40,20 @@ const WEATHER_ICONS: Record<WeatherCondition, LucideIcon> = {
   unknown: HelpCircle,
 };
 
+/** The AI may think for a while, but never keep the traveler waiting forever. */
+export const GENIUS_TIMEOUT_MS = 90_000;
+/** Distances are optional: plan without them rather than wait on the geocoder. */
+export const GEOCODE_TIMEOUT_MS = 10_000;
+
+const settleWithin = (promise: Promise<unknown>, ms: number) =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    promise.catch(() => undefined).finally(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+
 type GeniusResult = { summary: string; changes: GeniusChange[]; rejected: GeniusRejection[]; weather: DayWeather | null };
 
 type Status =
@@ -74,13 +88,24 @@ export function DayGeniusModal({
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  // The parent passes a new onClose on every render; reading it from a ref keeps run()
+  // stable, so a parent re-render never restarts the genie.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  // Only the latest run may update the modal (a retry or closing supersedes it).
+  const runIdRef = useRef(0);
+  useEffect(() => () => {
+    runIdRef.current += 1;
+  }, []);
 
   const run = useCallback(async () => {
+    const runId = ++runIdRef.current;
+    const isCurrent = () => runId === runIdRef.current;
     setStatus({ kind: "loading" });
     setApplyError(null);
     const trip = useItineraryStore.getState().activeTrip;
     const day = trip?.days.find((d) => d.id === dayId);
-    if (!trip || !day) return onClose();
+    if (!trip || !day) return onCloseRef.current();
     if (typeof navigator !== "undefined" && !navigator.onLine) return setStatus({ kind: "unavailable", reason: "offline" });
 
     const zone = tripTimeZone(trip, Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -89,7 +114,8 @@ export function DayGeniusModal({
     const precheck = buildGeniusContext({ days: trip.days, dayId, now });
     if (!precheck.ok) return setStatus({ kind: "unavailable", reason: precheck.reason });
 
-    await geocodeActivities(day.activities, day.city);
+    await settleWithin(geocodeActivities(day.activities, day.city), GEOCODE_TIMEOUT_MS);
+    if (!isCurrent()) return;
     const coords: Record<string, Coords> = {};
     for (const activity of day.activities) {
       const found = activity.location ? getCoords(activity.location) : null;
@@ -97,26 +123,38 @@ export function DayGeniusModal({
     }
     const built = buildGeniusContext({ days: trip.days, dayId, now, coords });
     if (!built.ok) return setStatus({ kind: "unavailable", reason: built.reason });
+    // Where the traveler ends the day (a flight's place is where it departs from).
+    const weatherCoords = [...day.activities]
+      .filter((a) => coords[a.id])
+      .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"))
+      .map((a) => coords[a.id])
+      .at(-1);
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), GENIUS_TIMEOUT_MS);
     try {
       const response = await fetch("/api/day-genius", {
         method: "POST",
         headers: await authHeaders(),
+        signal: controller.signal,
         body: JSON.stringify({
           context: built.context,
           today: now.date,
           lang,
-          ...(Object.values(coords)[0] ? { weatherCoords: Object.values(coords)[0] } : {}),
+          ...(weatherCoords ? { weatherCoords } : {}),
         }),
       });
       if (!response.ok) throw new Error(`status ${response.status}`);
       const result = (await response.json()) as GeniusResult;
+      if (!isCurrent()) return;
       setAccepted(new Set(result.changes.filter((c) => c.kind !== "unplaced").map((c) => c.key)));
       setStatus({ kind: "ready", context: built.context, result });
     } catch {
-      setStatus({ kind: "failed" });
+      if (isCurrent()) setStatus({ kind: "failed" });
+    } finally {
+      clearTimeout(timer);
     }
-  }, [dayId, geocodeActivities, getCoords, lang, onClose]);
+  }, [dayId, geocodeActivities, getCoords, lang]);
 
   useEffect(() => {
     void run();
@@ -166,11 +204,12 @@ export function DayGeniusModal({
   const titleOf = (activityId: string) =>
     status.kind === "ready" ? status.context.movable.find((m) => m.id === activityId)?.title ?? "" : "";
 
+  const freeDay = status.kind === "ready" && status.context.movable.length === 0;
   const subtitle =
     status.kind === "ready"
       ? status.context.now
-        ? t("day_genius_subtitle_today", { time: status.context.now })
-        : t("day_genius_subtitle_future", { date: formatDate(status.context.date) })
+        ? t(freeDay ? "day_genius_subtitle_free_today" : "day_genius_subtitle_today", { time: status.context.now })
+        : t(freeDay ? "day_genius_subtitle_free_future" : "day_genius_subtitle_future", { date: formatDate(status.context.date) })
       : null;
   const ongoing = status.kind === "ready" ? status.context.fixed.find((f) => f.kind === "ongoing") : undefined;
 

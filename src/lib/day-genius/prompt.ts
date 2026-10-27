@@ -34,9 +34,10 @@ export function buildGeniusSystemPrompt(lang: string): string {
     "1. Keep as many movable activities today as realistically fit. Favor priority high/critical and hasReservation ones; keep a reserved activity at its time whenever possible.",
     "2. Rain: an outdoor activity (parks, beaches, hikes, viewpoints, walking tours, photo spots) during hours with precipitation probability >= 60% or rain/storm conditions should move to a drier hour today, or to another day of otherDays with a better outlook. Then propose an indoor alternative for the freed time (a meal or café, a museum, a market, a covered attraction) as a suggestion with replaces_id.",
     "3. What no longer fits today: move it to another day (inside that day's freeWindows) or list it in \"unplaced\" with a short reason. Never delete anything.",
-    "4. At most " + MAX_GENIUS_SUGGESTIONS + " suggestions, only to fill time the changes free up or as rain alternatives, close to the day's places. Never claim opening hours, prices or availability: phrase them as ideas to check (in notes).",
+    "4. At most " + MAX_GENIUS_SUGGESTIONS + " suggestions, only to fill time the changes free up, as rain alternatives or for an empty day (rule 6), close to the day's places. Never claim opening hours, prices or availability: phrase them as ideas to check (in notes).",
     "5. Meals: keep lunch between 12:30 and 15:30 and dinner between 19:30 and 22:00 when possible.",
-    "6. Every reason is short and concrete (mention the delay, the distance or the weather). Write summary, reasons, titles and notes in " + language + ".",
+    "6. When movable is empty the traveler has nothing planned yet: suggest what to do in the free time instead (up to " + MAX_GENIUS_SUGGESTIONS + ", a meal included when one falls in the window). Base them where the traveler will be: after an arriving flight or transport and around the lodging; before a departing one, close to where it leaves and with time to spare. Keep the arrival day light. Use city, or the fixed places when city is empty.",
+    "7. Every reason is short and concrete (mention the delay, the distance or the weather). Write summary, reasons, titles and notes in " + language + ".",
     "",
     'Include in "schedule" every movable activity that stays today, with its time (changed or not).',
     "OUTPUT: return ONLY a raw JSON object, no markdown, EXACTLY this shape:",
@@ -115,7 +116,7 @@ export function parseGeniusContext(raw: unknown): GeniusContext | null {
   if (!isDate(date) || !isText(city) || (mode !== "today" && mode !== "future")) return null;
   if ((now !== undefined && !isTime(now)) || !isTime(windowStart) || !isTime(dayEnd)) return null;
   const fixed = parseList(raw.fixed, MAX_ITEMS, parseBlock);
-  const movable = parseList(raw.movable, MAX_ITEMS, parseMovable, 1);
+  const movable = parseList(raw.movable, MAX_ITEMS, parseMovable);
   const travel = parseList(raw.travel, MAX_TRAVEL, parseTravel);
   const otherDays = parseList(raw.otherDays, MAX_DAYS, parseOtherDay);
   if (!fixed || !movable || !travel || !otherDays) return null;

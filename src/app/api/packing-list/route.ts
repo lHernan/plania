@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const systemPrompt = buildPackingSystemPrompt(input.lang || "en");
     const userPrompt = buildPackingUserPrompt(input);
-    const raw = await runAiPrompt(systemPrompt, userPrompt);
+    const raw = await runAiPrompt(systemPrompt, userPrompt, { tier: "fast" });
 
     const parsed = extractJsonObject<AiPackingResponse>(raw);
     if (!parsed?.categories?.length) {

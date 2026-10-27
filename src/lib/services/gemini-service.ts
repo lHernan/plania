@@ -14,7 +14,7 @@ Return ONLY the JSON array.`;
     const userPrompt = "Find all scan codes in this boarding pass.";
 
     try {
-      const result = await runAiVision(systemPrompt, userPrompt, imageUri);
+      const result = await runAiVision(systemPrompt, userPrompt, imageUri, { tier: "fast" });
       return extractJsonArray(result) ?? [];
     } catch (e) {
       console.error("detectCodeRegions failed:", e);

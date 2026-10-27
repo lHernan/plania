@@ -55,7 +55,8 @@ export type GeniusContext = {
   otherDays: GeniusOtherDay[];
 };
 
-export type GeniusUnavailableReason = "past_day" | "nothing_to_reorganize" | "day_over";
+/** no_place: nothing planned and no real city or located booking to suggest plans near. */
+export type GeniusUnavailableReason = "past_day" | "no_place" | "day_over";
 
 export type GeniusContextResult = { ok: true; context: GeniusContext } | { ok: false; reason: GeniusUnavailableReason };
 
@@ -72,6 +73,12 @@ const RIDE_KMH = 35;
 const RIDE_OVERHEAD_MIN = 10;
 /** Straight lines underestimate real paths. */
 const DETOUR_FACTOR = 1.3;
+
+/** Empty or the default name a new day gets before the traveler sets one. */
+export function isPlaceholderCity(city: string): boolean {
+  const c = city.trim().toLowerCase();
+  return !c || c === "new destination" || c === "new city";
+}
 
 const isMovable = (activity: Activity) =>
   activity.origin !== "booking" && (activity.state === "pending" || activity.state === "delayed");
@@ -136,7 +143,6 @@ export function buildGeniusContext(input: {
       })
     : undefined;
   const movableActivities = candidates.filter((a) => a !== ongoing);
-  if (movableActivities.length === 0) return { ok: false, reason: "nothing_to_reorganize" };
 
   const fixed: GeniusBlock[] = [];
   // Bookings of any day may block this date (an overnight flight blocks its arrival day).
@@ -168,6 +174,9 @@ export function buildGeniusContext(input: {
     });
   }
   fixed.sort((a, b) => a.start.localeCompare(b.start));
+  const city = isPlaceholderCity(day.city) ? "" : day.city;
+  // With nothing planned the genie suggests plans, which need somewhere to be near.
+  if (movableActivities.length === 0 && !city && !fixed.some((f) => f.location)) return { ok: false, reason: "no_place" };
 
   const earliestPlanned = Math.min(...movableActivities.map((a) => toMinutes(a.time) ?? LAST_MINUTE));
   const earlyStart = Math.min(toMinutes(EARLIEST_START)!, earliestPlanned);
@@ -213,7 +222,7 @@ export function buildGeniusContext(input: {
     ok: true,
     context: {
       date: day.date,
-      city: day.city,
+      city,
       mode: isToday ? "today" : "future",
       ...(isToday ? { now: input.now.time } : {}),
       windowStart: toTime(windowStart),

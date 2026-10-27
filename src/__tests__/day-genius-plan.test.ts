@@ -128,8 +128,53 @@ describe("buildGeniusContext", () => {
     const late = buildGeniusContext({ days: overrunTrip(), dayId: "d2", now: { date: "2026-11-02", time: "23:58" } });
     expect(late).toEqual({ ok: false, reason: "day_over" });
 
-    const empty = buildGeniusContext({ days: overrunTrip(), dayId: "d1", now: { date: "2026-11-01", time: "09:00" } });
-    expect(empty).toEqual({ ok: false, reason: "nothing_to_reorganize" });
+    const noCity = buildGeniusContext({
+      days: [{ ...overrunTrip()[0], city: "New destination" }],
+      dayId: "d1",
+      now: { date: "2026-11-01", time: "09:00" },
+    });
+    expect(noCity).toEqual({ ok: false, reason: "no_place" });
+  });
+
+  it("plans the free time of a day with nothing planned yet", () => {
+    const arrival = [
+      day("d1", "2026-11-01", [
+        activity("flight", "d1", "08:00", 165, { title: "Vuelo MAD → SPC", category: "transport", origin: "booking", location: "Madrid Barajas", booking: booking({ type: "flight", role: "departure", end: { date: "2026-11-01", time: "09:45" } }) }),
+        activity("hotel", "d1", "15:00", 30, { title: "Check-in", category: "hotel", origin: "booking", location: "Hotel Hacienda", booking: booking({ type: "lodging", role: "check_in" }) }),
+        activity("done", "d1", "11:00", 30, { state: "completed" }),
+      ]),
+    ];
+    const today = buildGeniusContext({ days: arrival, dayId: "d1", now: { date: "2026-11-01", time: "11:02" } });
+    if (!today.ok) throw new Error(today.reason);
+    expect(today.context).toMatchObject({ mode: "today", now: "11:02", windowStart: "11:05", dayEnd: "22:00", movable: [] });
+    expect(today.context.fixed.map((f) => [f.id, f.kind])).toEqual([["flight", "booking"], ["hotel", "booking"]]);
+
+    // An empty day still counts when its city is known; a placeholder city with a located booking too.
+    const blank = buildGeniusContext({ days: [day("d9", "2026-11-09", [])], dayId: "d9", now: { date: "2026-11-01", time: "09:00" } });
+    expect(blank).toMatchObject({ ok: true, context: { mode: "future", windowStart: "08:00", movable: [], fixed: [] } });
+    const placeholder = buildGeniusContext({ days: [{ ...arrival[0], city: "" }], dayId: "d1", now: { date: "2026-11-01", time: "11:02" } });
+    expect(placeholder).toMatchObject({ ok: true, context: { city: "" } });
+  });
+
+  it("accepts suggestions for an empty day only in its free time", () => {
+    const result = buildGeniusContext({
+      days: [day("d1", "2026-11-01", [
+        activity("hotel", "d1", "15:00", 30, { title: "Check-in", category: "hotel", origin: "booking", location: "Hotel Hacienda", booking: booking({ type: "lodging", role: "check_in" }) }),
+      ])],
+      dayId: "d1",
+      now: { date: "2026-11-01", time: "12:00" },
+    });
+    if (!result.ok) throw new Error(result.reason);
+    const plan = validateGeniusPlan(result.context, {
+      summary: "Llegas al mediodía",
+      suggestions: [
+        { title: "Almuerzo en el puerto", category: "food", time: "12:30", duration_minutes: 75, reason: "Cerca del hotel" },
+        { title: "Paseo", category: "sightseeing", time: "14:45", duration_minutes: 60, reason: "x" },
+        { title: "Cena", category: "food", time: "20:00", duration_minutes: 90, reason: "x" },
+      ],
+    });
+    expect(plan.changes.map((c) => (c.kind === "add" ? c.suggestion.title : c.kind))).toEqual(["Almuerzo en el puerto", "Cena"]);
+    expect(plan.rejected).toEqual([{ ref: "Paseo", reason: "overlap" }]);
   });
 });
 
