@@ -313,3 +313,18 @@ describe("ShoppingListPanel nearby feedback", () => {
     await waitFor(() => expect(screen.queryByText(/ahí podrías comprar/)).toBeNull());
   });
 });
+
+describe("ShoppingListPanel for people the trip was shared with", () => {
+  it("shows the list read-only", () => {
+    useItineraryStore.setState({ activeTrip: trip([item("s1", "Mojo picón"), item("s2", "Imanes", { status: "purchased" })]) });
+    renderWithI18n(
+      <ShoppingListPanel canEdit={false} today="2026-10-28" selectedItemId={null} onSelectItem={onSelectItem} onToast={onToast} onBought={onBought} onNearbyPlaces={onNearbyPlaces} />,
+    );
+    expect(screen.getByText("Mojo picón")).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: /Qué quieres comprar/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Editar «/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Eliminar «/ })).toBeNull();
+    expect((screen.getByRole("checkbox", { name: "Imanes" }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: /Usar mi ubicación/ })).toBeTruthy();
+  });
+});

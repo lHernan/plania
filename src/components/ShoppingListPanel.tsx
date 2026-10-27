@@ -26,6 +26,7 @@ const currentItems = () => useItineraryStore.getState().activeTrip?.shoppingItem
 const mapsUrl = (place: NearbyMatch) => `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lon}`;
 
 export function ShoppingListPanel({
+  canEdit = true,
   today,
   selectedItemId,
   onSelectItem,
@@ -33,6 +34,8 @@ export function ShoppingListPanel({
   onBought,
   onNearbyPlaces,
 }: {
+  /** False for people the trip was shared with: they see the list but cannot change it. */
+  canEdit?: boolean;
   /** Trip-local date: nearby notices are shown once per item and place per day. */
   today: string;
   selectedItemId: string | null;
@@ -234,61 +237,63 @@ export function ShoppingListPanel({
         </ul>
       )}
 
-      <form
-        className="space-y-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          voice.cancel();
-          void addFromText(input);
-        }}
-      >
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <input
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                voice.textEdited();
-              }}
-              placeholder={t("trip_view_shopping_input_placeholder")}
-              aria-label={t("shopping_input_label")}
-              className={`w-full rounded-xl border bg-[var(--color-surface-subtle)] py-2.5 pl-3 pr-10 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20 ${
-                voice.state === "listening" ? "border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10" : "border-[var(--color-border)]"
-              }`}
-            />
-            {voice.supported && voice.state !== "preview" && (
-              <button
-                type="button"
-                onClick={voice.state === "listening" ? voice.cancel : voice.start}
-                aria-label={t(voice.state === "listening" ? "shopping_mic_stop" : "shopping_mic_start")}
-                className={`absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition-all ${
-                  voice.state === "listening"
-                    ? "animate-pulse bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
-                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)]"
+      {canEdit && (
+        <form
+          className="space-y-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            voice.cancel();
+            void addFromText(input);
+          }}
+        >
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                value={input}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  voice.textEdited();
+                }}
+                placeholder={t("trip_view_shopping_input_placeholder")}
+                aria-label={t("shopping_input_label")}
+                className={`w-full rounded-xl border bg-[var(--color-surface-subtle)] py-2.5 pl-3 pr-10 text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-[var(--color-primary)]/20 ${
+                  voice.state === "listening" ? "border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10" : "border-[var(--color-border)]"
                 }`}
-              >
-                <Mic size={16} />
-              </button>
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
-          >
-            {t("trip_view_add")}
-          </button>
-        </div>
-        {voice.state === "preview" && (
-          <div className="flex items-center gap-2 text-[11px] font-bold text-[var(--color-text-secondary)]">
-            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-            <span>{t("shopping_add_in", { seconds: voice.countdown })}</span>
-            <button type="button" onClick={voice.cancel} className="rounded-full px-2 py-0.5 underline">
-              {t("edit_manually")}
+              />
+              {voice.supported && voice.state !== "preview" && (
+                <button
+                  type="button"
+                  onClick={voice.state === "listening" ? voice.cancel : voice.start}
+                  aria-label={t(voice.state === "listening" ? "shopping_mic_stop" : "shopping_mic_start")}
+                  className={`absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition-all ${
+                    voice.state === "listening"
+                      ? "animate-pulse bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
+                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)]"
+                  }`}
+                >
+                  <Mic size={16} />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="rounded-xl bg-[var(--color-primary)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
+            >
+              {t("trip_view_add")}
             </button>
           </div>
-        )}
-      </form>
+          {voice.state === "preview" && (
+            <div className="flex items-center gap-2 text-[11px] font-bold text-[var(--color-text-secondary)]">
+              <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+              <span>{t("shopping_add_in", { seconds: voice.countdown })}</span>
+              <button type="button" onClick={voice.cancel} className="rounded-full px-2 py-0.5 underline">
+                {t("edit_manually")}
+              </button>
+            </div>
+          )}
+        </form>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         <button
@@ -328,6 +333,7 @@ export function ShoppingListPanel({
                   type="checkbox"
                   checked={bought}
                   onChange={() => void toggleBought(item)}
+                  disabled={!canEdit}
                   aria-label={item.name}
                   className="mt-1 size-4 rounded border-[var(--color-border-strong)] accent-[var(--color-primary)]"
                 />
@@ -366,27 +372,29 @@ export function ShoppingListPanel({
                         </span>
                       )}
                     </button>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDraft(item.name);
-                          setEditingId(item.id);
-                        }}
-                        aria-label={t("shopping_edit", { item: item.name })}
-                        className="text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-primary)]"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void removeShoppingItem(item.id)}
-                        aria-label={t("shopping_delete", { item: item.name })}
-                        className="text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger)]"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDraft(item.name);
+                            setEditingId(item.id);
+                          }}
+                          aria-label={t("shopping_edit", { item: item.name })}
+                          className="text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-primary)]"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeShoppingItem(item.id)}
+                          aria-label={t("shopping_delete", { item: item.name })}
+                          className="text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger)]"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

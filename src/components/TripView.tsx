@@ -2086,6 +2086,7 @@ export function TripView() {
 
           {/* SHOPPING LIST */}
           <ShoppingListPanel
+            canEdit={!isInvitee}
             today={todayStr}
             selectedItemId={selectedShoppingItemId}
             onSelectItem={setSelectedShoppingItemId}
