@@ -83,19 +83,19 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const GROUND_TRANSPORT: ReadonlySet<BookingType> = new Set(["train", "ferry", "bus", "transfer"]);
 
-function toMinutes(time: string | undefined): number | null {
+export function toMinutes(time: string | undefined): number | null {
   if (!time || !TIME_RE.test(time)) return null;
   return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 }
 
-function toTime(minutes: number): string {
+export function toTime(minutes: number): string {
   const clamped = Math.min(Math.max(Math.round(minutes), 0), LAST_MINUTE);
   return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
 }
 
 type Interval = { start: number; end: number };
 
-type DraftAnchor = PlanningAnchor & { date: string; startMin: number };
+export type DraftAnchor = PlanningAnchor & { date: string; startMin: number };
 
 function anchorBase(activity: Activity): Omit<PlanningAnchor, "start" | "end"> {
   const booking = activity.origin === "booking" ? activity.booking : undefined;
@@ -109,7 +109,7 @@ function anchorBase(activity: Activity): Omit<PlanningAnchor, "start" | "end"> {
 }
 
 /** Blocked windows produced by one activity; an overnight transport also blocks its arrival day. */
-function anchorsFor(activity: Activity, date: string): DraftAnchor[] {
+export function anchorsFor(activity: Activity, date: string): DraftAnchor[] {
   const time = toMinutes(activity.time);
   // Without a valid local time the activity cannot be placed on the timeline.
   if (time === null) return [];
