@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { notifyTripShare } from "@/lib/share/notify";
 import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
 
 export async function POST(
@@ -82,22 +83,15 @@ export async function POST(
     const url = `${origin}/share/${token}`;
 
     if (email) {
-      const edgeFunctionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-trip-share`;
-      fetch(edgeFunctionUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({
-          tripId,
-          tripName: trip.name ?? "tu viaje",
-          inviteeEmail: email,
-          ownerEmail: caller.email,
-          shareUrl: url,
-          role,
-        }),
-      }).catch((err) => console.warn("notify-trip-share edge function error:", err));
+      // Fire-and-forget: the invitation email never blocks or fails the share.
+      void notifyTripShare({
+        tripId,
+        tripName: trip.name ?? "tu viaje",
+        inviteeEmail: email,
+        ownerEmail: caller.email ?? "",
+        shareUrl: url,
+        role,
+      });
     }
 
     return NextResponse.json({ token, url, role, email });

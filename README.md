@@ -92,6 +92,14 @@ Open [http://localhost:3000](http://localhost:3000).
 5. Output directory: default (`.next`).
 6. Deploy.
 
+## Trip invitation emails
+
+Sharing a trip by email calls the `notify-trip-share` Edge Function, which only accepts calls carrying a shared secret:
+
+- App: `NOTIFY_TRIP_SHARE_SECRET` (any long random string). Without it no invitation email is sent; the invitee still gets access when signing in or through the share link.
+- Function: `supabase secrets set NOTIFY_TRIP_SHARE_SECRET=<same value>`, plus `APP_URL` (the app's URL) and optionally `RESEND_API_KEY`; then `supabase functions deploy notify-trip-share`.
+- Supabase Auth → URL Configuration: add `<APP_URL>/share/*` to the Redirect URLs so the email's sign-in link lands on the trip.
+
 ## AI models
 
 AI calls go to an OpenAI-compatible chat completions endpoint:

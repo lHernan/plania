@@ -19,6 +19,17 @@ export function inviteTarget(shareUrl: unknown, appUrl: string): string {
   return toShareLink(shareUrl, appUrl) ?? `${appUrl.replace(/\/+$/, "")}/trips`;
 }
 
+/**
+ * Only the app may trigger invitations: the call must carry the shared secret. With no secret
+ * configured nothing is accepted. The comparison takes the same time wherever it differs.
+ */
+export function isAuthorizedCall(provided: string | null, secret: string | undefined): boolean {
+  if (!secret || typeof provided !== "string" || provided.length !== secret.length) return false;
+  let diff = 0;
+  for (let i = 0; i < secret.length; i += 1) diff |= provided.charCodeAt(i) ^ secret.charCodeAt(i);
+  return diff === 0;
+}
+
 /** The trip name and the owner's email are typed by people: never raw HTML in the email. */
 export function escapeHtml(value: string): string {
   return value
