@@ -11,6 +11,7 @@ export function ChatFab() {
   return (
     <button
       type="button"
+      data-tour="travel-agent"
       onClick={open}
       aria-label={t("open_travel_agent")}
       title={t("open_travel_agent")}

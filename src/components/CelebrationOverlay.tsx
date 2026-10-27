@@ -49,7 +49,14 @@ export function CelebrationOverlay({ event, onDismiss, onNextDay }: Props) {
   }, [event, onDismiss]);
 
   const isTrip = event?.tier === 3;
-  const toastSub = event?.kind === "shopping" ? t("tachao_shopping_sub", { item: event.activityTitle }) : t("tachao_activity_sub");
+  const toastSub =
+    event?.kind === "shopping"
+      ? t("tachao_shopping_sub", { item: event.activityTitle })
+      : event?.kind === "reservation"
+        ? t("tachao_reservation_sub", { item: event.activityTitle })
+        : event?.kind === "tour"
+          ? t("tachao_tour_sub")
+          : t("tachao_activity_sub");
   const showNext = event?.tier === 2 && !!event.nextDayId && !!onNextDay;
 
   return (

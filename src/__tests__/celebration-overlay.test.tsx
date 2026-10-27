@@ -39,6 +39,14 @@ describe("CelebrationOverlay — single activity", () => {
     expect(liveRegion().textContent).toBe("¡Tachao! ✨ Una experiencia más para el recuerdo");
   });
 
+  it("celebrates a booked reservation and a finished tour", () => {
+    renderOverlay({ id: 3, tier: 1, activityTitle: "Cena en El Jardín", kind: "reservation" });
+    expect(liveRegion().textContent).toBe("¡Tachao! ✨ «Cena en El Jardín» ya está reservado");
+    cleanup();
+    renderOverlay({ id: 4, tier: 1, activityTitle: "", kind: "tour" });
+    expect(liveRegion().textContent).toBe("¡Tachao! ✨ Ya conoces Tachao. ¡A tachar!");
+  });
+
   it("celebrates a bought shopping item with its name", () => {
     renderOverlay({ id: 2, tier: 1, activityTitle: "Mojo picón", kind: "shopping" });
     expect(screen.getAllByText("«Mojo picón» ya es tuyo").length).toBeGreaterThan(0);
