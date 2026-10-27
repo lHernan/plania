@@ -67,6 +67,8 @@ describe("POST /api/import without planning (existing text importer)", () => {
     const [systemPrompt, userPrompt] = runAiPrompt.mock.calls[0] as [string, string];
     expect(sha256(systemPrompt)).toBe(expectedHash);
     expect(userPrompt).toBe("FALLBACK_DATE: 2026-11-02\n\nTEXT TO PARSE:\nLunch near the port");
+    // No options: the text import keeps the provider's default output budget.
+    expect(runAiPrompt.mock.calls[0]).toHaveLength(2);
   });
 
   it("defaults to the English prompt when no language is given", async () => {
@@ -153,6 +155,8 @@ describe("POST /api/import with planning", () => {
     const json = userPrompt.split("<<<PLANNING_CONTEXT>>>\n")[1]?.split("\n<<<END_PLANNING_CONTEXT>>>")[0];
     expect(JSON.parse(json ?? "null")).toEqual(context);
     expect(userPrompt).toContain("<<<USER_REQUEST>>>\nQuiero playas y miradores\n<<<END_USER_REQUEST>>>");
+    // Reasoning models spend output tokens before answering; a whole-trip plan needs a larger budget.
+    expect(runAiPrompt.mock.calls[0][2]).toEqual({ maxTokens: 16000 });
   });
 
   it("states the anchoring and honesty rules in the addendum", async () => {

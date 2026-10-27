@@ -24,6 +24,16 @@ type ProviderResult = {
   response: Response | null;
 };
 
+export type AiRequestOptions = {
+  /**
+   * Output token budget. Reasoning models spend part of it thinking before they answer,
+   * so long JSON replies need more than the default or they come back truncated.
+   */
+  maxTokens?: number;
+};
+
+const DEFAULT_MAX_TOKENS = 4000;
+
 function getProviderConfig(fallback = false): ProviderConfig {
   return fallback
     ? {
@@ -38,7 +48,7 @@ function getProviderConfig(fallback = false): ProviderConfig {
       };
 }
 
-async function callProvider(config: ProviderConfig, model: string, messages: AiMessage[]) {
+async function callProvider(config: ProviderConfig, model: string, messages: AiMessage[], maxTokens: number) {
   return fetch(config.url, {
     method: "POST",
     headers: {
@@ -49,18 +59,18 @@ async function callProvider(config: ProviderConfig, model: string, messages: AiM
       model,
       messages,
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
     }),
   });
 }
 
-async function tryModels(config: ProviderConfig, messages: AiMessage[]): Promise<ProviderResult> {
+async function tryModels(config: ProviderConfig, messages: AiMessage[], maxTokens: number): Promise<ProviderResult> {
   const models = config.models.split(",").map((model) => model.trim()).filter(Boolean);
   let lastResponse: Response | null = null;
 
   for (const model of models) {
     try {
-      const response = await callProvider(config, model, messages);
+      const response = await callProvider(config, model, messages, maxTokens);
       if (response.ok) return { success: true, response };
 
       lastResponse = response;
@@ -75,17 +85,18 @@ async function tryModels(config: ProviderConfig, messages: AiMessage[]): Promise
   return { success: false, response: lastResponse };
 }
 
-export async function runAiMessages(messages: AiMessage[]) {
+export async function runAiMessages(messages: AiMessage[], options: AiRequestOptions = {}) {
   const primary = getProviderConfig();
   if (!primary.key || !primary.url) {
     throw new Error("Primary AI configuration missing");
   }
 
-  let result = await tryModels(primary, messages);
+  const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+  let result = await tryModels(primary, messages, maxTokens);
   if (!result.success && result.response && [429, 500, 502, 503, 504].includes(result.response.status)) {
     const fallback = getProviderConfig(true);
     if (fallback.key && fallback.url && fallback.models) {
-      result = await tryModels(fallback, messages);
+      result = await tryModels(fallback, messages, maxTokens);
     }
   }
 
@@ -103,11 +114,11 @@ export async function runAiMessages(messages: AiMessage[]) {
     ?? "";
 }
 
-export async function runAiPrompt(systemPrompt: string, userPrompt: string) {
+export async function runAiPrompt(systemPrompt: string, userPrompt: string, options?: AiRequestOptions) {
   return runAiMessages([
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
-  ]);
+  ], options);
 }
 
 export async function runAiVision(systemPrompt: string, userPrompt: string, imageUri: string) {

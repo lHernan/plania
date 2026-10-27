@@ -4,6 +4,10 @@ import { getAuthClient } from "@/lib/supabase-server";
 import { extractJsonObject } from "@/lib/ai/json-response";
 import { buildPlanningAddendum, buildPlanningUserPrompt, parsePlanningInput } from "@/lib/bookings/planning-prompt";
 
+// A whole-trip plan is a long JSON reply, and reasoning models spend output tokens before
+// answering: with the default budget the reply came back truncated (finish_reason "length").
+const PLANNING_MAX_TOKENS = 16000;
+
 function buildSystemPrompt(lang: string) {
   const langRule = lang === "es"
     ? '- IMPORTANT: All "title" and "notes" values MUST be written in Spanish.'
@@ -86,6 +90,7 @@ export async function POST(req: Request) {
       const content = await runAiPrompt(
         buildSystemPrompt(resolvedLang) + "\n\n" + buildPlanningAddendum(resolvedLang),
         buildPlanningUserPrompt(planning.context, planning.request),
+        { maxTokens: PLANNING_MAX_TOKENS },
       );
       const parsed = extractJsonObject<{ activities?: unknown; conflicts?: unknown }>(content);
       if (!parsed) {
