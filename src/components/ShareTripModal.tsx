@@ -50,6 +50,8 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
   const [shares, setShares] = useState<TripShareUser[]>([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  /** The person whose access is about to be removed: asked inside the list, not with a browser dialog. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // Load current shares on mount
   useEffect(() => {
@@ -169,9 +171,8 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
     }
   };
 
-  const handleRevoke = async (userId: string, userEmail: string) => {
-    if (!confirm(t("share_revoke_confirm", { email: userEmail }))) return;
-
+  const handleRevoke = async (userId: string) => {
+    setConfirmingId(null);
     setRevokingId(userId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -389,28 +390,51 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                           })}
                         </p>
                       </div>
-                      <select
-                        value={share.role}
-                        onChange={(e) => handleRoleChange(share.userId, e.target.value as "viewer" | "editor")}
-                        className="bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl px-2 py-1 text-[10px] font-bold text-[var(--color-text-secondary)] outline-none min-h-[32px]"
-                        aria-label={t("share_modal_role_label")}
-                      >
-                        <option value="viewer">{t("share_role_viewer")}</option>
-                        <option value="editor">{t("share_role_editor")}</option>
-                      </select>
-                      <button
-                        onClick={() => handleRevoke(share.userId, share.email)}
-                        disabled={revokingId === share.userId}
-                        className="size-8 flex items-center justify-center rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all disabled:opacity-50"
-                        aria-label={t("share_revoke_confirm", { email: share.email })}
-                        title={t("share_revoke_access")}
-                      >
-                        {revokingId === share.userId ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={14} />
-                        )}
-                      </button>
+                      {confirmingId === share.userId ? (
+                        <div className="flex basis-full flex-wrap items-center justify-end gap-2 sm:basis-auto" role="group" aria-label={t("share_revoke_question", { email: share.email })}>
+                          <span className="text-xs font-bold text-[var(--color-text)]">{t("share_revoke_question", { email: share.email })}</span>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingId(null)}
+                            className="rounded-xl px-3 py-1.5 text-[11px] font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]"
+                          >
+                            {t("share_revoke_cancel")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleRevoke(share.userId)}
+                            className="rounded-xl bg-[var(--color-danger)] px-3 py-1.5 text-[11px] font-bold text-white hover:opacity-90"
+                          >
+                            {t("share_revoke_access")}
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <select
+                            value={share.role}
+                            onChange={(e) => handleRoleChange(share.userId, e.target.value as "viewer" | "editor")}
+                            className="bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-xl px-2 py-1 text-[10px] font-bold text-[var(--color-text-secondary)] outline-none min-h-[32px]"
+                            aria-label={t("share_modal_role_label")}
+                          >
+                            <option value="viewer">{t("share_role_viewer")}</option>
+                            <option value="editor">{t("share_role_editor")}</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingId(share.userId)}
+                            disabled={revokingId === share.userId}
+                            className="size-8 flex items-center justify-center rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all disabled:opacity-50"
+                            aria-label={t("share_revoke_confirm", { email: share.email })}
+                            title={t("share_revoke_access")}
+                          >
+                            {revokingId === share.userId ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>

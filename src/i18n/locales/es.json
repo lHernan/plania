@@ -281,7 +281,7 @@
   "share_sending": "Enviando…",
   "share_people_with_access": "Personas con acceso",
   "share_no_access_yet": "Nadie tiene acceso aun",
-  "share_revoke_access": "Revocar acceso",
+  "share_revoke_access": "Quitar acceso",
   "share_revoke_confirm": "Revocar acceso de {email}?",
   "share_footer_note": "Los lectores solo pueden ver el viaje. Los editores pueden editarlo. Solo el propietario puede eliminarlo.",
   "share_invalid_email": "Ingresa un email valido",
@@ -718,5 +718,7 @@
   "shopping_tracking_on": "Te avisaremos si pasas cerca de una tienda para tu lista (con la app abierta).",
   "tachao_shopping_sub": "«{item}» ya es tuyo",
   "shopping_input_label": "Qué quieres comprar",
-  "shopping_nearby_none": "No encontramos tiendas cerca para tu lista."
+  "shopping_nearby_none": "No encontramos tiendas cerca para tu lista.",
+  "share_revoke_question": "¿Quitar el acceso de {email}?",
+  "share_revoke_cancel": "Cancelar"
 }
