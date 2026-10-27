@@ -10,9 +10,9 @@ import { fetchDayWeather } from "@/lib/weather/day-forecast";
 const GENIUS_MAX_TOKENS = 16000;
 
 export async function POST(req: Request) {
-  // Spends AI credits and reads trip details: signed-in users only.
+  // Spends AI credits and reads trip details: signed-in users only (not anonymous guests).
   const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
-  if (authError || !authData?.user) {
+  if (authError || !authData?.user || authData.user.is_anonymous) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

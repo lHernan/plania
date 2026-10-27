@@ -74,6 +74,14 @@ describe("POST /api/day-genius", () => {
     expect(fetchDayWeather).not.toHaveBeenCalled();
   });
 
+  it("rejects anonymous guest sessions too", async () => {
+    auth.user = { id: "guest", is_anonymous: true } as { id: string };
+    const res = await post(valid);
+    expect(res.status).toBe(401);
+    expect(runAiPrompt).not.toHaveBeenCalled();
+    expect(fetchDayWeather).not.toHaveBeenCalled();
+  });
+
   it("plans with the weather and returns only validated changes", async () => {
     runAiPrompt.mockResolvedValue(JSON.stringify(modelReply));
     const res = await post(valid);

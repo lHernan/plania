@@ -201,14 +201,13 @@ export function buildGeniusContext(input: {
     }
   }
 
-  const laterDays = input.days.filter((d) => d.date > day.date && d.date > input.now.date);
-  const otherDays = laterDays.length === 0
-    ? []
-    : buildPlanningContext({ tripName: "", days: laterDays, density: "full" }).days.map((d) => ({
-        date: d.date,
-        city: d.city,
-        freeWindows: d.freeWindows,
-      }));
+  const isLater = (date: string) => date > day.date && date > input.now.date;
+  // This day goes in too, so an overnight booking that leaves today blocks its arrival on the next one.
+  const otherDays = input.days.some((d) => isLater(d.date))
+    ? buildPlanningContext({ tripName: "", days: input.days.filter((d) => d.date >= day.date), density: "full" })
+        .days.filter((d) => isLater(d.date))
+        .map((d) => ({ date: d.date, city: d.city, freeWindows: d.freeWindows }))
+    : [];
 
   return {
     ok: true,

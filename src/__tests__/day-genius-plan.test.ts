@@ -106,6 +106,21 @@ describe("buildGeniusContext", () => {
     expect(context.otherDays[0].freeWindows).toEqual([{ start: "09:00", end: "10:00" }, { start: "11:45", end: "21:30" }]);
   });
 
+  it("blocks the next day's arrival of an overnight flight that leaves today", () => {
+    const days = overrunTrip();
+    days[1].activities.push(activity("redeye", "d2", "22:00", 540, {
+      origin: "booking",
+      category: "transport",
+      booking: booking({ type: "flight", role: "single", end: { date: "2026-11-03", time: "09:30" } }),
+    }));
+    const result = buildGeniusContext({ days, dayId: "d2", now: { date: "2026-11-02", time: "12:20" } });
+    if (!result.ok) throw new Error(result.reason);
+    // Landing 09:30 + 60 min arrival margin blocks the morning: the 09:00–10:00 gap is gone.
+    expect(result.context.otherDays[0].freeWindows).toEqual([{ start: "11:45", end: "21:30" }]);
+    const plan = validateGeniusPlan(result.context, { move_to_other_day: [{ id: "lunch", date: "2026-11-03", time: "09:00", reason: "x" }] });
+    expect(plan.rejected).toEqual([{ ref: "lunch", reason: "outside_free_time" }]);
+  });
+
   it("explains when there is nothing to reorganize", () => {
     const past = buildGeniusContext({ days: overrunTrip(), dayId: "d2", now: { date: "2026-11-05", time: "10:00" } });
     expect(past).toEqual({ ok: false, reason: "past_day" });
@@ -208,6 +223,18 @@ describe("validateGeniusPlan", () => {
     const context = todayContext();
     const result = validateGeniusPlan(context, { unplaced: [{ id: "beach", reason: "No hay tiempo" }, { id: "nope", reason: "x" }] });
     expect(result.changes).toEqual([expect.objectContaining({ kind: "unplaced", activityId: "beach", reason: "No hay tiempo" })]);
+  });
+
+  it("never lets the model change a booking or the activity in progress", () => {
+    const context = todayContext();
+    const result = validateGeniusPlan(context, {
+      schedule: [{ id: "car", time: "20:00", duration_minutes: 30, reason: "x" }, { id: "hike", time: "13:00", duration_minutes: 60, reason: "x" }],
+      move_to_other_day: [{ id: "car", date: "2026-11-03", time: "15:00", reason: "x" }],
+      unplaced: [{ id: "hike", reason: "x" }],
+    });
+    expect(result.changes).toEqual([]);
+    expect(result.rejected.every((r) => r.reason === "unknown_id")).toBe(true);
+    expect(result.rejected).toHaveLength(4);
   });
 
   it("tolerates malformed model output", () => {
