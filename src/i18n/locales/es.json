@@ -803,5 +803,6 @@
   "doc_brightness_tip": "Sube el brillo de la pantalla para que el lector lo lea mejor.",
   "doc_code_qr_inline": "código QR",
   "doc_code_barcode_inline": "código de barras",
-  "activity_open_pass": "Abrir el pase de «{title}»"
+  "activity_open_pass": "Abrir el pase de «{title}»",
+  "doc_ai_found_nothing": "No encontramos códigos. Puedes marcarlo a mano."
 }

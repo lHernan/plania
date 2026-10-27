@@ -20,8 +20,8 @@ import { useItineraryStore } from "@/store/use-itinerary-store";
 /** A code on a page: found on the device, by the AI, or marked by the traveler. */
 type PageCode = { page: number; kind: "qr" | "barcode"; value: string; box: CodeBox; source: "device" | "ai" | "manual" };
 
-/** Pages are drawn this much sharper than the screen so a first zoom still looks crisp. */
-const RENDER_SHARPNESS = 2;
+/** Pages are drawn this much sharper than the screen's pixels so a first zoom still looks crisp. */
+const RENDER_SHARPNESS = 1.5;
 const PAGE_GAP_PX = 12;
 const MAX_COLUMN_PX = 900;
 const AI_IMAGE_SIDE_PX = 1600;
@@ -51,6 +51,7 @@ export function DocumentViewer({
   const [found, setFound] = useState<PageCode[]>([]);
   const [detecting, setDetecting] = useState(true);
   const [aiScanning, setAiScanning] = useState(false);
+  const [aiFoundNothing, setAiFoundNothing] = useState(false);
   const [manual, setManual] = useState<FocusArea | null>(file.focusArea ?? null);
   const [marking, setMarking] = useState(false);
   const [draft, setDraft] = useState<FocusArea | null>(null);
@@ -79,8 +80,14 @@ export function DocumentViewer({
       setOfflineStatus(cached ? "available" : "unavailable");
       if (navigator.onLine) return setUrl(file.fileUrl);
       if (!cached) return setUnavailable(true);
-      blobUrl = await getCachedDocumentBlobUrl(file.fileUrl);
-      if (!cancelled) setUrl(blobUrl ?? file.fileUrl);
+      const cachedUrl = await getCachedDocumentBlobUrl(file.fileUrl);
+      // Closed meanwhile: the copy is not needed any more.
+      if (cancelled) {
+        if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+        return;
+      }
+      blobUrl = cachedUrl;
+      setUrl(blobUrl ?? file.fileUrl);
     })();
     return () => {
       cancelled = true;
@@ -109,7 +116,7 @@ export function DocumentViewer({
         setPages(loaded);
         const ratio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
         for (const [index, page] of loaded.entries()) {
-          const canvas = await page.render(((columnWidthRef.current * ratio) / page.width) * RENDER_SHARPNESS / ratio);
+          const canvas = await page.render(((columnWidthRef.current * ratio) / page.width) * RENDER_SHARPNESS);
           if (cancelled) return;
           setImages((current) => ({ ...current, [index]: canvas.toDataURL("image/png") }));
         }
@@ -139,10 +146,12 @@ export function DocumentViewer({
     columnWidthRef.current = columnWidth;
   });
 
-  const codes = useMemo<PageCode[]>(
-    () => (manual ? [{ page: manual.page ?? 0, kind: "qr", value: "", box: manual, source: "manual" }, ...found] : found),
-    [found, manual],
+  // Stable objects: an open show-code screen must not crop again while later pages are searched.
+  const manualCode = useMemo<PageCode | null>(
+    () => (manual ? { page: manual.page ?? 0, kind: "qr", value: "", box: manual, source: "manual" } : null),
+    [manual],
   );
+  const codes = useMemo<PageCode[]>(() => (manualCode ? [manualCode, ...found] : found), [found, manualCode]);
 
   const pageHeights = useMemo(() => (pages ?? []).map((page) => (columnWidth * page.height) / page.width), [columnWidth, pages]);
   const content = useMemo(
@@ -154,6 +163,8 @@ export function DocumentViewer({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // The in-app confirmation answers its own Escape.
+      if (document.querySelector('[role="alertdialog"]')) return;
       if (spotlight !== null) setSpotlight(null);
       else if (marking) setMarking(false);
       else onClose();
@@ -183,8 +194,10 @@ export function DocumentViewer({
         source: "ai",
       }));
       setFound((current) => [...current, ...fromAi]);
+      setAiFoundNothing(fromAi.length === 0);
     } catch (error) {
       console.error("AI scan failed:", error);
+      setAiFoundNothing(true);
     } finally {
       setAiScanning(false);
     }
@@ -201,6 +214,11 @@ export function DocumentViewer({
       ? {
           onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
             event.stopPropagation();
+            try {
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+            } catch {
+              // Keeps working without capture, just within the page.
+            }
             markStart.current = { page, ...pointOnPage(event) };
             setDraft(null);
           },
@@ -219,6 +237,9 @@ export function DocumentViewer({
           },
           onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => {
             event.stopPropagation();
+            markStart.current = null;
+          },
+          onPointerCancel: () => {
             markStart.current = null;
           },
         }
@@ -275,7 +296,9 @@ export function DocumentViewer({
 
       <div
         ref={containerRef}
-        className={`relative flex-1 overflow-hidden ${marking ? "cursor-crosshair" : "touch-none"}`}
+        data-testid="doc-viewport"
+        // touch-none in both modes: the browser must not turn a drag into its own scroll.
+        className={`relative flex-1 touch-none overflow-hidden ${marking ? "cursor-crosshair" : ""}`}
         {...(marking ? {} : zoom.handlers)}
       >
         {unavailable ? (
@@ -363,6 +386,8 @@ export function DocumentViewer({
               >
                 <QrCode size={18} /> {t("doc_show_code", { count: codes.length })}
               </button>
+            ) : aiFoundNothing ? (
+              <p className="text-center text-[11px] text-white/70" role="status">{t("doc_ai_found_nothing")}</p>
             ) : (
               detecting && pages && (
                 <p className="flex items-center justify-center gap-2 text-[11px] text-white/60" role="status">
@@ -466,12 +491,20 @@ function CodeSpotlight({
     let sentinel: { release: () => Promise<void> } | null = null;
     let released = false;
     const wakeLock = (navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock;
-    void wakeLock?.request("screen").then((lock) => {
-      if (released) void lock.release();
-      else sentinel = lock;
-    }).catch(() => undefined);
+    const acquire = () =>
+      void wakeLock?.request("screen").then((lock) => {
+        if (released) void lock.release();
+        else sentinel = lock;
+      }).catch(() => undefined);
+    // The browser drops the lock when the tab is hidden: take it again on return.
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !released) acquire();
+    };
+    acquire();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       released = true;
+      document.removeEventListener("visibilitychange", onVisible);
       void sentinel?.release();
     };
   }, []);

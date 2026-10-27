@@ -147,6 +147,30 @@ describe("DocumentViewer", () => {
     expect(await screen.findByRole("button", { name: "Mostrar código (1)" })).toBeTruthy();
   });
 
+  it("keeps touch gestures for the marking box while marking", async () => {
+    open();
+    await screen.findByAltText("Página 1 de 2");
+    const viewport = screen.getByTestId("doc-viewport");
+    expect(viewport.className).toContain("touch-none");
+    fireEvent.click(screen.getByRole("button", { name: "Marcar el código a mano" }));
+    expect(screen.getByTestId("doc-viewport").className).toContain("touch-none");
+  });
+
+  it("says when the AI found nothing either", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ regions: [] })));
+    open();
+    const scan = await screen.findByRole("button", { name: "Buscar con IA" });
+    await act(async () => fireEvent.click(scan));
+    expect(await screen.findByText("No encontramos códigos. Puedes marcarlo a mano.")).toBeTruthy();
+  });
+
+  it("Escape on the delete confirmation does not close the viewer", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar archivo" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("asks inside the app before deleting", async () => {
     open();
     fireEvent.click(await screen.findByRole("button", { name: "Eliminar archivo" }));

@@ -803,5 +803,6 @@
   "doc_brightness_tip": "Turn the screen brightness up so the scanner reads it better.",
   "doc_code_qr_inline": "QR code",
   "doc_code_barcode_inline": "barcode",
-  "activity_open_pass": "Open the pass for “{title}”"
+  "activity_open_pass": "Open the pass for “{title}”",
+  "doc_ai_found_nothing": "No codes found. You can mark it by hand."
 }

@@ -41,9 +41,19 @@ export function usePinchZoom(containerRef: RefObject<HTMLElement | null>, conten
     return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
   };
 
+  // The pointer is captured only once a gesture starts: capturing on pointerdown would send
+  // the following click to the container instead of a highlighted code under the finger.
+  const capture = (event: ReactPointerEvent) => {
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // The pointer may already be gone.
+    }
+  };
+
   const onPointerDown = (event: ReactPointerEvent) => {
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     pointers.current.set(event.pointerId, local(event));
+    if (pointers.current.size > 1) capture(event);
     if (pointers.current.size === 1) travel.current = 0;
   };
 
@@ -53,7 +63,9 @@ export function usePinchZoom(containerRef: RefObject<HTMLElement | null>, conten
     const point = local(event);
     const others = [...pointers.current.entries()].filter(([id]) => id !== event.pointerId).map(([, p]) => p);
     pointers.current.set(event.pointerId, point);
+    const wasTap = travel.current <= TAP_SLOP_PX;
     travel.current += Math.hypot(point.x - previous.x, point.y - previous.y);
+    if (wasTap && travel.current > TAP_SLOP_PX) capture(event);
 
     if (others.length === 1) {
       const other = others[0];
