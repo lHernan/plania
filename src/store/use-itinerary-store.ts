@@ -229,8 +229,10 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   sort_order: activity.sort_order,
   time_confidence: activity.timeConfidence,
   time_inferred: activity.timeInferred,
-  origin: activity.origin,
-  booking: activity.booking,
+  // Only when set: postgrest-js turns every key of an array insert into a column, so an
+  // undefined origin would be sent as NULL (or as an unknown column before the migration).
+  ...(activity.origin !== undefined ? { origin: activity.origin } : {}),
+  ...(activity.booking !== undefined ? { booking: activity.booking } : {}),
 });
 
 function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
@@ -2221,15 +2223,23 @@ export const useItineraryStore = create<Store>((set, get) => {
 
         if (!response.ok) throw new Error(await response.text());
         const data = (await response.json()) as { optimizedActivities: Activity[] };
-        const oldIds = day.activities.map((activity) => activity.id);
+        // Confirmed bookings are context for the optimizer but are never deleted, moved or re-inserted.
+        const bookingIds = new Set(day.activities.filter((a) => a.origin === "booking").map((a) => a.id));
+        const movable = day.activities.filter((a) => !bookingIds.has(a.id));
+        const originById = new Map(movable.map((a) => [a.id, a.origin]));
+        const optimized = data.optimizedActivities.filter((a) => !bookingIds.has(a.id));
+
+        const oldIds = movable.map((activity) => activity.id);
         if (oldIds.length > 0) {
           await supabase.from("activities").delete().in("id", oldIds);
         }
 
-        await supabase.from("activities").insert(
-          data.optimizedActivities.map((activity, index) => ({
+        const { error: insertError } = await supabase.from("activities").insert(
+          optimized.map((activity, index) => ({
             ...mapActivityToDb({
               ...activity,
+              origin: originById.get(activity.id),
+              booking: undefined,
               dayId,
               tripId: activeTrip.id,
               userId: String(activeTrip.userId ?? ""),
@@ -2241,6 +2251,19 @@ export const useItineraryStore = create<Store>((set, get) => {
             sort_order: index,
           }))
         );
+
+        if (insertError && movable.length > 0) {
+          // Never leave the day emptied by a failed re-insert: put the originals back.
+          await supabase.from("activities").insert(
+            movable.map((activity) => ({
+              ...mapActivityToDb(activity),
+              id: activity.id,
+              trip_id: activeTrip.id,
+              user_id: activeTrip.userId,
+            }))
+          );
+          set({ error: insertError.message });
+        }
 
         await get().fetchActiveTrip(activeTrip.id, true);
       } catch (error) {

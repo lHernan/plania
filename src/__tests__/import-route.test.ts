@@ -4,7 +4,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runAiPrompt = vi.fn();
 vi.mock("@/lib/ai/provider", () => ({ runAiPrompt: (...args: unknown[]) => runAiPrompt(...args) }));
 
+const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string } | null, calls: 0 }));
+vi.mock("@/lib/supabase-server", () => ({
+  getAuthClient: () => ({
+    auth: {
+      getUser: async () => {
+        auth.calls += 1;
+        return { data: { user: auth.user }, error: auth.user ? null : { message: "no session" } };
+      },
+    },
+  }),
+}));
+
 import { POST } from "@/app/api/import/route";
+
+// Every test starts signed in; auth tests opt out explicitly.
+beforeEach(() => {
+  auth.user = { id: "u1" };
+  auth.calls = 0;
+});
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
@@ -69,6 +87,30 @@ describe("POST /api/import without planning (existing text importer)", () => {
     const response = await post({ text: "Lunch", fallbackDate: "2026-11-02", lang: "en" });
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "AI returned invalid JSON" });
+  });
+});
+
+describe("POST /api/import auth", () => {
+  beforeEach(() => {
+    runAiPrompt.mockReset();
+    auth.user = { id: "u1" };
+    auth.calls = 0;
+  });
+
+  it("requires a signed-in user for planning and never calls the AI without one", async () => {
+    auth.user = null;
+    const res = await post({ fallbackDate: "2026-11-01", lang: "es", planning: { context: { tripName: "x", density: "balanced", days: [{ date: "2026-11-01", city: "c", anchors: [], freeWindows: [], maxSuggestions: 1 }] } } });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+    expect(runAiPrompt).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing text import working without a session, as before", async () => {
+    auth.user = null;
+    runAiPrompt.mockResolvedValue(JSON.stringify({ activities: [] }));
+    const res = await post({ text: "Park Güell 08:00", fallbackDate: "2026-11-01", lang: "es" });
+    expect(res.status).toBe(200);
+    expect(auth.calls).toBe(0);
   });
 });
 

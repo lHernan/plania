@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
+import { getAuthClient } from "@/lib/supabase-server";
 import { extractJsonObject } from "@/lib/ai/json-response";
 import { buildPlanningAddendum, buildPlanningUserPrompt, parsePlanningInput } from "@/lib/bookings/planning-prompt";
 
@@ -71,6 +72,12 @@ export async function POST(req: Request) {
 
     // Planning mode ("Generate itinerary"): same importer, prompt and schema, plus trip context.
     if (body?.planning !== undefined && body?.planning !== null) {
+      // Planning sends the whole trip context and spends AI credits: signed-in users only.
+      // (The plain text import keeps its existing, unauthenticated behavior.)
+      const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+      if (authError || !authData?.user) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
       const planning = parsePlanningInput(body.planning);
       if (!planning) {
         return NextResponse.json({ error: "invalid_request" }, { status: 400 });

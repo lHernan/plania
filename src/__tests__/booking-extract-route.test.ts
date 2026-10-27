@@ -61,6 +61,18 @@ describe("POST /api/bookings/extract", () => {
     expect(runAiVisionPages).not.toHaveBeenCalled();
   });
 
+  it("reads text pages and scanned pages together in mixed documents", async () => {
+    runAiVisionPages.mockResolvedValue(JSON.stringify(FLIGHT_RESPONSE));
+    const res = await POST(request({ ...base, pages: [{ index: 0, text: FLIGHT_DOC }, { index: 1, text: "" }], images: [PNG] }));
+    expect(res.status).toBe(200);
+    expect(runAiPrompt).not.toHaveBeenCalled();
+    expect(runAiVisionPages).toHaveBeenCalledTimes(1);
+    const [, userPrompt, images] = runAiVisionPages.mock.calls[0];
+    expect(userPrompt).toContain("ZZ9TST");
+    expect(images).toEqual([PNG]);
+    expect((await res.json()).bookings).toHaveLength(2);
+  });
+
   it("uses vision for scanned documents", async () => {
     runAiVisionPages.mockResolvedValue(JSON.stringify(FLIGHT_RESPONSE));
     const res = await POST(request({ ...base, pages: [{ index: 0, text: "  " }], images: [PNG, PNG] }));
