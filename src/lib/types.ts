@@ -27,6 +27,8 @@ export type FocusArea = {
   y: number; // 0 to 1
   width: number; // 0 to 1
   height: number; // 0 to 1
+  /** Page of the document it is on (0-based); older areas were always on the first page. */
+  page?: number;
 };
 
 export type ActivityFile = {

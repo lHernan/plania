@@ -73,3 +73,32 @@ describe("SortableActivityCard content", () => {
     expect(h.onEdit).toHaveBeenCalled();
   });
 });
+
+describe("SortableActivityCard attachments", () => {
+  it("opens the attached pass straight from the card, without opening the activity", () => {
+    const onOpenFile = vi.fn();
+    const onEdit = vi.fn();
+    const pass = { id: "f1", activityId: "a", fileUrl: "https://x/boarding.pdf", fileType: "pdf", fileName: "boarding.pdf" };
+    renderWithI18n(
+      <DndContext>
+        <SortableContext items={["a"]}>
+          <SortableActivityCard
+            activity={makeActivity("a", { title: "Vuelo", files: [pass] as Activity["files"] })}
+            onComplete={vi.fn()}
+            onUncomplete={vi.fn()}
+            onEdit={onEdit}
+            onOpenFile={onOpenFile}
+          />
+        </SortableContext>
+      </DndContext>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Abrir el pase de «Vuelo»" }));
+    expect(onOpenFile).toHaveBeenCalledWith(pass);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("shows no pass button without attachments", () => {
+    renderCard(makeActivity("a", { title: "Vuelo" }));
+    expect(screen.queryByRole("button", { name: /Abrir el pase/ })).toBeNull();
+  });
+});

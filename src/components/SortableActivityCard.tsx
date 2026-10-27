@@ -14,6 +14,7 @@ import {
   Map as MapIcon,
   MapPin,
   MessageCircle,
+  Ticket,
   Music,
   Plane,
   ShoppingBag,
@@ -22,7 +23,7 @@ import {
 import { useI18n } from "@/components/I18nProvider";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { OriginBadge } from "@/components/OriginBadge";
-import type { Activity, ActivityCategory } from "@/lib/types";
+import type { Activity, ActivityCategory, ActivityFile } from "@/lib/types";
 
 export const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
@@ -46,6 +47,7 @@ export function SortableActivityCard({
   onUncomplete,
   onEdit,
   onComment,
+  onOpenFile,
   justCompleted = false,
 }: {
   activity: Activity;
@@ -53,11 +55,15 @@ export function SortableActivityCard({
   onUncomplete: (activityId: string) => void;
   onEdit: () => void;
   onComment?: () => void;
+  /** Opens an attachment (boarding pass, ticket) straight from the card. */
+  onOpenFile?: (file: ActivityFile) => void;
   /** True only right after the user completed it, so loads and day switches never animate. */
   justCompleted?: boolean;
 }) {
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
+  // PDFs first: boarding passes and tickets usually come as PDFs.
+  const pass = [...(activity.files ?? [])].sort((a, b) => Number(b.fileType === "pdf") - Number(a.fileType === "pdf"))[0];
   const animateCompletion = justCompleted && !reducedMotion;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
@@ -191,6 +197,21 @@ export function SortableActivityCard({
 
         {/* ACTION GROUP */}
         <div className="flex items-center gap-1">
+          {onOpenFile && pass && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenFile(pass);
+              }}
+              aria-label={t("activity_open_pass", { title: activity.title })}
+              title={t("activity_open_pass", { title: activity.title })}
+              className="size-7 rounded-lg flex items-center justify-center text-[var(--color-primary)] bg-[var(--color-primary-subtle)] hover:brightness-95 transition-all"
+            >
+              <Ticket size={15} />
+            </button>
+          )}
           {onComment && (
             <button
               onPointerDown={(e) => e.stopPropagation()}
