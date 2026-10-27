@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Check, Loader2, MapPin, Plus, Share2, Star, 
 import { getCurrentDateString, resolveTripSelectionFromSummaries } from "@/lib/trip-selection";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useI18n } from "@/components/I18nProvider";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 
 function isTripSummary(trip: ReturnType<typeof useItineraryStore.getState>["trips"][number] | undefined): trip is ReturnType<typeof useItineraryStore.getState>["trips"][number] {
   return Boolean(trip);
@@ -14,6 +15,7 @@ function isTripSummary(trip: ReturnType<typeof useItineraryStore.getState>["trip
 
 export function TripSwitcher() {
   const { t } = useI18n();
+  const { confirm, dialog } = useConfirmDialog();
   const [isOpen, setIsOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showPastTrips, setShowPastTrips] = useState(false);
@@ -160,9 +162,9 @@ export function TripSwitcher() {
           </motion.button>
           <button
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
-              if (confirm(t("switcher_delete_confirm"))) deleteTrip(trip.id);
+              if (await confirm({ message: t("switcher_delete_confirm") })) deleteTrip(trip.id);
             }}
             className={`flex size-11 items-center justify-center rounded-full transition-all ${
               isCurrentTrip
@@ -402,6 +404,7 @@ export function TripSwitcher() {
 
   return (
     <div className="relative min-w-0">
+      {dialog}
       <button
         onClick={() => setIsOpen(true)}
         className="flex min-w-0 items-center gap-1.5 max-w-[min(180px,100%)] md:max-w-[220px]"

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { claimPendingInvitations } from "@/lib/share/claim-client";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
@@ -58,9 +59,15 @@ export function AuthInitializer() {
     }
 
     clearData();
-    void fetchAllTrips();
-    void fetchActiveTrip();
-  }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id]);
+    const isAnonymous = Boolean(user?.is_anonymous);
+    void (async () => {
+      // Invitations sent to this email become shared trips before the trips are loaded,
+      // so an invitee with no trips of their own lands on the shared one.
+      if (!isAnonymous && !isOffline()) await claimPendingInvitations();
+      void fetchAllTrips();
+      void fetchActiveTrip();
+    })();
+  }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id, user?.is_anonymous]);
 
   useEffect(() => {
     if (activeTrip && pathname === "/") {

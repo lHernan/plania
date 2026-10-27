@@ -73,6 +73,7 @@ import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { ShoppingListPanel } from "@/components/ShoppingListPanel";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
@@ -151,6 +152,7 @@ function ActivityFilesSection({
   onPreview: (file: ActivityFile) => void;
 }) {
   const { t } = useI18n();
+  const { confirm, dialog } = useConfirmDialog();
   const uploadFile = useItineraryStore((s) => s.uploadActivityFile);
   const deleteFile = useItineraryStore((s) => s.deleteActivityFile);
   const loading = useItineraryStore((s) => s.loading);
@@ -241,6 +243,7 @@ function ActivityFilesSection({
 
   return (
     <div className="space-y-4">
+      {dialog}
       <div className="flex items-center justify-between">
         <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] flex items-center gap-1">
           <FileText size={12} /> {t("attachments")}
@@ -300,9 +303,9 @@ function ActivityFilesSection({
             </button>
 
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                if (confirm(t("confirm_delete_file"))) {
+                if (await confirm({ message: t("confirm_delete_file") })) {
                   deleteFile(file.id);
                 }
               }}
@@ -668,6 +671,7 @@ function ReservationEditModal({
 
 export function TripView() {
   const { lang, setLang, t } = useI18n();
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
   const dateFnsLocale = lang === "es" ? es : enUS;
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -931,7 +935,7 @@ export function TripView() {
       }
     } catch (e) {
       console.error("Error with AI Import", e);
-      alert(t("error_ai_import"));
+      showToast(t("error_ai_import"), "error");
     } finally {
       setIsImporting(false);
       setVoiceState("idle");
@@ -968,7 +972,7 @@ export function TripView() {
 
       recognition.onerror = (event: any) => {
         if (event.error === 'not-allowed') {
-          alert(t("mic_denied"));
+          showToast(t("mic_denied"), "error");
         } else {
           console.warn("Speech recognition error:", event.error);
         }
@@ -1409,6 +1413,7 @@ export function TripView() {
 
   return (
     <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${showMap && isDesktop ? "pb-0" : "pb-32"} ios-compact-shell`}>
+      {confirmDialog}
       {/* One sticky stack for everything pinned to the top: the sample-trip notice and the
           header stack instead of both sticking at top-0 over each other. Its measured height
           (--app-header-h) includes the notice, so panels below offset correctly. */}
@@ -1425,7 +1430,7 @@ export function TripView() {
                 return;
               }
               const res = await saveDraft();
-              if (res.error) alert(res.error);
+              if (res.error) showToast(res.error, "error");
             }}
             className="px-4 py-2 bg-[var(--color-warning)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-warning)]/90 transition-all min-h-[36px]"
           >
@@ -1688,8 +1693,8 @@ export function TripView() {
               <div className="flex items-center gap-2">
                 {!isInvitee && (
                   <button
-                    onClick={() => {
-                      if (confirm(t("trip_view_confirm_delete_day"))) {
+                    onClick={async () => {
+                      if (await confirmAction({ message: t("trip_view_confirm_delete_day") })) {
                         removeTripDay(activeDayId);
                       }
                     }}

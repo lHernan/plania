@@ -14,6 +14,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { scheduleTripShareNotification } from "@/lib/share/notify";
 import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
 
 export async function POST(
@@ -100,21 +101,13 @@ export async function POST(
       return NextResponse.json({ error: shareError.message }, { status: 500 });
     }
 
-    // Trigger email notification via Edge Function (fire-and-forget)
-    const edgeFunctionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-trip-share`;
-    fetch(edgeFunctionUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        tripId,
-        tripName: (trip as { id: string; user_id: string; name?: string }).name ?? "tu viaje",
-        inviteeEmail: email,
-        ownerEmail: caller.email,
-      }),
-    }).catch((err) => console.warn("notify-trip-share edge function error:", err));
+    // After the response: the invitation email never blocks or fails the share.
+    scheduleTripShareNotification({
+      tripId,
+      tripName: (trip as { id: string; user_id: string; name?: string }).name ?? "tu viaje",
+      inviteeEmail: email,
+      ownerEmail: caller.email ?? "",
+    });
 
     return NextResponse.json({ success: true, sharedWithEmail: email });
   } catch (error) {

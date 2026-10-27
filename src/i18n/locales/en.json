@@ -281,7 +281,7 @@
   "share_sending": "Sending…",
   "share_people_with_access": "People with access",
   "share_no_access_yet": "No one has access yet",
-  "share_revoke_access": "Revoke access",
+  "share_revoke_access": "Remove access",
   "share_revoke_confirm": "Revoke access for {email}?",
   "share_footer_note": "Viewers can only view the trip. Editors can edit it. Only the owner can delete it.",
   "share_invalid_email": "Please enter a valid email",
@@ -718,5 +718,10 @@
   "shopping_tracking_on": "We'll let you know when you pass a shop for your list (while the app is open).",
   "tachao_shopping_sub": "“{item}” is yours",
   "shopping_input_label": "What do you want to buy",
-  "shopping_nearby_none": "We didn't find shops nearby for your list."
+  "shopping_nearby_none": "We didn't find shops nearby for your list.",
+  "share_revoke_question": "Remove {email}'s access?",
+  "share_revoke_cancel": "Cancel",
+  "confirm_dialog_cancel": "Cancel",
+  "confirm_dialog_delete": "Delete",
+  "share_since": "Since {date}"
 }

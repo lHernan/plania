@@ -612,8 +612,21 @@ export const useItineraryStore = create<Store>((set, get) => {
       tripQuery = tripQuery.eq("user_id", userId);
     }
 
-    const { data: trips, error } = await tripQuery;
+    const { data: ownTrips, error } = await tripQuery;
     if (error) throw error;
+    let trips = ownTrips;
+    if (!tripId && userId && (!trips || trips.length === 0)) {
+      // An account with no trips of its own opens the ones shared with it. Only trip_shares
+      // counts: RLS would also let it read trips that merely have an open share link.
+      const { data: shares, error: sharesError } = await supabase.from("trip_shares").select("trip_id").eq("shared_with", userId);
+      if (sharesError) throw sharesError;
+      const sharedIds = (shares ?? []).map((share) => String((share as { trip_id: string }).trip_id));
+      if (sharedIds.length > 0) {
+        const { data: sharedTrips, error: sharedError } = await supabase.from("trips").select("*").in("id", sharedIds);
+        if (sharedError) throw sharedError;
+        trips = sharedTrips;
+      }
+    }
 
       if (!trips || trips.length === 0) {
       set({ activeTrip: null, activeDayId: "", loading: false, hasFetched: true });

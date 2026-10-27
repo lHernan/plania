@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
+import { grantShareLink, hasServiceRoleKey, isLinkExpired, type ShareLinkRow } from "@/lib/share/grant";
 
 export async function POST(
   request: Request,
@@ -21,10 +22,7 @@ export async function POST(
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const isPublishable = !!serviceKey && (serviceKey.startsWith("sb_publishable_") || serviceKey.startsWith("sb_anon_"));
-    if (!serviceKey || serviceKey === anonKey || isPublishable) {
+    if (!hasServiceRoleKey()) {
       return NextResponse.json(
         { error: "SUPABASE_SERVICE_ROLE_KEY no es la service role key (es una publishable/anon key). Usa la service_role secret del dashboard de Supabase." },
         { status: 500 }
@@ -46,7 +44,7 @@ export async function POST(
       return NextResponse.json({ error: "Este enlace fue revocado" }, { status: 410 });
     }
 
-    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+    if (isLinkExpired(link)) {
       return NextResponse.json({ error: "Este enlace expiró" }, { status: 410 });
     }
 
@@ -58,34 +56,10 @@ export async function POST(
       );
     }
 
-    // Prevent self-accept by owner (no-op but safe)
-    const { data: trip } = await adminSupabase
-      .from("trips")
-      .select("user_id")
-      .eq("id", link.trip_id)
-      .single();
-
-    if (trip?.user_id === caller.id) {
-      return NextResponse.json({ success: true, alreadyOwner: true, tripId: link.trip_id });
-    }
-
-    // Create share row (ignore duplicate)
-    const { error: shareError } = await adminSupabase
-      .from("trip_shares")
-      .insert({ trip_id: link.trip_id, shared_with: caller.id, role: link.role });
-
-    if (shareError && shareError.code !== "23505") {
-      return NextResponse.json({ error: shareError.message }, { status: 500 });
-    }
-
-    // Mark link as accepted (only first acceptance)
-    await adminSupabase
-      .from("trip_share_links")
-      .update({ accepted_by: caller.id, accepted_at: new Date().toISOString() })
-      .eq("id", link.id)
-      .is("accepted_by", null);
-
-    return NextResponse.json({ success: true, tripId: link.trip_id, role: link.role });
+    const granted = await grantShareLink(adminSupabase, link as ShareLinkRow, caller.id);
+    if (!granted.ok) return NextResponse.json({ error: granted.error }, { status: 500 });
+    if (granted.alreadyOwner) return NextResponse.json({ success: true, alreadyOwner: true, tripId: granted.tripId });
+    return NextResponse.json({ success: true, tripId: granted.tripId, role: link.role });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     return NextResponse.json({ error: message }, { status: 500 });
