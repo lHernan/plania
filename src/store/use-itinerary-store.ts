@@ -187,7 +187,7 @@ const mapActivityFileFromDb = (db: ActivityFileDb): ActivityFile => ({
   focusArea: db.focus_area ?? undefined,
 });
 
-const mapActivityFromDb = (db: ActivityDb): Activity => ({
+export const mapActivityFromDb = (db: ActivityDb): Activity => ({
   id: db.id,
   dayId: db.day_id,
   tripId: db.trip_id,
@@ -207,7 +207,9 @@ const mapActivityFromDb = (db: ActivityDb): Activity => ({
   sort_order: db.sort_order,
   timeConfidence: db.time_confidence ?? undefined,
   timeInferred: db.time_inferred ?? false,
-  origin: db.origin ?? "manual",
+  // Undefined (not "manual") when the column is absent, so rows read before the migration
+  // never write an origin column back.
+  origin: db.origin ?? undefined,
   booking: db.booking ?? undefined,
 });
 
@@ -234,6 +236,15 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   ...(activity.origin !== undefined ? { origin: activity.origin } : {}),
   ...(activity.booking !== undefined ? { booking: activity.booking } : {}),
 });
+
+/**
+ * Array inserts list the union of all row keys as columns (postgrest-js), so rows must share
+ * the same keys: when any row carries an origin, the others get "manual" instead of NULL.
+ */
+function withUniformOrigin<T extends { origin?: ActivityOrigin }>(rows: T[]): T[] {
+  if (!rows.some((row) => row.origin !== undefined)) return rows;
+  return rows.map((row) => (row.origin === undefined ? { ...row, origin: "manual" as const } : row));
+}
 
 function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
   return {
@@ -1857,12 +1868,12 @@ export const useItineraryStore = create<Store>((set, get) => {
       }));
 
       const { error } = await supabase.from("activities").insert(
-        created.map((activity) => ({
+        withUniformOrigin(created.map((activity) => ({
           ...mapActivityToDb(activity),
           id: activity.id,
           trip_id: activeTrip.id,
           user_id: activeTrip.userId,
-        }))
+        })))
       );
 
       if (error) {
@@ -2235,7 +2246,7 @@ export const useItineraryStore = create<Store>((set, get) => {
         }
 
         const { error: insertError } = await supabase.from("activities").insert(
-          optimized.map((activity, index) => ({
+          withUniformOrigin(optimized.map((activity, index) => ({
             ...mapActivityToDb({
               ...activity,
               origin: originById.get(activity.id),
@@ -2249,18 +2260,18 @@ export const useItineraryStore = create<Store>((set, get) => {
             user_id: activeTrip.userId,
             day_id: dayId,
             sort_order: index,
-          }))
+          })))
         );
 
         if (insertError && movable.length > 0) {
           // Never leave the day emptied by a failed re-insert: put the originals back.
           await supabase.from("activities").insert(
-            movable.map((activity) => ({
+            withUniformOrigin(movable.map((activity) => ({
               ...mapActivityToDb(activity),
               id: activity.id,
               trip_id: activeTrip.id,
               user_id: activeTrip.userId,
-            }))
+            })))
           );
           set({ error: insertError.message });
         }

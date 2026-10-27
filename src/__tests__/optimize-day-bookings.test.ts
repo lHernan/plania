@@ -119,6 +119,39 @@ describe("optimizeDay with confirmed bookings", () => {
   });
 });
 
+describe("optimizeDay row shape (array inserts need identical keys)", () => {
+  it("sends no origin column at all when no activity has one (database without the migration)", async () => {
+    useItineraryStore.setState({ activeTrip: makeTrip([makeDay("d1", [manual, makeActivity("m2", { title: "Cena" })])]) });
+    // The optimizer adds a brand-new activity next to the known ones.
+    respondWith([{ ...manual }, { ...makeActivity("ai-gen-1", { title: "Traslado" }) }, { ...makeActivity("m2", { title: "Cena" }) }]);
+    await useItineraryStore.getState().optimizeDay("d1", "es");
+    const [insert] = inserts();
+    expect(insert.rows).toHaveLength(3);
+    for (const row of insert.rows) expect(Object.keys(row)).not.toContain("origin");
+  });
+
+  it("gives every row an origin when any row has one, defaulting new activities to manual", async () => {
+    respondWith([{ ...suggested }, { ...makeActivity("ai-gen-1", { title: "Traslado" }) }, { ...manual }]);
+    await useItineraryStore.getState().optimizeDay("d1", "es");
+    const [insert] = inserts();
+    expect(insert.rows.map((r) => [r.title, r.origin])).toEqual([
+      ["Mirador", "suggested"],
+      ["Traslado", "manual"],
+      ["Paseo", "manual"],
+    ]);
+  });
+
+  it("restores the originals with identical keys too", async () => {
+    remote.insertErrors = [{ message: "insert failed" }];
+    respondWith([{ ...suggested }, { ...manual }]);
+    await useItineraryStore.getState().optimizeDay("d1", "es");
+    const [, restore] = inserts();
+    const keySets = restore.rows.map((r) => Object.keys(r).sort().join(","));
+    expect(new Set(keySets).size).toBe(1);
+    expect(restore.rows.find((r) => r.id === "m1")).toMatchObject({ origin: "manual" });
+  });
+});
+
 describe("addActivity payload", () => {
   it("sends no origin or booking keys for a regular activity", async () => {
     const { id: _id, tripId: _t, userId: _u, ...rest } = makeActivity("x", { title: "Café" });
@@ -127,5 +160,14 @@ describe("addActivity payload", () => {
     const [insert] = inserts();
     expect(Object.keys(insert.rows[0])).not.toContain("origin");
     expect(Object.keys(insert.rows[0])).not.toContain("booking");
+  });
+});
+
+describe("mapActivityFromDb", () => {
+  it("leaves origin undefined for rows read before the migration", async () => {
+    const { mapActivityFromDb } = await import("@/store/use-itinerary-store");
+    const row = { id: "a", day_id: "d1", trip_id: "t", user_id: "u", title: "Paseo", time: "10:00", duration_min: 60, category: "other", priority: "medium", state: "pending", sort_order: 0 } as Parameters<typeof mapActivityFromDb>[0];
+    expect(mapActivityFromDb(row).origin).toBeUndefined();
+    expect(mapActivityFromDb({ ...row, origin: "booking" }).origin).toBe("booking");
   });
 });
