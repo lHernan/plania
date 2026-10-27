@@ -210,7 +210,7 @@ export function ShoppingListPanel({
   const categoryLabel = (item: ShoppingItem) => (item.category && item.category !== "other" ? t(`shopping_category_${item.category}`) : null);
 
   return (
-    <div className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div data-tour="shopping" className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_shopping_list")}</h3>
         <span className="rounded-full bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">{sorted.length}</span>

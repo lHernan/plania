@@ -46,7 +46,8 @@ import {
   Moon,
   Monitor,
   Compass,
-  FileUp
+  FileUp,
+  HelpCircle,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -75,6 +76,7 @@ import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { ShoppingListPanel } from "@/components/ShoppingListPanel";
+import { ProductTour, useProductTour } from "@/components/ProductTour";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
@@ -672,6 +674,9 @@ function ReservationEditModal({
 export function TripView() {
   const { lang, setLang, t } = useI18n();
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
+  const tripLoaded = useItineraryStore((s) => Boolean(s.activeTrip) && !s.loading);
+  // First visit on this device: a guided tour of the screen (replayable from the "?" button).
+  const tour = useProductTour(tripLoaded);
   const dateFnsLocale = lang === "es" ? es : enUS;
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -1414,6 +1419,7 @@ export function TripView() {
   return (
     <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${showMap && isDesktop ? "pb-0" : "pb-32"} ios-compact-shell`}>
       {confirmDialog}
+      <ProductTour open={tour.open} onClose={tour.close} />
       {/* One sticky stack for everything pinned to the top: the sample-trip notice and the
           header stack instead of both sticking at top-0 over each other. Its measured height
           (--app-header-h) includes the notice, so panels below offset correctly. */}
@@ -1445,12 +1451,22 @@ export function TripView() {
           {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
               overflows narrow screens (an overflow widens the layout viewport and every
               fixed overlay with it, e.g. the mobile map). */}
-          <div className="min-w-0 flex-1">
+          <div data-tour="trip-switcher" className="min-w-0 flex-1">
             <TripSwitcher />
           </div>
 
           {/* Right: user controls */}
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              data-tour="tour-help"
+              onClick={tour.start}
+              aria-label={t("tour_help")}
+              title={t("tour_help")}
+              className="flex size-9 items-center justify-center rounded-full text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]"
+            >
+              <HelpCircle size={18} />
+            </button>
             {/* Theme toggle */}
             <button
               type="button"
@@ -1505,6 +1521,7 @@ export function TripView() {
                     ) : (
                       <button
                         onClick={() => setShowShareModal(true)}
+                        data-tour="share"
                         className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
                       >
                         <Share2 size={12} />
@@ -1536,7 +1553,7 @@ export function TripView() {
         </div>
 
         {/* Date strip */}
-        <div className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">
+        <div data-tour="day-strip" className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">
           {completedPastDays.length > 0 && (
             <button
               onClick={() => setShowCompletedDays(!showCompletedDays)}
@@ -1603,7 +1620,7 @@ export function TripView() {
       {/* Day Summary Bar */}
       {activeDay && (
         <div className="max-w-7xl mx-auto px-5 pt-3">
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2.5">
+          <div data-tour="day-tools" className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2.5">
             <div className="flex items-center gap-2 min-w-0">
               <MapPin size={14} className="text-[var(--color-text-muted)] shrink-0" />
               <span className="text-sm font-bold text-[var(--color-text)] truncate">
@@ -1664,7 +1681,7 @@ export function TripView() {
 
       <div className={`max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 ${showMap ? "lg:grid-cols-[1fr_1fr]" : "lg:grid-cols-[1fr_340px]"} gap-10 ios-compact-gap`}>
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
-        <div className="space-y-8">
+        <div data-tour="timeline" className="space-y-8">
           {/* DAY INTRO */}
           {activeDay ? (
             <div className="flex items-center justify-between mb-4">
@@ -1930,7 +1947,7 @@ export function TripView() {
         ) : (
         <aside className="space-y-6">
           {/* AI QUICK ACTIONS */}
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+          <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
             <div className="space-y-3">
               <button
@@ -2026,7 +2043,7 @@ export function TripView() {
           </div>
 
           {/* CRITICAL RESERVATIONS */}
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+          <div data-tour="reservations" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("critical_reservations")}</h3>
               <button
@@ -2130,7 +2147,7 @@ export function TripView() {
           )}
 
           {/* TRAVEL TOOLS — collapsible */}
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
+          <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
             <button
               onClick={() => setShowTravelTools(!showTravelTools)}
               className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
