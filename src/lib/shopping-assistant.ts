@@ -94,11 +94,10 @@ function normalizeKey(value: string) {
   return normalizeWhitespace(value).toLowerCase();
 }
 
-function titleCase(value: string) {
-  return normalizeWhitespace(value)
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
+/** "recuerdo para la abuela" → "Recuerdo para la abuela"; mapped names keep their own case. */
+function sentenceCase(value: string) {
+  const text = normalizeWhitespace(value);
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function inferCategory(name: string): ShoppingCategory {
@@ -175,6 +174,8 @@ function extractMappedWishlistItems(rawText: string) {
   const extracted: string[] = [];
 
   for (const entry of PHRASE_ITEM_MAP) {
+    // The patterns are global: test() would resume from the previous call's lastIndex.
+    entry.pattern.lastIndex = 0;
     if (entry.pattern.test(remaining)) {
       extracted.push(entry.name);
       remaining = remaining.replace(entry.pattern, " ");
@@ -206,10 +207,12 @@ function parseWishlistInput(input: ShoppingAssistantWishlistInput): ShoppingAssi
   const seenKeys = new Set<string>();
 
   const mapped = extractMappedWishlistItems(input.text);
-  const rawItems = [...mapped.extracted, ...splitWishlistText(mapped.remaining || input.text)];
+  // When every phrase was mapped nothing remains; re-reading the full text would duplicate them.
+  const rest = mapped.extracted.length > 0 ? mapped.remaining : input.text;
+  const rawItems = [...mapped.extracted, ...splitWishlistText(rest)];
 
   for (const rawItem of rawItems) {
-    const normalizedName = titleCase(rawItem);
+    const normalizedName = sentenceCase(rawItem);
     const key = normalizeKey(normalizedName);
     if (!key || existingKeys.has(key) || seenKeys.has(key)) continue;
     seenKeys.add(key);
