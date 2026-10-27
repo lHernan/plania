@@ -50,7 +50,7 @@ export type GeniusPlan = { summary: string; changes: GeniusChange[]; rejected: G
 export const MAX_GENIUS_SUGGESTIONS = 3;
 const MAX_DURATION_MIN = 12 * 60;
 const MAX_TEXT = 300;
-const CATEGORIES: readonly ActivityCategory[] = ["sightseeing", "reservation", "transport", "hotel", "food", "shopping", "photos", "nightlife", "other"];
+export const GENIUS_CATEGORIES: readonly ActivityCategory[] = ["sightseeing", "reservation", "transport", "hotel", "food", "shopping", "photos", "nightlife", "other"];
 
 type Interval = { start: number; end: number };
 
@@ -246,7 +246,7 @@ export function validateGeniusPlan(context: GeniusContext, raw: unknown): Genius
     const title = str(entry.title, 120);
     const ref = title || `suggestion ${index + 1}`;
     if (!title) return reject(ref, "invalid_time");
-    const category = CATEGORIES.find((c) => c === entry.category);
+    const category = GENIUS_CATEGORIES.find((c) => c === entry.category);
     if (!category) return reject(ref, "invalid_category");
     const durationMin = duration(entry.duration_minutes);
     const slot = timing(ref, entry.time, durationMin);
