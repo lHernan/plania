@@ -1431,6 +1431,24 @@ export const useItineraryStore = create<Store>((set, get) => {
         }
       }
 
+      // Reservations added on the sample trip come along too (best effort).
+      if (activeTrip.criticalReservations.length > 0) {
+        const { error: reservationsError } = await supabase.from("critical_reservations").insert(
+          activeTrip.criticalReservations.map((reservation) => ({
+            trip_id: newTripId,
+            user_id: userId,
+            title: reservation.title,
+            booking_deadline: reservation.bookingDeadline,
+            reservation_date: reservation.reservationDate,
+            booking_link: reservation.bookingLink,
+            urgency: reservation.urgency,
+            status: reservation.status,
+            price: reservation.price,
+          })),
+        );
+        if (reservationsError) console.error("Reservations copy failed:", reservationsError);
+      }
+
       // The shopping list started on the sample trip comes along (best effort: without the
       // shopping_items table it simply stays empty on the saved trip).
       if (activeTrip.shoppingItems.length > 0) {
@@ -1897,6 +1915,9 @@ export const useItineraryStore = create<Store>((set, get) => {
           : null,
       }));
 
+      // The sample trip lives on this device until it is saved (its id is not a database id).
+      if (get().activeTripIsDraft) return;
+
       if (!isOnline()) {
         await enqueueMutation("update", "reservation", {
           reservationId: bookingId,
@@ -2016,6 +2037,9 @@ export const useItineraryStore = create<Store>((set, get) => {
           : null,
       }));
 
+      // The sample trip lives on this device until it is saved (its id is not a database id).
+      if (get().activeTripIsDraft) return;
+
       if (!isOnline()) {
         await enqueueMutation("create", "reservation", {
           reservation: {
@@ -2053,6 +2077,9 @@ export const useItineraryStore = create<Store>((set, get) => {
           : null,
       }));
 
+      // The sample trip lives on this device until it is saved (its id is not a database id).
+      if (get().activeTripIsDraft) return;
+
       if (!isOnline()) {
         await enqueueMutation("update", "reservation", { reservationId, patch });
         return;
@@ -2079,6 +2106,9 @@ export const useItineraryStore = create<Store>((set, get) => {
             }
           : null,
       }));
+
+      // The sample trip lives on this device until it is saved (its id is not a database id).
+      if (get().activeTripIsDraft) return;
 
       if (!isOnline()) {
         await enqueueMutation("delete", "reservation", { reservationId });

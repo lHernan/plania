@@ -21,7 +21,6 @@ import {
   ChevronUp,
   Plus,
   Sparkles,
-  ExternalLink,
   Plane,
   Camera,
   ShoppingBag,
@@ -59,7 +58,6 @@ import {
   Activity,
   ActivityCategory,
   ActivityFile,
-  CriticalReservation,
   ShoppingAssistantResponse,
   ShoppingItem,
   ShoppingSuggestion,
@@ -76,6 +74,7 @@ import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { ShoppingListPanel } from "@/components/ShoppingListPanel";
+import { CriticalReservationsPanel } from "@/components/CriticalReservationsPanel";
 import { ProductTour, useProductTour } from "@/components/ProductTour";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
@@ -529,148 +528,6 @@ function ActivityEditModal({
   );
 }
 
-function ReservationEditModal({
-  reservation,
-  onClose,
-  onSave,
-  onDelete,
-  isNew = false
-}: {
-  reservation: Partial<CriticalReservation>;
-  onClose: () => void;
-  onSave: (updates: Partial<CriticalReservation>) => void;
-  onDelete: () => void;
-  isNew?: boolean;
-}) {
-  const { t } = useI18n();
-  const [localTitle, setLocalTitle] = useState(reservation.title || "");
-  const [localDate, setLocalDate] = useState(reservation.reservationDate || "");
-  const [localDeadline, setLocalDeadline] = useState(reservation.bookingDeadline || "");
-  const [localLink, setLocalLink] = useState(reservation.bookingLink || "");
-  const [localPrice, setLocalPrice] = useState(reservation.price || 0);
-  const [todayStr, setTodayStr] = useState("");
-
-  useEffect(() => {
-    setTodayStr(new Date().toISOString().split('T')[0]);
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center md:p-6" onClick={onClose}>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-[var(--color-text)]/40 backdrop-blur-sm"
-      />
-      
-      <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-[var(--color-bg)] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh] overflow-hidden"
-      >
-        <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 scrollbar-hide">
-          <div className="flex justify-center mb-6 md:hidden">
-            <div className="w-12 h-1.5 rounded-full bg-[var(--color-border)]" />
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <input
-                value={localTitle}
-                onChange={(e) => setLocalTitle(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none pb-2 border-b-2 border-transparent focus:border-[var(--color-primary)]/30 transition-all font-sans"
-                placeholder={t("reservation_title_placeholder")}
-                autoFocus
-              />
-            </div>
-
-            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
-              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CalendarDays size={12}/> {t("reservation_date")}</label>
-              <input
-                type="date"
-                min={todayStr}
-                value={localDate}
-                onChange={(e) => setLocalDate(e.target.value)}
-                onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                className="w-full bg-transparent text-lg font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
-                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><Clock3 size={12}/> {t("booking_deadline")}</label>
-                <input
-                  type="date"
-                  min={todayStr}
-                  value={localDeadline}
-                  onChange={(e) => setLocalDeadline(e.target.value)}
-                  onClick={(e) => (e.currentTarget as any).showPicker?.()}
-                  className="w-full bg-transparent text-base font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
-                />
-              </div>
-
-              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
-                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("price")}</label>
-                <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
-                  <input
-                    type="number"
-                    value={localPrice}
-                    onChange={(e) => setLocalPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
-              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><ExternalLink size={12}/> {t("booking_link")}</label>
-              <input
-                type="url"
-                value={localLink}
-                onChange={(e) => setLocalLink(e.target.value)}
-                placeholder="https://..."
-                className="w-full bg-transparent text-sm font-bold border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* BOTTOM ACTION BAR */}
-        <div className="p-4 md:px-10 border-t border-[var(--color-border)] border-[var(--color-border)]/50 bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] flex gap-3 pb-safe">
-           {!isNew && (
-             <button 
-               onClick={() => { onDelete(); onClose(); }}
-               className="size-14 shrink-0 rounded-[1.5rem] bg-[var(--color-danger)]/10 text-[var(--color-danger)] flex items-center justify-center hover:bg-[var(--color-danger)]/20 transition-colors"
-             >
-               <Trash2 size={20} />
-             </button>
-           )}
-           <button 
-             onClick={() => {
-                onSave({
-                  title: localTitle,
-                  reservationDate: localDate,
-                  bookingDeadline: localDeadline,
-                  bookingLink: localLink,
-                  price: localPrice
-                });
-             }}
-             className="flex-1 rounded-[1.5rem] bg-[var(--color-text)] dark:bg-white text-white dark:text-[var(--color-text)] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
-           >
-             {t("save_reservation")}
-           </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-
-
 export function TripView() {
   const { lang, setLang, t } = useI18n();
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
@@ -693,15 +550,11 @@ export function TripView() {
     addImportedActivities,
     dayScrollY,
     setDayScroll,
-    toggleBooking,
     patchActivity,
     loading,
     error,
     removeActivity,
     duplicateActivity,
-    addReservation,
-    patchReservation,
-    removeReservation,
     ignoreShoppingSuggestion,
     addTripDay,
     removeTripDay,
@@ -844,7 +697,6 @@ export function TripView() {
     onAdd: isInvitee ? undefined : () => setShowAdd(true),
     showAgent: Boolean(activeTrip),
   };
-  const [showAddReservation, setShowAddReservation] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const editingActivity = useMemo(() => {
     if (!activeTrip || !editingActivityId) return null;
@@ -854,7 +706,6 @@ export function TripView() {
     }
     return null;
   }, [activeTrip, editingActivityId]);
-  const [editingReservation, setEditingReservation] = useState<CriticalReservation | null>(null);
   const [previewFile, setPreviewFile] = useState<ActivityFile | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const [importText, setImportText] = useState("");
@@ -1419,7 +1270,13 @@ export function TripView() {
   return (
     <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${showMap && isDesktop ? "pb-0" : "pb-32"} ios-compact-shell`}>
       {confirmDialog}
-      <ProductTour open={tour.open} onClose={tour.close} />
+      <ProductTour
+        open={tour.open}
+        onClose={(completed) => {
+          // Finishing the tour (not skipping it) ends with the brand toast.
+          if (tour.close(completed)) setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: "", kind: "tour" });
+        }}
+      />
       {/* One sticky stack for everything pinned to the top: the sample-trip notice and the
           header stack instead of both sticking at top-0 over each other. Its measured height
           (--app-header-h) includes the notice, so panels below offset correctly. */}
@@ -2043,68 +1900,10 @@ export function TripView() {
           </div>
 
           {/* CRITICAL RESERVATIONS */}
-          <div data-tour="reservations" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("critical_reservations")}</h3>
-              <button
-                onClick={() => setShowAddReservation(true)}
-                className="size-7 rounded-lg bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] flex items-center justify-center transition-all"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {(activeTrip?.criticalReservations.length === 0) && (
-                <div className="flex flex-col items-center gap-2 py-6 text-[var(--color-text-muted)]">
-                  <CalendarDays size={24} />
-                  <p className="text-xs font-medium">{t("no_reservations_yet")}</p>
-                </div>
-              )}
-              {(activeTrip?.criticalReservations ?? []).map((booking) => {
-                const isBooked = booking.status === "booked";
-                return (
-                  <div
-                    key={booking.id}
-                    onClick={() => setEditingReservation(booking)}
-                    className={`rounded-xl p-4 transition-all border-l-4 cursor-pointer ${
-                      isBooked
-                        ? "bg-[var(--color-surface-subtle)] border-l-[var(--color-border-strong)] opacity-50"
-                        : "bg-[var(--color-surface)] border border-[var(--color-border)] border-l-[var(--color-danger)] hover:shadow-sm"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                            isBooked ? "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" : "bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
-                          }`}>
-                            {t(booking.status)}
-                          </span>
-                          {booking.urgency === "today" && !isBooked && (
-                            <span className="text-[8px] font-black text-[var(--color-danger)] animate-pulse">{t("critical")}</span>
-                          )}
-                        </div>
-                        <h4 className={`text-sm font-black transition-colors ${isBooked ? "text-[var(--color-text-muted)] line-through" : "text-[var(--color-text)]"}`}>
-                          {booking.title}
-                        </h4>
-                        <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
-                          {booking.reservationDate}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isBooked}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => toggleBooking(booking.id)}
-                        className="size-5 rounded border-2 border-[var(--color-border-strong)] checked:bg-[var(--color-primary)] checked:border-[var(--color-primary)] transition-all cursor-pointer accent-[var(--color-primary)]"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <CriticalReservationsPanel
+            canEdit={!isInvitee}
+            onBooked={(title) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: title, kind: "reservation" })}
+          />
 
           {/* SHOPPING LIST */}
           <ShoppingListPanel
@@ -2321,43 +2120,7 @@ export function TripView() {
         )}
       </AnimatePresence>
 
-      {/* ­ƒÄƒ´©Å ADD RESERVATION MODAL */}
-      <AnimatePresence>
-        {showAddReservation && (
-          <ReservationEditModal
-            isNew={true}
-            reservation={{
-              id: "new",
-              title: "",
-              bookingDeadline: format(new Date(), "yyyy-MM-dd"),
-              reservationDate: format(new Date(), "yyyy-MM-dd"),
-              bookingLink: "",
-              urgency: "safe",
-              status: "pending",
-              price: 0
-            }}
-            onClose={() => setShowAddReservation(false)}
-            onSave={(updates: any) => {
-              addReservation(updates);
-              setShowAddReservation(false);
-            }}
-            onDelete={() => {}}
-          />
-        )}
-      </AnimatePresence>
 
-      {/* ­ƒÄƒ´©Å EDIT RESERVATION MODAL */}
-      <AnimatePresence>
-        {editingReservation && (
-          <ReservationEditModal
-            isNew={false}
-            reservation={editingReservation}
-            onClose={() => setEditingReservation(null)}
-            onSave={(updates: any) => patchReservation(editingReservation.id, updates)}
-            onDelete={() => removeReservation(editingReservation.id)}
-          />
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {editingActivity && (
