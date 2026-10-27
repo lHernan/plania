@@ -9,8 +9,11 @@ export type CelebrationEvent = {
   tier: CelebrationTier;
   nextDayId?: string;
   activityTitle: string;
-  /** shopping: an item of the shopping list was bought (always a tier-1 toast). */
-  kind?: "shopping";
+  /**
+   * Tier-1 toasts for things other than activities: a shopping item bought, a reservation
+   * booked, the app tour finished.
+   */
+  kind?: "shopping" | "reservation" | "tour";
 };
 
 export type CompletionResult = {

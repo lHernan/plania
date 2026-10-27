@@ -25,9 +25,12 @@ describe("ProductTour", () => {
       </>,
     );
     const dialog = () => screen.getByRole("dialog");
-    expect(dialog().textContent).toContain("Tus viajes");
-    expect(dialog().textContent).toContain("1 de 4");
+    // Brand welcome first, always.
+    expect(dialog().textContent).toContain("¡Bienvenido a Tachao!");
+    expect(dialog().textContent).toContain("1 de 5");
     expect(screen.queryByRole("button", { name: "Atrás" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
+    expect(dialog().textContent).toContain("Tus viajes");
 
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     expect(dialog().textContent).toContain("Los días");
@@ -40,8 +43,8 @@ describe("ProductTour", () => {
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     expect(dialog().textContent).toContain("Lista de compras");
-    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "¡A tachar!" }));
+    expect(onClose).toHaveBeenCalledWith(true);
   });
 
   it("closes with Skip or Escape", () => {
@@ -49,18 +52,18 @@ describe("ProductTour", () => {
     renderWithI18n(<>{anchors(["trip-switcher", "day-strip"])}<ProductTour open onClose={onClose} /></>);
     fireEvent.click(screen.getByRole("button", { name: "Saltar tour" }));
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(onClose.mock.calls).toEqual([[false], [false]]);
   });
 
   it("explains every section the trip screen marks", () => {
     expect(TOUR_STEPS.map((s) => s.id)).toEqual([
-      "trip-switcher", "day-strip", "day-tools", "timeline", "ai-shortcuts", "reservations", "shopping", "travel-tools", "travel-agent", "share", "tour-help",
+      "welcome", "trip-switcher", "day-strip", "day-tools", "timeline", "ai-shortcuts", "reservations", "shopping", "travel-tools", "travel-agent", "share", "tour-help",
     ]);
   });
 
-  it("shows nothing when no section is on screen", () => {
+  it("still welcomes when no section is on screen", () => {
     renderWithI18n(<ProductTour open onClose={vi.fn()} />);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("dialog").textContent).toContain("1 de 1");
   });
 });
 
@@ -70,7 +73,7 @@ function TourHost({ ready }: { ready: boolean }) {
     <>
       <button onClick={tour.start}>ayuda</button>
       <span>{tour.open ? "abierto" : "cerrado"}</span>
-      <button onClick={tour.close}>cerrar</button>
+      <button onClick={() => tour.close()}>cerrar</button>
     </>
   );
 }

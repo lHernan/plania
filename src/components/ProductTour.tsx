@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/I18nProvider";
+import { DrawnCheck } from "@/components/CelebrationOverlay";
 import { TOUR_STEPS, tourKey, type TourStep } from "@/lib/tour/steps";
 
 export const TOUR_SEEN_KEY = "tachao_tour_seen_v1";
@@ -47,9 +48,11 @@ export function useProductTour(ready: boolean) {
   }, [ready]);
 
   const start = useCallback(() => setOpen(true), []);
-  const close = useCallback(() => {
+  /** completed: the traveler went through to the end (not skipped). */
+  const close = useCallback((completed = false) => {
     markSeen();
     setOpen(false);
+    return completed;
   }, []);
 
   return { open, start, close };
@@ -57,12 +60,13 @@ export function useProductTour(ready: boolean) {
 
 type Box = { top: number; left: number; width: number; height: number };
 
-export function ProductTour({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** onClose(true) when the last step is finished, onClose(false) when skipped. */
+export function ProductTour({ open, onClose }: { open: boolean; onClose: (completed: boolean) => void }) {
   if (!open) return null;
   return <TourOverlay onClose={onClose} />;
 }
 
-function TourOverlay({ onClose }: { onClose: () => void }) {
+function TourOverlay({ onClose }: { onClose: (completed: boolean) => void }) {
   const { t } = useI18n();
   const titleId = useId();
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -71,6 +75,7 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
   useLayoutEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- measuring the DOM after mount
     setSteps(TOUR_STEPS.filter((candidate) => {
+      if (candidate.anchorless) return true;
       const element = anchorOf(candidate);
       return Boolean(element && isShown(element));
     }));
@@ -80,14 +85,17 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
   const step = steps?.[index];
 
   const measure = useCallback(() => {
-    const element = step ? anchorOf(step) : null;
-    if (!element) return;
+    const element = step && !step.anchorless ? anchorOf(step) : null;
+    if (!element) {
+      setBox(null);
+      return;
+    }
     const rect = element.getBoundingClientRect();
     setBox({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
   }, [step]);
 
   useLayoutEffect(() => {
-    const element = step ? anchorOf(step) : null;
+    const element = step && !step.anchorless ? anchorOf(step) : null;
     element?.scrollIntoView({ block: "center", behavior: "smooth" });
     nextRef.current?.focus();
     // Smooth scrolling moves the section after this frame: measure on the next ones.
@@ -107,7 +115,7 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onClose(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -115,6 +123,7 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
 
   if (!steps || !step) return null;
   const isLast = index === steps.length - 1;
+  const isWelcome = step.id === "welcome";
   const viewportW = typeof window === "undefined" ? 1024 : window.innerWidth;
   const viewportH = typeof window === "undefined" ? 768 : window.innerHeight;
 
@@ -128,8 +137,9 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
   const cardWidth = Math.min(CARD_WIDTH, viewportW - 32);
   const cardLeft = spot ? Math.min(Math.max(spot.left, 16), viewportW - cardWidth - 16) : (viewportW - cardWidth) / 2;
   const spaceBelow = spot ? viewportH - (spot.top + spot.height) : viewportH;
-  const cardStyle =
-    !spot || (spaceBelow < 200 && spot.top < 200)
+  const cardStyle = isWelcome
+    ? { left: (viewportW - cardWidth) / 2, top: Math.max(viewportH / 2 - 170, 16) }
+    : !spot || (spaceBelow < 200 && spot.top < 200)
       ? { left: cardLeft, bottom: 16 }
       : spaceBelow >= 200
         ? { left: cardLeft, top: spot.top + spot.height + CARD_GAP }
@@ -158,12 +168,22 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
           <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)]">
             {t("tour_progress", { current: index + 1, total: steps.length })}
           </span>
-          <button type="button" onClick={onClose} className="text-[11px] font-bold text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+          <button type="button" onClick={() => onClose(false)} className="text-[11px] font-bold text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
             {t("tour_skip")}
           </button>
         </div>
-        <h2 id={titleId} className="text-base font-black text-[var(--color-text)]">{t(tourKey(step, "title"))}</h2>
-        <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">{t(tourKey(step, "body"))}</p>
+        {isWelcome && (
+          <div className="flex justify-center pt-1">
+            <DrawnCheck size={56} />
+          </div>
+        )}
+        <h2
+          id={titleId}
+          className={`font-black tracking-tight text-[var(--color-text)] font-[family-name:var(--font-display)] ${isWelcome ? "text-center text-2xl" : "text-lg"}`}
+        >
+          {t(tourKey(step, "title"))}
+        </h2>
+        <p className={`text-sm leading-relaxed text-[var(--color-text-secondary)] ${isWelcome ? "text-center" : ""}`}>{t(tourKey(step, "body"))}</p>
         <div className="flex items-center justify-end gap-2 pt-1">
           {index > 0 && (
             <button
@@ -177,10 +197,10 @@ function TourOverlay({ onClose }: { onClose: () => void }) {
           <button
             ref={nextRef}
             type="button"
-            onClick={() => (isLast ? onClose() : setIndex((i) => i + 1))}
+            onClick={() => (isLast ? onClose(true) : setIndex((i) => i + 1))}
             className="rounded-xl bg-[var(--color-primary)] px-4 py-2 text-xs font-bold text-white hover:bg-[var(--color-primary-hover)]"
           >
-            {t(isLast ? "tour_done" : "tour_next")}
+            {t(isLast ? "tour_done" : isWelcome ? "tour_start" : "tour_next")}
           </button>
         </div>
       </div>
