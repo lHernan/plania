@@ -40,7 +40,7 @@ interface ShareTripModalProps {
 }
 
 export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"viewer" | "editor">("viewer");
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -383,10 +383,8 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-[var(--color-text)] truncate">{share.email}</p>
                         <p className="text-[10px] font-medium text-[var(--color-text-muted)]">
-                          Desde {new Date(share.createdAt).toLocaleDateString("es-ES", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
+                          {t("share_since", {
+                            date: new Date(share.createdAt).toLocaleDateString(lang, { day: "numeric", month: "short", year: "numeric" }),
                           })}
                         </p>
                       </div>

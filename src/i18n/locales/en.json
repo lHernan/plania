@@ -720,5 +720,8 @@
   "shopping_input_label": "What do you want to buy",
   "shopping_nearby_none": "We didn't find shops nearby for your list.",
   "share_revoke_question": "Remove {email}'s access?",
-  "share_revoke_cancel": "Cancel"
+  "share_revoke_cancel": "Cancel",
+  "confirm_dialog_cancel": "Cancel",
+  "confirm_dialog_delete": "Delete",
+  "share_since": "Since {date}"
 }

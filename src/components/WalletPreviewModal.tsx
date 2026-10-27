@@ -20,6 +20,7 @@ import { ActivityFile } from "@/lib/types";
 import { cacheDocumentForOffline, getCachedDocumentAvailability, getCachedDocumentBlobUrl, openDocumentInNewTab, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useI18n } from "@/components/I18nProvider";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 
 interface WalletPreviewModalProps {
   file: ActivityFile;
@@ -30,6 +31,7 @@ interface WalletPreviewModalProps {
 
 export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: WalletPreviewModalProps) {
   const { t } = useI18n();
+  const { confirm, dialog } = useConfirmDialog();
   const [qrContent, setQrContent] = useState<string | null>(null);
   const [isQrZoomed, setIsQrZoomed] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -323,6 +325,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
 
   return (
     <AnimatePresence>
+      {dialog}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -625,8 +628,8 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
           
           {onDelete && (
             <button
-              onClick={() => {
-                if (confirm(t("wallet_delete_confirm"))) {
+              onClick={async () => {
+                if (await confirm({ message: t("wallet_delete_confirm") })) {
                   onDelete();
                   onClose();
                 }
