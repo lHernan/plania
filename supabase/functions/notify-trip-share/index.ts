@@ -22,7 +22,7 @@ import { buildEmailHtml, inviteTarget } from "./email.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const APP_URL = Deno.env.get("APP_URL") ?? "https://plania-two.vercel.app/";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://tachao.app/";
 
 serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -72,7 +72,7 @@ serve(async (req: Request) => {
           from: `Plania <noreply@${new URL(APP_URL).hostname}>`,
           to: inviteeEmail,
           subject: `${ownerEmail} compartió "${tripName}" contigo en Plania`,
-          html: buildEmailHtml({ tripName, ownerEmail, ctaUrl: signInLink ?? inviteUrl }),
+          html: buildEmailHtml({ tripName, ownerEmail, ctaUrl: signInLink ?? inviteUrl, shareUrl: inviteUrl }),
         }),
       });
 
@@ -86,7 +86,7 @@ serve(async (req: Request) => {
       }
     } else if (signInLink) {
       // Without Resend, the project's own mailer sends its magic-link email, which lands on the
-      // share link too. It never creates an account.
+      // share link too (a confirmation email when generateLink just created the account).
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: inviteeEmail,
         options: { emailRedirectTo: inviteUrl, shouldCreateUser: false },

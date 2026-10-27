@@ -33,15 +33,19 @@ export function buildEmailHtml({
   tripName,
   ownerEmail,
   ctaUrl,
+  shareUrl,
 }: {
   tripName: string;
   ownerEmail: string;
   /** Signs the invitee in and opens the trip when possible; otherwise the share link. */
   ctaUrl: string;
+  /** Shown as text too when the button is a one-time sign-in link that can expire. */
+  shareUrl?: string;
 }): string {
   const trip = escapeHtml(tripName);
   const owner = escapeHtml(ownerEmail);
   const href = escapeHtml(ctaUrl);
+  const fallback = shareUrl && shareUrl !== ctaUrl ? escapeHtml(shareUrl) : null;
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -94,6 +98,7 @@ export function buildEmailHtml({
                   </td>
                 </tr>
               </table>
+              ${fallback ? `<p style="font-size:12px;color:#94a3b8;margin:20px 0 0;line-height:1.6;text-align:center;">Si el botón ya no funciona, abre este enlace e inicia sesión:<br/><a href="${fallback}" style="color:#4f46e5;word-break:break-all;">${fallback}</a></p>` : ""}
             </td>
           </tr>
           <!-- Footer -->

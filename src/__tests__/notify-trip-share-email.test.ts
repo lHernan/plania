@@ -27,4 +27,11 @@ describe("notify-trip-share email", () => {
     expect(html).toContain("La Palma &lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
     expect(html).not.toContain("<img src=x");
   });
+
+  it("also shows the share link, which keeps working after the one-time sign-in link expires", () => {
+    const html = buildEmailHtml({ tripName: "La Palma", ownerEmail: "ana@test.com", ctaUrl: "https://project.supabase.co/auth/v1/verify?token=abc", shareUrl: "https://tachao.app/share/tok" });
+    expect(html).toContain('<a href="https://tachao.app/share/tok"');
+    expect(html).toContain(">https://tachao.app/share/tok</a>");
+    expect(buildEmailHtml({ tripName: "x", ownerEmail: "y", ctaUrl: "https://tachao.app/share/tok", shareUrl: "https://tachao.app/share/tok" })).not.toContain(">https://tachao.app/share/tok</a>");
+  });
 });
