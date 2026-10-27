@@ -22,18 +22,36 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://plania-two.vercel.app/";
 
+/**
+ * Only a share page (/share/<token>) of the app itself is used as the invitation target, so
+ * the email can never point somewhere else.
+ */
+function toShareLink(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    if (url.host !== new URL(APP_URL).host) return null;
+    return /^\/share\/[\w-]+$/.test(url.pathname) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
   try {
-    const { tripId, tripName, inviteeEmail, ownerEmail } = await req.json() as {
+    const { tripId, tripName, inviteeEmail, ownerEmail, shareUrl } = await req.json() as {
       tripId: string;
       tripName: string;
       inviteeEmail: string;
       ownerEmail: string;
+      shareUrl?: string;
     };
+    // The invitation opens its own share link; anything that is not one falls back to the app.
+    const inviteUrl = toShareLink(shareUrl) ?? `${APP_URL}/trips`;
 
     if (!inviteeEmail || !tripName || !ownerEmail) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -47,13 +65,13 @@ serve(async (req: Request) => {
     // Send email using Supabase Auth Admin (uses the configured SMTP)
     // We use the built-in "invite" email as a vehicle, or Auth's send email hook.
     // Here we use the Supabase Admin API to send a custom email.
-    const emailHtml = buildEmailHtml({ tripName, ownerEmail, appUrl: APP_URL });
+    const emailHtml = buildEmailHtml({ tripName, ownerEmail, inviteUrl });
 
     const { error } = await supabase.auth.admin.generateLink({
       type: "magiclink",
       email: inviteeEmail,
       options: {
-        redirectTo: `${APP_URL}/trips`,
+        redirectTo: inviteUrl,
       },
     });
 
@@ -114,11 +132,11 @@ serve(async (req: Request) => {
 function buildEmailHtml({
   tripName,
   ownerEmail,
-  appUrl,
+  inviteUrl,
 }: {
   tripName: string;
   ownerEmail: string;
-  appUrl: string;
+  inviteUrl: string;
 }): string {
   return `
 <!DOCTYPE html>
@@ -165,7 +183,7 @@ function buildEmailHtml({
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <a href="${appUrl}/trips"
+                    <a href="${inviteUrl}"
                        style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;padding:16px 36px;border-radius:50px;text-decoration:none;box-shadow:0 8px 24px rgba(79,70,229,0.3);">
                       Ver mi viaje compartido
                     </a>
