@@ -347,7 +347,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
         </button>
 
         {/* Swipe Indicator */}
-        <div className="absolute top-4 left-1/2 -transtone-x-1/2 w-12 h-1.5 bg-white/20 rounded-full z-[110]" />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/20 rounded-full z-[110]" />
 
         <motion.div
           style={{ y, opacity, scale }}
@@ -436,8 +436,8 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                           }`}
                           style={{
                             transform: isQrZoomed 
-                              ? `scale(5) transtone(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`
-                              : 'scale(1) transtone(0, 0)',
+                              ? `scale(5) translate(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`
+                              : 'scale(1) translate(0, 0)',
                             transformOrigin: 'center'
                           }}
                         />
@@ -678,7 +678,7 @@ export function WalletPreviewModal({ file, onClose, onDelete, activityTitle }: W
                       alt={t("wallet_qr_zoom_alt")} 
                       className="w-full h-full object-contain transition-transform duration-300"
                       style={{
-                        transform: `scale(5) transtone(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`,
+                        transform: `scale(5) translate(${(0.5 - finalCenterX) * 100}%, ${(0.5 - finalCenterY) * 100}%)`,
                         transformOrigin: "center"
                       }}
                     />

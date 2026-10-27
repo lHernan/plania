@@ -174,7 +174,7 @@ export function CurrencyConverter({ city }: { city: string }) {
                     {/* Quick converter */}
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1">
-                        <span className="pointer-events-none absolute left-3 top-1/2 -transtone-y-1/2 text-xs font-bold text-[var(--color-text-muted)]">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--color-text-muted)]">
                           {homeCurrency}
                         </span>
                         <input
