@@ -49,13 +49,14 @@ export function CelebrationOverlay({ event, onDismiss, onNextDay }: Props) {
   }, [event, onDismiss]);
 
   const isTrip = event?.tier === 3;
+  const toastSub = event?.kind === "shopping" ? t("tachao_shopping_sub", { item: event.activityTitle }) : t("tachao_activity_sub");
   const showNext = event?.tier === 2 && !!event.nextDayId && !!onNextDay;
 
   return (
     <>
       {/* Screen reader announcement, independent of the animation. */}
       <div role="status" aria-live="polite" className="sr-only">
-        {event?.tier === 1 && `${t("tachao_activity")} ${t("tachao_activity_sub")}`}
+        {event?.tier === 1 && `${t("tachao_activity")} ${toastSub}`}
         {event?.tier === 2 && `${t("tachao_day")} ${t("tachao_day_sub")}`}
         {event?.tier === 3 && `${t("tachao_trip")} ${t("tachao_trip_sub")}`}
       </div>
@@ -76,7 +77,7 @@ export function CelebrationOverlay({ event, onDismiss, onNextDay }: Props) {
             </span>
             <span className="flex flex-col">
               <span className="text-sm font-black tracking-tight">{t("tachao_activity")}</span>
-              <span className="text-[11px] font-medium text-white/70">{t("tachao_activity_sub")}</span>
+              <span className="text-[11px] font-medium text-white/70">{toastSub}</span>
             </span>
           </motion.div>
         )}

@@ -9,6 +9,8 @@ export type CelebrationEvent = {
   tier: CelebrationTier;
   nextDayId?: string;
   activityTitle: string;
+  /** shopping: an item of the shopping list was bought (always a tier-1 toast). */
+  kind?: "shopping";
 };
 
 export type CompletionResult = {

@@ -9,7 +9,15 @@ type NearbyPlacesRequest = {
   name?: string;
 };
 
-type CandidatePlace = { name: string; area: string | null };
+/** Coordinates and categories let the shopping list match places to items and measure distance. */
+type CandidatePlace = {
+  name: string;
+  area: string | null;
+  address: string | null;
+  lat: number | null;
+  lon: number | null;
+  categories: string[];
+};
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -21,6 +29,10 @@ type GeoapifyFeature = {
     city?: string;
     district?: string;
     suburb?: string;
+    address_line2?: string;
+    lat?: number;
+    lon?: number;
+    categories?: unknown;
   };
 };
 
@@ -90,7 +102,14 @@ export async function POST(request: Request) {
       const key = `${displayName.toLowerCase()}|${(area ?? "").toLowerCase()}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      places.push({ name: displayName, area });
+      places.push({
+        name: displayName,
+        area,
+        address: typeof props?.address_line2 === "string" ? props.address_line2 : null,
+        lat: isFiniteNumber(props?.lat) ? props.lat : null,
+        lon: isFiniteNumber(props?.lon) ? props.lon : null,
+        categories: Array.isArray(props?.categories) ? props.categories.filter((c): c is string => typeof c === "string") : [],
+      });
     }
 
     return NextResponse.json({

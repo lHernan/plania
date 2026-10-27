@@ -39,6 +39,12 @@ describe("CelebrationOverlay — single activity", () => {
     expect(liveRegion().textContent).toBe("¡Tachao! ✨ Una experiencia más para el recuerdo");
   });
 
+  it("celebrates a bought shopping item with its name", () => {
+    renderOverlay({ id: 2, tier: 1, activityTitle: "Mojo picón", kind: "shopping" });
+    expect(screen.getAllByText("«Mojo picón» ya es tuyo").length).toBeGreaterThan(0);
+    expect(liveRegion().textContent).toBe("¡Tachao! ✨ «Mojo picón» ya es tuyo");
+  });
+
   it("dismisses itself after 1.8 seconds", () => {
     vi.useFakeTimers();
     const { onDismiss } = renderOverlay(event(1));

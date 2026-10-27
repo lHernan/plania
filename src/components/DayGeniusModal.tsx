@@ -21,7 +21,7 @@ import {
 import { useI18n } from "@/components/I18nProvider";
 import { OriginBadge } from "@/components/OriginBadge";
 import { useGeocodeCache } from "@/hooks/use-geocode-cache";
-import { supabase } from "@/lib/supabase";
+import { authHeaders } from "@/lib/auth-headers";
 import { getCurrentTripDateTime } from "@/lib/travel-context";
 import { buildGeniusContext, tripTimeZone, type Coords, type GeniusContext, type GeniusUnavailableReason } from "@/lib/day-genius/context";
 import { geniusConflicts, type GeniusChange, type GeniusRejection } from "@/lib/day-genius/validate";
@@ -61,13 +61,6 @@ type Status =
   | { kind: "unavailable"; reason: GeniusUnavailableReason | "offline" }
   | { kind: "failed" }
   | { kind: "ready"; context: GeniusContext; result: GeniusResult };
-
-async function authHeaders(): Promise<HeadersInit> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-  return headers;
-}
 
 export function DayGeniusModal({
   dayId,

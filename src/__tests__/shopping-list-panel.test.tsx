@@ -1,0 +1,230 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithI18n } from "./helpers/dom";
+import type { ShoppingItem, TripPlan } from "@/lib/types";
+
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    from: () => ({}),
+    auth: {
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      getSession: async () => ({ data: { session: { access_token: "fake-token" } } }),
+    },
+  },
+}));
+
+const { useItineraryStore } = await import("@/store/use-itinerary-store");
+const { ShoppingListPanel } = await import("@/components/ShoppingListPanel");
+
+const item = (id: string, name: string, extra: Partial<ShoppingItem> = {}): ShoppingItem => ({
+  id, name, category: "food", notes: null, preferred_cities: null, preferred_country: null, priority: "medium", status: "pending", ...extra,
+});
+
+const trip = (shoppingItems: ShoppingItem[]): TripPlan => ({
+  id: "t", name: "La Palma", criticalReservations: [], shoppingItems, ignoredShoppingSuggestionKeys: [], days: [],
+});
+
+const shoppingItems = () => useItineraryStore.getState().activeTrip!.shoppingItems;
+const setItems = (items: ShoppingItem[]) => useItineraryStore.setState({ activeTrip: { ...useItineraryStore.getState().activeTrip!, shoppingItems: items } });
+
+const addShoppingItems = vi.fn(async (items: ShoppingItem[]) => setItems([...shoppingItems(), ...items.map((i, n) => ({ ...i, id: `new${n}` }))]));
+const toggleShoppingItemStatus = vi.fn(async (id: string) =>
+  setItems(shoppingItems().map((i) => (i.id === id ? { ...i, status: i.status === "purchased" ? "pending" as const : "purchased" as const } : i))));
+const updateShoppingItem = vi.fn(async (id: string, patch: Partial<ShoppingItem>) => setItems(shoppingItems().map((i) => (i.id === id ? { ...i, ...patch } : i))));
+const removeShoppingItem = vi.fn();
+
+const fetchMock = vi.fn();
+const onToast = vi.fn();
+const onBought = vi.fn();
+const onNearbyPlaces = vi.fn();
+const onSelectItem = vi.fn();
+
+const render = () =>
+  renderWithI18n(
+    <ShoppingListPanel today="2026-10-28" selectedItemId={null} onSelectItem={onSelectItem} onToast={onToast} onBought={onBought} onNearbyPlaces={onNearbyPlaces} />,
+  );
+
+const parsed = {
+  ui: { input_mode: "textbox", input_placeholder: "", list_style: "todo", show_suggestions_card: false },
+  suggestions: [],
+  wishlist_items: [
+    item("", "Mojo picón", { shopCategories: ["commercial.supermarket"] }),
+    item("", "Recuerdo para la abuela", { category: "souvenir", shopCategories: ["commercial.gift_and_souvenir"] }),
+    item("", "Decoración de mesa", { category: "other" }),
+  ],
+};
+
+beforeEach(() => {
+  for (const mock of [addShoppingItems, toggleShoppingItemStatus, updateShoppingItem, removeShoppingItem, fetchMock, onToast, onBought, onNearbyPlaces, onSelectItem]) mock.mockClear();
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(async (url: string) => {
+    if (url === "/api/shopping-assistant") return new Response(JSON.stringify(parsed));
+    throw new Error(`unexpected ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  useItineraryStore.setState({ activeTrip: trip([]), addShoppingItems, toggleShoppingItemStatus, updateShoppingItem, removeShoppingItem });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  delete (window as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
+});
+
+/** Stands in for the browser's speech recognition; start/stop fire its own events. */
+class FakeRecognition {
+  static last: FakeRecognition | null = null;
+  lang = "";
+  continuous = false;
+  interimResults = false;
+  onstart: (() => void) | null = null;
+  onresult: ((event: { results: { transcript: string }[][] }) => void) | null = null;
+  onerror: ((event: { error: string }) => void) | null = null;
+  onend: (() => void) | null = null;
+  constructor() {
+    FakeRecognition.last = this;
+  }
+  start() {
+    this.onstart?.();
+  }
+  stop() {
+    this.onend?.();
+  }
+}
+
+const assistantBody = () => JSON.parse(fetchMock.mock.calls.find(([url]) => url === "/api/shopping-assistant")![1].body as string);
+
+describe("ShoppingListPanel", () => {
+  it("adds each thing of the text as its own item and shows translated categories, never OTHER", async () => {
+    render();
+    fireEvent.change(screen.getByRole("textbox", { name: /Qué quieres comprar/ }), { target: { value: "comprar mojo picon, recuerdo para la abuela y decoracion mesa" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+
+    expect(await screen.findByText("Recuerdo para la abuela")).toBeTruthy();
+    expect(assistantBody()).toMatchObject({ type: "wishlist_input", text: "comprar mojo picon, recuerdo para la abuela y decoracion mesa", lang: "es" });
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: "Bearer fake-token" });
+    expect(addShoppingItems).toHaveBeenCalledWith(parsed.wishlist_items);
+    expect(onToast).toHaveBeenCalledWith("Agregado: Mojo picón, Recuerdo para la abuela, Decoración de mesa");
+    expect(screen.getByText("Comida")).toBeTruthy();
+    expect(screen.getByText("Recuerdo")).toBeTruthy();
+    expect(screen.queryByText(/other/i)).toBeNull();
+    expect(screen.queryByText("Otro")).toBeNull();
+    expect((screen.getByRole("textbox", { name: /Qué quieres comprar/ }) as HTMLInputElement).value).toBe("");
+  });
+
+  it("dictates by voice like the timeline sync: listens, shows a countdown, then adds", async () => {
+    (window as unknown as { webkitSpeechRecognition: unknown }).webkitSpeechRecognition = FakeRecognition;
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dictar por voz" }));
+    act(() => FakeRecognition.last!.onresult?.({ results: [[{ transcript: "mojo picón recuerdo para la abuela" }]] }));
+    expect((screen.getByRole("textbox", { name: /Qué quieres comprar/ }) as HTMLInputElement).value).toBe("mojo picón recuerdo para la abuela");
+    expect(screen.getByRole("button", { name: "Dejar de escuchar" })).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(screen.getByText("Agregando en 2s")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    for (let second = 0; second < 4; second += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+    }
+    expect(assistantBody().text).toBe("mojo picón recuerdo para la abuela");
+  });
+
+  it("does not add dictated text on its own once the traveler edits it", async () => {
+    (window as unknown as { webkitSpeechRecognition: unknown }).webkitSpeechRecognition = FakeRecognition;
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render();
+    fireEvent.click(screen.getByRole("button", { name: "Dictar por voz" }));
+    act(() => FakeRecognition.last!.onresult?.({ results: [[{ transcript: "mojo" }]] }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Qué quieres comprar/ }), { target: { value: "mojo verde" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Agregando en/)).toBeNull();
+  });
+
+  it("edits a name inside the list, without a browser prompt", async () => {
+    const prompt = vi.spyOn(window, "prompt");
+    useItineraryStore.setState({ activeTrip: trip([item("s1", "Mojo pico")]) });
+    render();
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar «Mojo pico»" }));
+    const field = screen.getByRole("textbox", { name: "Editar artículo de compras" });
+    fireEvent.change(field, { target: { value: "Mojo picón" } });
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(updateShoppingItem).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar «Mojo pico»" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Editar artículo de compras" }), { target: { value: "Mojo picón" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(updateShoppingItem).toHaveBeenCalledWith("s1", { name: "Mojo picón" }));
+    expect(await screen.findByText("Mojo picón")).toBeTruthy();
+    expect(prompt).not.toHaveBeenCalled();
+  });
+
+  it("celebrates only when an item is checked as bought", async () => {
+    useItineraryStore.setState({ activeTrip: trip([item("s1", "Mojo picón")]) });
+    render();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mojo picón" }));
+    await waitFor(() => expect(onBought).toHaveBeenCalledWith("Mojo picón"));
+    await waitFor(() => expect((screen.getByRole("checkbox", { name: "Mojo picón" }) as HTMLInputElement).checked).toBe(true));
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mojo picón" }));
+    await waitFor(() => expect(toggleShoppingItemStatus).toHaveBeenCalledTimes(2));
+    expect(onBought).toHaveBeenCalledTimes(1);
+  });
+
+  it("with my location, finds nearby shops per item, warns when one is close and follows the traveler", async () => {
+    useItineraryStore.setState({
+      activeTrip: trip([
+        item("mojo", "Mojo picón", { shopCategories: ["commercial.marketplace"] }),
+        item("abuela", "Recuerdo para la abuela", { category: "souvenir", shopCategories: ["commercial.gift_and_souvenir"] }),
+      ]),
+    });
+    const mercado = { name: "Mercado de Santa Cruz", area: "Santa Cruz", address: null, lat: 28.6841, lon: -17.7648, categories: ["commercial.marketplace"] };
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ places: [mercado], attribution: "Powered by Geoapify / OpenStreetMap" })));
+    let watcher: (pos: GeolocationPosition) => void = () => undefined;
+    const at = (lat: number, lon: number) => ({ coords: { latitude: lat, longitude: lon } }) as GeolocationPosition;
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: (ok: PositionCallback) => ok(at(28.6835, -17.7642)),
+        watchPosition: (ok: PositionCallback) => {
+          watcher = ok;
+          return 7;
+        },
+        clearWatch: vi.fn(),
+      },
+    });
+    render();
+
+    fireEvent.click(screen.getByRole("button", { name: /Usar mi ubicación/ }));
+    expect(await screen.findByText("Mercado de Santa Cruz · 90 m")).toBeTruthy();
+    expect(screen.getByText("Estás a 90 m de Mercado de Santa Cruz: ahí podrías comprar «Mojo picón».")).toBeTruthy();
+    expect(onNearbyPlaces).toHaveBeenCalledWith([{ name: "Mercado de Santa Cruz", area: "Santa Cruz" }]);
+    expect(onToast).toHaveBeenCalledWith("Te avisaremos si pasas cerca de una tienda para tu lista (con la app abierta).");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    act(() => watcher(at(28.6837, -17.7642)));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    act(() => watcher(at(28.6900, -17.7642)));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    // The same shop is not announced twice the same day.
+    expect(screen.getAllByText(/ahí podrías comprar «Mojo picón»/)).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar aviso" }));
+    expect(screen.queryByText(/ahí podrías comprar/)).toBeNull();
+  });
+});
