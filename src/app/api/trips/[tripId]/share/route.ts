@@ -14,7 +14,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { notifyTripShare } from "@/lib/share/notify";
+import { scheduleTripShareNotification } from "@/lib/share/notify";
 import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
 
 export async function POST(
@@ -101,8 +101,8 @@ export async function POST(
       return NextResponse.json({ error: shareError.message }, { status: 500 });
     }
 
-    // Fire-and-forget: the invitation email never blocks or fails the share.
-    void notifyTripShare({
+    // After the response: the invitation email never blocks or fails the share.
+    scheduleTripShareNotification({
       tripId,
       tripName: (trip as { id: string; user_id: string; name?: string }).name ?? "tu viaje",
       inviteeEmail: email,

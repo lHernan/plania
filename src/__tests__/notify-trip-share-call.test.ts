@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { notifyTripShare } from "@/lib/share/notify";
+import { notifyTripShare, scheduleTripShareNotification } from "@/lib/share/notify";
 import { isAuthorizedCall } from "../../supabase/functions/notify-trip-share/email";
 
 const payload = { tripId: "t1", tripName: "La Palma", inviteeEmail: "ana@test.com", ownerEmail: "yo@test.com", shareUrl: "https://tachao.app/share/tok" };
@@ -31,6 +31,22 @@ describe("notifyTripShare (app side)", () => {
     vi.stubEnv("NOTIFY_TRIP_SHARE_SECRET", "");
     await notifyTripShare(payload);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("logs a refused call without exposing the secret", async () => {
+    vi.stubEnv("NOTIFY_TRIP_SHARE_SECRET", "s3cret");
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 401 }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await notifyTripShare(payload);
+    expect(warn).toHaveBeenCalledWith("notify-trip-share refused the invitation email: HTTP 401");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("s3cret");
+    warn.mockRestore();
+  });
+
+  it("still sends outside a request scope (scripts, tests)", async () => {
+    vi.stubEnv("NOTIFY_TRIP_SHARE_SECRET", "s3cret");
+    scheduleTripShareNotification(payload);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 
   it("never throws when the function is unreachable", async () => {
