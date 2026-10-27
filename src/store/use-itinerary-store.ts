@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
+import type { DayPlanOps } from "@/lib/day-genius/apply";
 import { removeCachedDocument } from "@/lib/offline-documents";
 import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
 import {
@@ -119,7 +120,6 @@ type Store = {
   dayScrollY: Record<string, number>;
   loading: boolean;
   isImporting: boolean;
-  isOptimizing: boolean;
   hasFetched: boolean;
   error: string | null;
   fetchAllTrips: () => Promise<void>;
@@ -170,7 +170,12 @@ type Store = {
   deleteActivityFile: (fileId: string) => Promise<void>;
   setFileFocusArea: (fileId: string, focusArea: FocusArea | null) => Promise<void>;
   setIsImporting: (status: boolean) => void;
-  optimizeDay: (dayId: string, lang?: string) => Promise<void>;
+  /**
+   * Applies the changes accepted from the day genius: field updates (time, duration, day,
+   * order) and new suggested activities. Never deletes. Online only; when an update fails,
+   * the updates already applied are restored.
+   */
+  applyDayPlan: (ops: DayPlanOps) => Promise<{ ok: true } | { ok: false; error: string }>;
   syncPendingMutations: () => Promise<void>;
 };
 
@@ -892,7 +897,6 @@ export const useItineraryStore = create<Store>((set, get) => {
     dayScrollY: {},
     loading: false,
     isImporting: false,
-    isOptimizing: false,
     hasFetched: false,
     error: null,
 
@@ -2211,77 +2215,50 @@ export const useItineraryStore = create<Store>((set, get) => {
 
     setIsImporting: (status) => set({ isImporting: status }),
 
-    optimizeDay: async (dayId, lang) => {
+    applyDayPlan: async (ops) => {
       const activeTrip = get().activeTrip;
-      const day = activeTrip?.days.find((item) => item.id === dayId);
-      if (!activeTrip || !day) return;
+      if (!activeTrip) return { ok: false, error: "No active trip" };
+      if (!isOnline()) return { ok: false, error: "offline" };
 
-      if (!isOnline()) {
-        await enqueueMutation("update", "activity_reorder", {
-          dayId,
-          orderedActivityIds: day.activities.map((activity) => activity.id),
-        });
-        return;
+      const originals = new Map(
+        activeTrip.days.flatMap((day) => day.activities.map((activity) => [activity.id, { activity, dayId: day.id }] as const))
+      );
+      const applied: string[] = [];
+      const restore = async () => {
+        for (const activityId of applied) {
+          const original = originals.get(activityId);
+          if (!original) continue;
+          await supabase.from("activities").update(mapActivityToDb({
+            dayId: original.dayId,
+            time: original.activity.time,
+            durationMin: original.activity.durationMin,
+            sort_order: original.activity.sort_order,
+          })).eq("id", activityId);
+        }
+      };
+
+      for (const update of ops.updates) {
+        // Only these fields: notes, links, files and every other detail stay as they are.
+        const { error } = await supabase.from("activities").update(mapActivityToDb(update.patch)).eq("id", update.activityId);
+        if (error) {
+          await restore();
+          await get().fetchActiveTrip(activeTrip.id, true);
+          return { ok: false, error: error.message };
+        }
+        applied.push(update.activityId);
       }
 
-      set({ isOptimizing: true, error: null });
-      try {
-        const response = await fetch("/api/optimize-day", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: day.date, activities: day.activities, lang }),
-        });
-
-        if (!response.ok) throw new Error(await response.text());
-        const data = (await response.json()) as { optimizedActivities: Activity[] };
-        // Confirmed bookings are context for the optimizer but are never deleted, moved or re-inserted.
-        const bookingIds = new Set(day.activities.filter((a) => a.origin === "booking").map((a) => a.id));
-        const movable = day.activities.filter((a) => !bookingIds.has(a.id));
-        const originById = new Map(movable.map((a) => [a.id, a.origin]));
-        const optimized = data.optimizedActivities.filter((a) => !bookingIds.has(a.id));
-
-        const oldIds = movable.map((activity) => activity.id);
-        if (oldIds.length > 0) {
-          await supabase.from("activities").delete().in("id", oldIds);
+      if (ops.additions.length > 0) {
+        const result = await get().addActivitiesBatch(ops.additions);
+        if (!result.ok) {
+          await restore();
+          await get().fetchActiveTrip(activeTrip.id, true);
+          return { ok: false, error: result.error };
         }
-
-        const { error: insertError } = await supabase.from("activities").insert(
-          withUniformOrigin(optimized.map((activity, index) => ({
-            ...mapActivityToDb({
-              ...activity,
-              origin: originById.get(activity.id),
-              booking: undefined,
-              dayId,
-              tripId: activeTrip.id,
-              userId: String(activeTrip.userId ?? ""),
-              sort_order: index,
-            }),
-            trip_id: activeTrip.id,
-            user_id: activeTrip.userId,
-            day_id: dayId,
-            sort_order: index,
-          })))
-        );
-
-        if (insertError && movable.length > 0) {
-          // Never leave the day emptied by a failed re-insert: put the originals back.
-          await supabase.from("activities").insert(
-            withUniformOrigin(movable.map((activity) => ({
-              ...mapActivityToDb(activity),
-              id: activity.id,
-              trip_id: activeTrip.id,
-              user_id: activeTrip.userId,
-            })))
-          );
-          set({ error: insertError.message });
-        }
-
-        await get().fetchActiveTrip(activeTrip.id, true);
-      } catch (error) {
-        set({ error: error instanceof Error ? error.message : "Failed to optimize day" });
-      } finally {
-        set({ isOptimizing: false });
       }
+
+      await get().fetchActiveTrip(activeTrip.id, true);
+      return { ok: true };
     },
 
     syncPendingMutations: async () => {

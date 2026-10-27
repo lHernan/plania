@@ -1,5 +1,6 @@
 import { anchorsFor, buildPlanningContext, toMinutes, toTime } from "@/lib/bookings/plan";
-import type { Activity, ActivityCategory, Priority, TripDay } from "@/lib/types";
+import { getCurrentTripDateTime } from "@/lib/travel-context";
+import type { Activity, ActivityCategory, Priority, TravelContext, TripDay } from "@/lib/types";
 
 /**
  * Pure context builder for "Day genius": it splits the day into what is fixed (confirmed
@@ -89,6 +90,26 @@ export function estimateTravel(from: Coords, to: Coords): Pick<TravelEstimate, "
     return { km, mode: "walk", minutes: Math.max(1, Math.ceil(((km * DETOUR_FACTOR) / WALK_KMH) * 60)) };
   }
   return { km, mode: "ride", minutes: Math.ceil(RIDE_OVERHEAD_MIN + ((km * DETOUR_FACTOR) / RIDE_KMH) * 60) };
+}
+
+const isValidZone = (zone: string | undefined): zone is string =>
+  !!zone && getCurrentTripDateTime(new Date(0), zone).timeZoneSource === "trip_context";
+
+/**
+ * Time zone of "now" for the trip: the travel context arrival, else the zone printed on a
+ * booking (flight arrival first), else the device's zone.
+ */
+export function tripTimeZone(trip: { travelContext?: TravelContext | null; days: TripDay[] }, deviceZone: string): string {
+  const fromContext = trip.travelContext?.arrival?.timeZone;
+  if (isValidZone(fromContext)) return fromContext;
+  for (const tripDay of trip.days) {
+    for (const activity of tripDay.activities) {
+      const booking = activity.origin === "booking" ? activity.booking : undefined;
+      const zone = booking?.end?.timeZone ?? booking?.start?.timeZone;
+      if (isValidZone(zone)) return zone;
+    }
+  }
+  return deviceZone;
 }
 
 export function buildGeniusContext(input: {

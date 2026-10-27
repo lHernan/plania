@@ -72,6 +72,7 @@ import { TripSwitcher } from "@/components/TripSwitcher";
 import { WalletPreviewModal } from "@/components/WalletPreviewModal";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { BookingImportModal } from "@/components/BookingImportModal";
+import { DayGeniusModal } from "@/components/DayGeniusModal";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -695,8 +696,6 @@ export function TripView() {
     updateShoppingItem,
     removeShoppingItem,
     ignoreShoppingSuggestion,
-    isOptimizing,
-    optimizeDay: runOptimizeDay,
     addTripDay,
     removeTripDay,
     updateTripDay,
@@ -711,6 +710,7 @@ export function TripView() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingImport, setShowBookingImport] = useState(false);
+  const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
@@ -1717,11 +1717,10 @@ export function TripView() {
                     <Plus size={12} /> {t("trip_view_add")}
                   </button>
                   <button
-                    onClick={() => runOptimizeDay(activeDayId, lang)}
-                    disabled={isOptimizing}
+                    onClick={() => setGeniusDayId(activeDayId)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
                   >
-                    {isOptimizing ? <div className="size-3 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={12} />}
+                    <Sparkles size={12} />
                     {t("day_genius")}
                   </button>
                   <button
@@ -2013,11 +2012,11 @@ export function TripView() {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
             <div className="space-y-3">
               <button
-                onClick={() => runOptimizeDay(activeDayId, lang)}
-                disabled={isOptimizing || isInvitee}
+                onClick={() => setGeniusDayId(activeDayId)}
+                disabled={isInvitee}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
               >
-                {isOptimizing ? <div className="size-4 border-2 border-[var(--color-accent-ai)]/20 border-t-[var(--color-accent-ai)] rounded-full animate-spin" /> : <Sparkles size={16} />}
+                <Sparkles size={16} />
                 {t("day_genius")} — {t("ai_route_optimization")}
               </button>
               <button
@@ -2664,6 +2663,15 @@ export function TripView() {
         onClose={() => setShowAuthModal(false)} 
         onShowToast={(msg) => showToast(msg)}
       />
+
+      {geniusDayId && activeTrip && !isInvitee && (
+        <DayGeniusModal
+          key={geniusDayId}
+          dayId={geniusDayId}
+          onClose={() => setGeniusDayId(null)}
+          onToast={(msg, type) => showToast(msg, type)}
+        />
+      )}
 
       {showBookingImport && activeTrip && !isInvitee && (
         <BookingImportModal
