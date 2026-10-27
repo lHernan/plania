@@ -71,6 +71,14 @@ describe("detectCodes without a native detector (zxing)", () => {
   it("finds nothing on a blank page", async () => {
     expect(await detectCodes(page(300, 300, {}))).toEqual([]);
   });
+
+  it("does not flood the console while looking (pages without codes are the normal case)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await detectCodes(page(300, 300, {}));
+    await detectCodes(page(600, 800, { qr: { value: "ABC", x: 40, y: 40, w: 240, h: 240 } }));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });
 
 describe("detectCodes with the browser's BarcodeDetector", () => {

@@ -81,10 +81,29 @@ function toLuminance(image: PageImage): Uint8ClampedArray {
 
 async function detectWithZxing(image: PageImage): Promise<DetectedCode[]> {
   const zxing = await import("@zxing/library");
-  const reader = new zxing.MultiFormatReader();
   const hints = new Map();
   hints.set(zxing.DecodeHintType.TRY_HARDER, true);
-  reader.setHints(hints);
+  // The readers one by one instead of MultiFormatReader: in 0.23 that one logs every normal
+  // "no code here" result as a console warning.
+  const readers = [
+    new zxing.QRCodeReader(),
+    new zxing.MultiFormatOneDReader(hints),
+    new zxing.DataMatrixReader(),
+    new zxing.PDF417Reader(),
+    new zxing.AztecCodeReader(),
+  ];
+  const decode = (bitmap: InstanceType<typeof zxing.BinaryBitmap>) => {
+    for (const reader of readers) {
+      try {
+        return reader.decode(bitmap, hints);
+      } catch {
+        // Not this kind of code: try the next reader.
+      } finally {
+        reader.reset();
+      }
+    }
+    return null;
+  };
 
   const luminance = toLuminance(image);
   const codes: DetectedCode[] = [];
@@ -92,13 +111,9 @@ async function detectWithZxing(image: PageImage): Promise<DetectedCode[]> {
   // barcode can be read again from rows outside its box, so repeats grow the painted band.
   let grown = 1;
   for (let attempt = 0; attempt < MAX_CODES * 2 && codes.length < MAX_CODES; attempt += 1) {
-    let result;
-    try {
-      const source = new zxing.RGBLuminanceSource(luminance, image.width, image.height);
-      result = reader.decode(new zxing.BinaryBitmap(new zxing.HybridBinarizer(source)));
-    } catch {
-      break; // NotFoundException: nothing (else) on the page.
-    }
+    const source = new zxing.RGBLuminanceSource(luminance, image.width, image.height);
+    const result = decode(new zxing.BinaryBitmap(new zxing.HybridBinarizer(source)));
+    if (!result) break; // Nothing (else) on the page.
     const points = result.getResultPoints().filter(Boolean);
     if (points.length === 0) break;
     const xs = points.map((p) => p.getX());
