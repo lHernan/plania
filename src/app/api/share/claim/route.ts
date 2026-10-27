@@ -2,8 +2,8 @@
  * POST /api/share/claim
  *
  * Grants the signed-in user every pending invitation sent to their email (share links created
- * with that email that are not revoked, expired or accepted yet). Called on sign-in, so an
- * invitee sees the shared trip without having to open the link. Idempotent.
+ * with that email, after the account existed, that are not revoked, expired or accepted yet).
+ * Called on sign-in, so an invitee sees the shared trip without having to open the link. Idempotent.
  */
 
 import { NextResponse } from "next/server";
@@ -25,15 +25,19 @@ export async function POST(request: Request) {
     // Links store the email lowercased; exact match, never a LIKE pattern.
     const { data: links, error } = await admin
       .from("trip_share_links")
-      .select("id, trip_id, role, email, expires_at, revoked_at")
+      .select("id, trip_id, role, email, expires_at, revoked_at, created_at")
       .eq("email", email)
       .is("revoked_at", null)
       .is("accepted_by", null);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const tripIds: string[] = [];
-    for (const link of (links ?? []) as ShareLinkRow[]) {
+    // Only invitations sent to an account that already existed: whoever signs up later with an
+    // invited address (sign-ups may be auto-confirmed) still needs the link from the email.
+    const accountCreatedAt = Date.parse(caller.created_at ?? "");
+    for (const link of (links ?? []) as (ShareLinkRow & { created_at?: string })[]) {
       if (isLinkExpired(link)) continue;
+      if (!(Date.parse(link.created_at ?? "") > accountCreatedAt)) continue;
       const granted = await grantShareLink(admin, link, caller.id);
       if (granted.ok && !granted.alreadyOwner && !tripIds.includes(granted.tripId)) tripIds.push(granted.tripId);
     }
