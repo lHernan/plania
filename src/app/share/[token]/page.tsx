@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight, Loader2, CheckCircle2, AlertCircle, Calendar, Clock } from "lucide-react";
@@ -96,7 +96,17 @@ export default function SharePage() {
     }
   };
 
-  if (loading) {
+  // A signed-in person (owner or invitee) is taken to the trip in the real app view;
+  // the read-only preview below is only for visitors without an account.
+  const signedIn = Boolean(user && !user.is_anonymous);
+  const autoAcceptTried = useRef(false);
+  useEffect(() => {
+    if (!info || !signedIn || autoAcceptTried.current) return;
+    autoAcceptTried.current = true;
+    void handleAccept();
+  });
+
+  if (loading || (signedIn && info && !error)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
         <div className="size-10 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
