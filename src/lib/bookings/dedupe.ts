@@ -15,6 +15,8 @@ type Comparable = {
   provider?: string;
   startDate?: string;
   startTime?: string;
+  from?: string;
+  to?: string;
   sha256?: string;
 };
 
@@ -30,12 +32,23 @@ function fromCandidate(b: ExtractedBooking): Comparable {
     provider: normalize(b.provider) || undefined,
     startDate: b.start?.date,
     startTime: b.start?.time,
+    from: normalize(b.from) || undefined,
+    to: normalize(b.to) || undefined,
     sha256: b.source?.sha256,
   };
 }
 
+/**
+ * One booking reference can cover several segments (outbound and return, connections): it is
+ * the same booking only when the date and route, where both sides have them, also match.
+ */
+function sameSegment(a: Comparable, b: Comparable): boolean {
+  const differs = (x?: string, y?: string) => Boolean(x && y && x !== y);
+  return !differs(a.startDate, b.startDate) && !differs(a.from, b.from) && !differs(a.to, b.to);
+}
+
 function matchReason(a: Comparable, b: Comparable, compareFiles: boolean): BookingDuplicate["reason"] | null {
-  if (a.type === b.type && a.reference && a.reference === b.reference) return "reference";
+  if (a.type === b.type && a.reference && a.reference === b.reference && sameSegment(a, b)) return "reference";
   if (compareFiles && a.sha256 && a.sha256 === b.sha256) return "same_file";
   const comparableDetails = !(a.reference && b.reference);
   if (
@@ -52,7 +65,8 @@ function matchReason(a: Comparable, b: Comparable, compareFiles: boolean): Booki
 
 /**
  * Flags candidates that duplicate an already-saved booking activity or an earlier candidate in the
- * same batch. Matches by reference, file hash (existing only) or type+provider+start; never by file name.
+ * same batch. Matches by reference (same segment), file hash (existing only) or type+provider+start;
+ * never by file name.
  */
 export function findBookingDuplicates(
   candidates: ExtractedBooking[],
@@ -67,6 +81,8 @@ export function findBookingDuplicates(
       provider: normalize(a.booking!.provider) || undefined,
       startDate: a.booking!.start?.date,
       startTime: a.booking!.start?.time,
+      from: normalize(a.booking!.from) || undefined,
+      to: normalize(a.booking!.to) || undefined,
       sha256: a.booking!.source?.sha256,
     }));
 

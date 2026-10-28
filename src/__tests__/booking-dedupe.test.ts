@@ -93,6 +93,33 @@ describe("findBookingDuplicates", () => {
     expect(result).toEqual({});
   });
 
+  it("keeps outbound and return apart even with the same booking reference", () => {
+    // One Iberia booking (same locator) per passenger: BOG→MAD and MAD→BOG in each PDF.
+    const outbound = { reference: "XK7Q2P", from: "BOG", to: "MAD", start: { date: "2026-12-10", time: "19:35" } };
+    const back = { reference: "XK7Q2P", from: "MAD", to: "BOG", start: { date: "2027-01-08", time: "12:05" } };
+    const file = (n: number) => ({ fileName: `pasajero-${n}.pdf`, sha256: `${FAKE_SHA.slice(0, -1)}${n}` });
+    const result = findBookingDuplicates(
+      [
+        candidate("p1-out", { ...outbound, source: file(1) }),
+        candidate("p1-back", { ...back, source: file(1) }),
+        candidate("p2-out", { ...outbound, source: file(2) }),
+        candidate("p2-back", { ...back, source: file(2) }),
+      ],
+      [],
+    );
+    expect(result).toEqual({
+      "p2-out": { kind: "batch", matchId: "p1-out", reason: "reference" },
+      "p2-back": { kind: "batch", matchId: "p1-back", reason: "reference" },
+    });
+  });
+
+  it("does not take a saved flight of the same booking for its return", () => {
+    expect(findBookingDuplicates(
+      [candidate("c1", { reference: "XK7Q2P", from: "MAD", to: "BOG", start: { date: "2027-01-08", time: "12:05" } })],
+      [existing("a1", { reference: "XK7Q2P", from: "BOG", to: "MAD", start: { date: "2026-12-10", time: "19:35" } })],
+    )).toEqual({});
+  });
+
   it("ignores activities without booking details", () => {
     const manual: Activity = { ...existing("a1", {}), booking: undefined, origin: "manual" };
     expect(findBookingDuplicates([candidate("c1", { reference: "R" })], [manual])).toEqual({});
