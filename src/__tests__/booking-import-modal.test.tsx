@@ -212,7 +212,7 @@ describe("BookingImportModal", () => {
     expect(within(screen.getByTestId("file-row-coche.pdf")).getByText("Reservas detectadas: 1")).toBeTruthy();
     expect(within(screen.getByTestId("file-row-coche.pdf")).getByText(/solo se analizó la primera parte/)).toBeTruthy();
     expect(within(screen.getByTestId("file-row-roto.pdf")).getByText("No es un PDF válido o está dañado.")).toBeTruthy();
-    expect(pdf.maxInFlight).toBeLessThanOrEqual(2);
+    expect(pdf.maxInFlight).toBeLessThanOrEqual(3);
     expect(fetchCalls("/api/bookings/extract")).toHaveLength(2);
     const [, init] = fetchCalls("/api/bookings/extract")[0];
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer fake-token");

@@ -21,7 +21,8 @@ import { BookingReviewCard } from "@/components/booking-import/BookingReviewCard
 import { PlanStep } from "@/components/booking-import/PlanStep";
 import type { FileErrorCode } from "@/components/booking-import/labels";
 
-const CONCURRENCY = 2;
+/** Three at once: a trip often brings one document per traveler, and the AI answer takes many seconds. */
+const CONCURRENCY = 3;
 const MIGRATION_FILE = "src/lib/booking_import_migration.sql";
 
 type Step = "files" | "review" | "plan";
