@@ -1,4 +1,4 @@
-import type { ActivityCategory, BookingDetails, BookingField, BookingMoment, BookingRole, BookingType, TripDay } from "@/lib/types";
+import type { ActivityCategory, BookingDetails, BookingField, BookingMoment, BookingRole, BookingType, TripDay, BookingPassenger } from "@/lib/types";
 import type { NewActivity } from "@/store/use-itinerary-store";
 import type { ExtractedBooking } from "./extract";
 import { minutesBetween } from "./timezone";
@@ -12,6 +12,9 @@ const WORDS: Record<Lang, {
   roles: Partial<Record<BookingRole, string>>;
   reference: string;
   provider: string;
+  passengers: string;
+  seat: string;
+  ticket: string;
 }> = {
   es: {
     types: {
@@ -28,6 +31,9 @@ const WORDS: Record<Lang, {
     roles: { check_in: "Check-in", check_out: "Check-out", pickup: "Recogida", dropoff: "Devolución" },
     reference: "Localizador",
     provider: "Proveedor",
+    passengers: "Pasajeros",
+    seat: "asiento",
+    ticket: "billete",
   },
   en: {
     types: {
@@ -44,6 +50,9 @@ const WORDS: Record<Lang, {
     roles: { check_in: "Check-in", check_out: "Check-out", pickup: "Pickup", dropoff: "Return" },
     reference: "Reference",
     provider: "Provider",
+    passengers: "Passengers",
+    seat: "seat",
+    ticket: "ticket",
   },
 };
 
@@ -105,6 +114,15 @@ function plansFor(b: ExtractedBooking): Plan[] {
   }
 }
 
+/** "Pasajeros:" and one line per traveler, so the whole group is at hand if something goes wrong. */
+export function passengerNotes(passengers: BookingPassenger[] | undefined, lang: Lang): string {
+  if (!passengers?.length) return "";
+  const words = WORDS[lang];
+  const line = (p: BookingPassenger) =>
+    ["- " + p.name, p.seat ? `${words.seat} ${p.seat}` : "", p.ticket ? `${words.ticket} ${p.ticket}` : ""].filter(Boolean).join(" · ");
+  return [`${words.passengers}:`, ...passengers.map(line)].join("\n");
+}
+
 function buildNotes(b: ExtractedBooking, lang: Lang): string | undefined {
   const words = WORDS[lang];
   const lines = [
@@ -112,6 +130,7 @@ function buildNotes(b: ExtractedBooking, lang: Lang): string | undefined {
     b.provider ? `${words.provider}: ${b.provider}` : "",
     b.from && b.to ? `${b.from} → ${b.to}` : "",
     b.details ?? "",
+    passengerNotes(b.passengers, lang),
   ].filter(Boolean);
   return lines.length ? lines.join("\n") : undefined;
 }

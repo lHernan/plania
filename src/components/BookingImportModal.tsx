@@ -12,6 +12,7 @@ import {
   buildBookingActivities,
   confirmBlockers,
   createReviewItems,
+  passengersPatch,
   type ReviewItem,
 } from "@/lib/bookings/import-session";
 import { bookingToActivities } from "@/lib/bookings/to-activities";
@@ -21,7 +22,8 @@ import { BookingReviewCard } from "@/components/booking-import/BookingReviewCard
 import { PlanStep } from "@/components/booking-import/PlanStep";
 import type { FileErrorCode } from "@/components/booking-import/labels";
 
-const CONCURRENCY = 2;
+/** Three at once: a trip often brings one document per traveler, and the AI answer takes many seconds. */
+const CONCURRENCY = 3;
 const MIGRATION_FILE = "src/lib/booking_import_migration.sql";
 
 type Step = "files" | "review" | "plan";
@@ -66,6 +68,7 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
   const activeTrip = useItineraryStore((s) => s.activeTrip);
   const addActivitiesBatch = useItineraryStore((s) => s.addActivitiesBatch);
   const uploadActivityFile = useItineraryStore((s) => s.uploadActivityFile);
+  const patchActivity = useItineraryStore((s) => s.patchActivity);
 
   const [step, setStep] = useState<Step>("files");
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -74,7 +77,7 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<{ count: number; uploadFailures: number } | null>(null);
+  const [saved, setSaved] = useState<{ count: number; attached: number; uploadFailures: number } | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   // Files, results and object URLs live in refs: they never leave the browser before confirm.
@@ -221,7 +224,17 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
       existing,
     );
     // Returning to the files step must not lose the edits already made.
-    setItems((previous) => fresh.map((item) => previous.find((p) => p.id === item.id) ?? item));
+    // Earlier edits are kept, but the grouped travelers come from this review (files may have been added).
+    setItems((previous) =>
+      fresh.map((item) => {
+        const kept = previous.find((p) => p.id === item.id);
+        if (!kept) return item;
+        const booking = { ...kept.booking };
+        if (item.booking.passengers) booking.passengers = item.booking.passengers;
+        else delete booking.passengers;
+        return { ...kept, booking, duplicate: item.duplicate, attachTo: item.attachTo };
+      }),
+    );
     setSaveError(null);
     setStep("review");
   };
@@ -233,7 +246,9 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
   };
   const blockers = useMemo(() => confirmBlockers(items, days), [items, days]);
   const includedCount = items.filter((i) => i.included).length;
-  const confirmable = includedCount > 0 && blockers.length === 0;
+  // Documents of bookings already in the trip (boarding passes): attached to those flights.
+  const attachCount = new Set(items.filter((i) => !i.included && i.attachTo).map((i) => i.fileId)).size;
+  const confirmable = (includedCount > 0 || attachCount > 0) && blockers.length === 0;
   const doubtCount = blockers.filter((b) => b.reason === "doubts").length;
   const outsideCount = blockers.filter((b) => b.reason === "outside_trip").length;
 
@@ -241,8 +256,9 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
     if (!confirmable || saving) return;
     setSaving(true);
     setSaveError(null);
-    const { activities, uploads } = buildBookingActivities(items, days, lang === "es" ? "es" : "en");
-    const result = await addActivitiesBatch(activities);
+    const noteLang = lang === "es" ? "es" : "en";
+    const { activities, uploads, attachments } = buildBookingActivities(items, days, noteLang);
+    const result = activities.length > 0 ? await addActivitiesBatch(activities) : { ok: true as const, ids: [] as string[] };
     if (!result.ok) {
       setSaving(false);
       const message = result.error === "offline"
@@ -266,8 +282,28 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
         uploadFailures += 1;
       }
     }
+    let attached = 0;
+    for (const attachment of attachments) {
+      const file = blobs.current.get(attachment.fileId);
+      const trip = useItineraryStore.getState().activeTrip;
+      const day = trip?.days.find((d) => d.activities.some((a) => a.id === attachment.activityId));
+      const activity = day?.activities.find((a) => a.id === attachment.activityId);
+      if (!file || !day || !activity) continue;
+      const before = useItineraryStore.getState().error;
+      try {
+        await uploadActivityFile(activity.id, file);
+        // Read from the store each time: several boarding passes for one flight add up.
+        const patch = attachment.passengers ? passengersPatch(activity, attachment.passengers, noteLang) : null;
+        if (patch) await patchActivity(day.id, activity.id, patch);
+        const after = useItineraryStore.getState().error;
+        if (after && after !== before) uploadFailures += 1;
+        else attached += 1;
+      } catch {
+        uploadFailures += 1;
+      }
+    }
     setSaving(false);
-    setSaved({ count: activities.length, uploadFailures });
+    setSaved({ count: activities.length, attached, uploadFailures });
     setStep("plan");
   };
 
@@ -451,7 +487,8 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
             <div className="space-y-5">
               <div className="rounded-2xl bg-[var(--color-primary-subtle)] p-4">
                 <p className="text-base font-black text-[var(--color-primary)]">{t("booking_import_saved_title")}</p>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("booking_import_saved_body", { count: saved.count })}</p>
+                {saved.count > 0 && <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("booking_import_saved_body", { count: saved.count })}</p>}
+                {saved.attached > 0 && <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("booking_import_saved_attached", { count: saved.attached })}</p>}
                 {saved.uploadFailures > 0 && (
                   <p role="status" className="mt-2 text-xs font-bold text-[var(--color-warning)]">{t("booking_import_upload_warning", { count: saved.uploadFailures })}</p>
                 )}
@@ -488,7 +525,7 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
             <div className="space-y-2">
               {!confirmable && (
                 <p className="text-xs text-[var(--color-text-secondary)]" data-testid="confirm-blocked-reason">
-                  {includedCount === 0
+                  {includedCount === 0 && attachCount === 0
                     ? t("booking_import_confirm_none")
                     : [
                         doubtCount ? t("booking_import_confirm_doubts", { count: doubtCount }) : "",
@@ -502,7 +539,11 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
                 disabled={!confirmable || saving}
                 className="min-h-[48px] w-full rounded-xl bg-[var(--color-primary)] px-4 text-sm font-black text-white disabled:opacity-50"
               >
-                {saving ? t("booking_import_saving") : t("booking_import_confirm", { count: includedCount })}
+                {saving
+                  ? t("booking_import_saving")
+                  : includedCount === 0
+                    ? t("booking_import_confirm_attach", { count: attachCount })
+                    : t("booking_import_confirm", { count: includedCount })}
               </button>
             </div>
           ) : (
