@@ -224,7 +224,17 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
       existing,
     );
     // Returning to the files step must not lose the edits already made.
-    setItems((previous) => fresh.map((item) => previous.find((p) => p.id === item.id) ?? item));
+    // Earlier edits are kept, but the grouped travelers come from this review (files may have been added).
+    setItems((previous) =>
+      fresh.map((item) => {
+        const kept = previous.find((p) => p.id === item.id);
+        if (!kept) return item;
+        const booking = { ...kept.booking };
+        if (item.booking.passengers) booking.passengers = item.booking.passengers;
+        else delete booking.passengers;
+        return { ...kept, booking, duplicate: item.duplicate, attachTo: item.attachTo };
+      }),
+    );
     setSaveError(null);
     setStep("review");
   };
@@ -272,6 +282,7 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
         uploadFailures += 1;
       }
     }
+    let attached = 0;
     for (const attachment of attachments) {
       const file = blobs.current.get(attachment.fileId);
       const trip = useItineraryStore.getState().activeTrip;
@@ -281,16 +292,18 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
       const before = useItineraryStore.getState().error;
       try {
         await uploadActivityFile(activity.id, file);
+        // Read from the store each time: several boarding passes for one flight add up.
         const patch = attachment.passengers ? passengersPatch(activity, attachment.passengers, noteLang) : null;
         if (patch) await patchActivity(day.id, activity.id, patch);
         const after = useItineraryStore.getState().error;
         if (after && after !== before) uploadFailures += 1;
+        else attached += 1;
       } catch {
         uploadFailures += 1;
       }
     }
     setSaving(false);
-    setSaved({ count: activities.length, attached: attachments.length, uploadFailures });
+    setSaved({ count: activities.length, attached, uploadFailures });
     setStep("plan");
   };
 

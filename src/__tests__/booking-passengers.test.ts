@@ -103,9 +103,31 @@ describe("a boarding pass for a flight already in the trip", () => {
     const { activities, uploads, attachments } = buildBookingActivities(items, days, "es");
     expect(activities).toEqual([]);
     expect(uploads).toEqual([]);
-    expect(attachments).toEqual([
-      { fileId: "pass-1", activityId: "act-flight", passengers: [{ name: "Ana García", seat: "14C" }, { name: "Luis García", seat: "14D" }] },
+    expect(attachments).toEqual([{ fileId: "pass-1", activityId: "act-flight", passengers: [{ name: "Luis García", seat: "14D" }] }]);
+  });
+
+  it("lets several boarding passes of one flight add up instead of replacing each other", () => {
+    const ana = { fileId: "pass-ana", bookings: [passengerPdf(5, "Sofía García", ["14E", "22C"]).bookings[0]] };
+    const { attachments } = buildBookingActivities(createReviewItems([pass, ana], [saved]), days, "es");
+    // Each attachment carries only its own travelers; they are combined with the flight at save time.
+    expect(attachments.map((a) => [a.fileId, a.passengers?.map((p) => p.name)])).toEqual([
+      ["pass-1", ["Luis García"]],
+      ["pass-ana", ["Sofía García"]],
     ]);
+    let flight = saved;
+    for (const attachment of attachments) {
+      const patch = passengersPatch(flight, attachment.passengers ?? [], "es");
+      if (patch) flight = { ...flight, ...patch } as Activity;
+    }
+    expect(flight.booking?.passengers?.map((p) => p.name)).toEqual(["Ana García", "Luis García", "Sofía García"]);
+  });
+
+  it("does not attach again the very PDF the flight was imported from", () => {
+    const sameFile = { fileId: "again", bookings: [{ ...pass.bookings[0], source: { fileName: "orig.pdf", sha256: SHA(7) } }] };
+    const imported = { ...saved, booking: { ...saved.booking!, source: { fileName: "orig.pdf", sha256: SHA(7) } } };
+    const items = createReviewItems([sameFile], [imported]);
+    expect(items[0].attachTo).toBeUndefined();
+    expect(buildBookingActivities(items, days, "es").attachments).toEqual([]);
   });
 
   it("does not attach when the traveler chose to import it as its own booking", () => {
@@ -127,6 +149,12 @@ describe("passengersPatch", () => {
     const patch = passengersPatch(flight, [{ name: "Ana García", seat: "14C" }, { name: "Luis García", seat: "14D" }], "es");
     expect(patch?.booking?.passengers).toHaveLength(2);
     expect(patch?.notes).toBe(["Localizador: XK7Q2P", "Terminal 1", "Pasajeros:", "- Ana García · asiento 14C", "- Luis García · asiento 14D"].join(NL));
+  });
+
+  it("keeps bullets the traveler wrote after the passenger list", () => {
+    const withBullet = { ...flight, notes: ["Pasajeros:", "- Ana García · asiento 14C", "- recordar maleta"].join(NL) };
+    const patch = passengersPatch(withBullet, [{ name: "Luis García" }], "es");
+    expect(patch?.notes).toBe(["- recordar maleta", "Pasajeros:", "- Ana García · asiento 14C", "- Luis García"].join(NL));
   });
 
   it("changes nothing when nobody new comes along", () => {

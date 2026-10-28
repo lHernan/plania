@@ -471,4 +471,17 @@ describe("BookingImportModal", () => {
     }));
     expect(await screen.findByText("Documentos adjuntados a reservas de tu viaje: 1.")).toBeTruthy();
   });
+
+  it("adds the travelers of a document added after the first review", async () => {
+    renderModal();
+    await selectFiles(["ana.pdf", "luis.pdf"]);
+    fireEvent.click(screen.getByRole("button", { name: "Revisar reservas" }));
+    expect(within(screen.getByTestId("booking-card-11111111-0")).getByText("Ana García (14C), Luis García (14D)")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a los documentos" }));
+    fireEvent.change(screen.getByLabelText("Documentos PDF de tus reservas"), { target: { files: [pdfFile("sofia.pdf")] } });
+    await waitFor(() => expect(screen.getAllByText(/^Reservas detectadas/)).toHaveLength(3));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar reservas" }));
+    expect(within(screen.getByTestId("booking-card-11111111-0")).getByText("Ana García (14C), Luis García (14D), Sofía García (14E)")).toBeTruthy();
+  });
 });

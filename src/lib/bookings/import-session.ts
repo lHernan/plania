@@ -21,7 +21,8 @@ export type ReviewItem = {
   duplicate?: BookingDuplicate;
   /**
    * The same flight is already in the trip (e.g. a boarding pass after the booking): its PDF is
-   * attached there and the passengers are combined, unless the traveler includes it on its own.
+   * attached there and its own passengers are added to the flight's (combined at save time, so
+   * several boarding passes add up), unless the traveler includes it on its own.
    */
   attachTo?: { activityId: string; passengers?: BookingPassenger[] };
 };
@@ -64,7 +65,10 @@ export function createReviewItems(
   const duplicates = findBookingDuplicates(all.map((x) => x.booking), existingActivities);
   const items: ReviewItem[] = all.map(({ fileId, booking }) => {
     const duplicate = duplicates[booking.id];
-    const existing = duplicate?.kind === "existing" ? existingActivities.find((a) => a.id === duplicate.matchId) : undefined;
+    const match = duplicate?.kind === "existing" ? existingActivities.find((a) => a.id === duplicate.matchId) : undefined;
+    // The very PDF the flight came from is not attached a second time.
+    const sameFile = Boolean(match?.booking?.source?.sha256 && match.booking.source.sha256 === booking.source?.sha256);
+    const existing = sameFile ? undefined : match;
     return {
       id: booking.id,
       fileId,
@@ -72,7 +76,7 @@ export function createReviewItems(
       included: !duplicate,
       ...(duplicate ? { duplicate } : {}),
       ...(existing
-        ? { attachTo: { activityId: existing.id, passengers: mergePassengers(existing.booking?.passengers, booking.passengers) } }
+        ? { attachTo: { activityId: existing.id, ...(booking.passengers?.length ? { passengers: booking.passengers } : {}) } }
         : {}),
     };
   });
@@ -268,19 +272,19 @@ export function proposalsToActivities(accepted: Proposal[], days: TripDay[]): Ne
   return activities;
 }
 
-const PASSENGER_BLOCK = /(^|\n)(Pasajeros|Passengers):\n(- [^\n]*(\n|$))*/;
-
 /**
- * The patch that puts the combined passengers on a flight already in the trip: in its booking and
- * in its notes (the old passenger list in the notes is replaced, the rest of the notes is kept).
+ * The patch that adds travelers to a flight already in the trip: in its booking and in its
+ * notes (the passenger list the app wrote is replaced; anything the traveler wrote is kept).
+ * Null when nobody new comes along.
  */
-export function passengersPatch(activity: Activity, passengers: BookingPassenger[], lang: Lang): Partial<Activity> | null {
-  if (!activity.booking || passengers.length === 0) return null;
+export function passengersPatch(activity: Activity, newcomers: BookingPassenger[], lang: Lang): Partial<Activity> | null {
+  if (!activity.booking || newcomers.length === 0) return null;
   const current = activity.booking.passengers ?? [];
-  if (current.length === passengers.length && current.every((p, i) => p.name === passengers[i].name && p.seat === passengers[i].seat && p.ticket === passengers[i].ticket)) {
-    return null;
-  }
-  const rest = (activity.notes ?? "").replace(PASSENGER_BLOCK, "$1").trim();
-  const notes = [rest, passengerNotes(passengers, lang)].filter(Boolean).join("\n");
-  return { booking: { ...activity.booking, passengers }, notes };
+  const passengers = mergePassengers(current, newcomers);
+  const unchanged = current.length === passengers.length && current.every((p, i) => p.seat === passengers[i].seat && p.ticket === passengers[i].ticket);
+  if (unchanged) return null;
+  const oldBlock = passengerNotes(current, lang);
+  const notes = activity.notes ?? "";
+  const rest = (oldBlock && notes.includes(oldBlock) ? notes.replace(oldBlock, "") : notes).replace(/\n{2,}/g, "\n").trim();
+  return { booking: { ...activity.booking, passengers }, notes: [rest, passengerNotes(passengers, lang)].filter(Boolean).join("\n") };
 }
