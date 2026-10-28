@@ -62,19 +62,20 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // A one-click sign-in that lands on the share link (the redirect URL must be allowed in
-    // Supabase Auth). For an email without an account, Supabase turns this into a sign-up link
-    // and creates the account (as this function always did); the link confirms it.
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "magiclink",
-      email: inviteeEmail,
-      options: { redirectTo: inviteUrl },
-    });
-    if (linkError) console.error("generateLink error:", linkError.message);
-    const signInLink = linkData?.properties?.action_link ?? null;
-
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (RESEND_API_KEY) {
+      // A one-click sign-in that lands on the share link (the redirect URL must be allowed in
+      // Supabase Auth). For an email without an account, Supabase turns this into a sign-up link
+      // and creates the account (as this function always did); the link confirms it.
+      // Only here: generating a link counts as the user's one-per-minute sign-in request.
+      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: "magiclink",
+        email: inviteeEmail,
+        options: { redirectTo: inviteUrl },
+      });
+      if (linkError) console.error("generateLink error:", linkError.message);
+      const signInLink = linkData?.properties?.action_link ?? null;
+
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -97,16 +98,14 @@ serve(async (req: Request) => {
           headers: { "Content-Type": "application/json" },
         });
       }
-    } else if (signInLink) {
+    } else {
       // Without Resend, the project's own mailer sends its magic-link email, which lands on the
-      // share link too (a confirmation email when generateLink just created the account).
+      // share link too (a sign-up confirmation email for an address without an account).
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: inviteeEmail,
-        options: { emailRedirectTo: inviteUrl, shouldCreateUser: false },
+        options: { emailRedirectTo: inviteUrl, shouldCreateUser: true },
       });
       if (otpError) console.error("Magic link email error:", otpError.message);
-    } else {
-      console.warn("No email sent: RESEND_API_KEY is not set and no sign-in link could be generated.");
     }
 
     return new Response(JSON.stringify({ success: true }), {
