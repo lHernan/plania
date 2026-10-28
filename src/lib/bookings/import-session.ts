@@ -1,10 +1,10 @@
-import type { Activity, ActivityCategory, BookingField, BookingMoment, TripDay } from "@/lib/types";
+import type { Activity, ActivityCategory, BookingField, BookingMoment, BookingPassenger, TripDay } from "@/lib/types";
 import type { NewActivity } from "@/store/use-itinerary-store";
 import type { ExtractedBooking } from "./extract";
 import { findBookingDuplicates, type BookingDuplicate } from "./dedupe";
 import type { Proposal } from "./plan";
 import { isValidIsoDate, isValidTime, isValidTimeZone, minutesBetween } from "./timezone";
-import { bookingToActivities } from "./to-activities";
+import { bookingToActivities, passengerNotes } from "./to-activities";
 
 /**
  * Pure review-state helpers for "Import bookings": nothing here persists anything. The modal keeps
@@ -19,6 +19,11 @@ export type ReviewItem = {
   booking: ExtractedBooking;
   included: boolean;
   duplicate?: BookingDuplicate;
+  /**
+   * The same flight is already in the trip (e.g. a boarding pass after the booking): its PDF is
+   * attached there and the passengers are combined, unless the traveler includes it on its own.
+   */
+  attachTo?: { activityId: string; passengers?: BookingPassenger[] };
 };
 
 export type EditError = "invalid_date" | "invalid_time" | "invalid_time_zone" | "required";
@@ -33,22 +38,52 @@ const CATEGORIES: readonly ActivityCategory[] = [
   "sightseeing", "reservation", "transport", "hotel", "food", "shopping", "photos", "nightlife", "other",
 ];
 
+const nameKey = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
+
+/** Everyone on both lists, once each; a seat or ticket only one side knows is kept. */
+export function mergePassengers(a: BookingPassenger[] = [], b: BookingPassenger[] = []): BookingPassenger[] {
+  const merged = a.map((p) => ({ ...p }));
+  for (const passenger of b) {
+    const same = merged.find((p) => nameKey(p.name) === nameKey(passenger.name));
+    if (!same) merged.push({ ...passenger });
+    else {
+      same.seat ??= passenger.seat;
+      same.ticket ??= passenger.ticket;
+      if (!same.seat) delete same.seat;
+      if (!same.ticket) delete same.ticket;
+    }
+  }
+  return merged;
+}
+
 export function createReviewItems(
   results: { fileId: string; bookings: ExtractedBooking[] }[],
   existingActivities: Activity[],
 ): ReviewItem[] {
   const all = results.flatMap((r) => r.bookings.map((booking) => ({ fileId: r.fileId, booking })));
   const duplicates = findBookingDuplicates(all.map((x) => x.booking), existingActivities);
-  return all.map(({ fileId, booking }) => {
+  const items: ReviewItem[] = all.map(({ fileId, booking }) => {
     const duplicate = duplicates[booking.id];
+    const existing = duplicate?.kind === "existing" ? existingActivities.find((a) => a.id === duplicate.matchId) : undefined;
     return {
       id: booking.id,
       fileId,
       booking: { ...booking, warnings: [...booking.warnings], fieldStatus: { ...booking.fieldStatus } },
       included: !duplicate,
       ...(duplicate ? { duplicate } : {}),
+      ...(existing
+        ? { attachTo: { activityId: existing.id, passengers: mergePassengers(existing.booking?.passengers, booking.passengers) } }
+        : {}),
     };
   });
+
+  // One document per traveler of the same booking: the first one carries everybody.
+  for (const item of items) {
+    if (item.duplicate?.kind !== "batch" || item.duplicate.reason !== "reference" || !item.booking.passengers?.length) continue;
+    const kept = items.find((other) => other.id === item.duplicate!.matchId);
+    if (kept) kept.booking = { ...kept.booking, passengers: mergePassengers(kept.booking.passengers, item.booking.passengers) };
+  }
+  return items;
 }
 
 function withConfirmed(booking: ExtractedBooking, fields: BookingField[]): ExtractedBooking {
@@ -169,23 +204,42 @@ export function canConfirm(items: ReviewItem[], days: TripDay[]): boolean {
   return items.some((i) => i.included) && confirmBlockers(items, days).length === 0;
 }
 
-/** Activities for every included booking, plus the first activity of each file (its PDF is uploaded there, once). */
+export type BookingAttachment = { fileId: string; activityId: string; passengers?: BookingPassenger[] };
+
+/**
+ * Activities for every included booking, and where each PDF goes (once per file): the first
+ * activity of its own booking, the flight a grouped traveler's booking was merged into, or a
+ * flight already in the trip (`attachments`).
+ */
 export function buildBookingActivities(
   items: ReviewItem[],
   days: TripDay[],
   lang: Lang,
-): { activities: NewActivity[]; uploads: { fileId: string; activityIndex: number }[] } {
+): { activities: NewActivity[]; uploads: { fileId: string; activityIndex: number }[]; attachments: BookingAttachment[] } {
   const activities: NewActivity[] = [];
   const uploads: { fileId: string; activityIndex: number }[] = [];
+  const attachments: BookingAttachment[] = [];
+  const firstActivity = new Map<string, number>();
+  const placed = (fileId: string) => uploads.some((u) => u.fileId === fileId) || attachments.some((a) => a.fileId === fileId);
+
   for (const item of items) {
     if (!item.included) continue;
     const created = bookingToActivities(item.booking, days, lang).activities;
-    if (created.length && !uploads.some((u) => u.fileId === item.fileId)) {
-      uploads.push({ fileId: item.fileId, activityIndex: activities.length });
-    }
+    if (created.length) firstActivity.set(item.id, activities.length);
+    if (created.length && !placed(item.fileId)) uploads.push({ fileId: item.fileId, activityIndex: activities.length });
     activities.push(...created);
   }
-  return { activities, uploads };
+
+  for (const item of items) {
+    if (item.included || placed(item.fileId)) continue;
+    if (item.duplicate?.kind === "batch") {
+      const index = firstActivity.get(item.duplicate.matchId);
+      if (index !== undefined) uploads.push({ fileId: item.fileId, activityIndex: index });
+    } else if (item.attachTo) {
+      attachments.push({ fileId: item.fileId, activityId: item.attachTo.activityId, ...(item.attachTo.passengers?.length ? { passengers: item.attachTo.passengers } : {}) });
+    }
+  }
+  return { activities, uploads, attachments };
 }
 
 /** Accepted proposals become suggested activities; proposals without a trip day are dropped. */
@@ -212,4 +266,21 @@ export function proposalsToActivities(accepted: Proposal[], days: TripDay[]): Ne
     });
   }
   return activities;
+}
+
+const PASSENGER_BLOCK = /(^|\n)(Pasajeros|Passengers):\n(- [^\n]*(\n|$))*/;
+
+/**
+ * The patch that puts the combined passengers on a flight already in the trip: in its booking and
+ * in its notes (the old passenger list in the notes is replaced, the rest of the notes is kept).
+ */
+export function passengersPatch(activity: Activity, passengers: BookingPassenger[], lang: Lang): Partial<Activity> | null {
+  if (!activity.booking || passengers.length === 0) return null;
+  const current = activity.booking.passengers ?? [];
+  if (current.length === passengers.length && current.every((p, i) => p.name === passengers[i].name && p.seat === passengers[i].seat && p.ticket === passengers[i].ticket)) {
+    return null;
+  }
+  const rest = (activity.notes ?? "").replace(PASSENGER_BLOCK, "$1").trim();
+  const notes = [rest, passengerNotes(passengers, lang)].filter(Boolean).join("\n");
+  return { booking: { ...activity.booking, passengers }, notes };
 }

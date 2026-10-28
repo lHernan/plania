@@ -43,7 +43,7 @@ vi.mock("@/lib/pdf/read-pdf", () => {
       this.code = code;
     }
   }
-  const SHA: Record<string, string> = { "vuelos.pdf": "a", "coche.pdf": "b", "airbnb.pdf": "c", "roto.pdf": "d", "excursion.pdf": "e", "entrada.pdf": "f" };
+  const SHA: Record<string, string> = { "vuelos.pdf": "a", "coche.pdf": "b", "airbnb.pdf": "c", "roto.pdf": "d", "excursion.pdf": "e", "entrada.pdf": "f", "ana.pdf": "1", "luis.pdf": "2", "sofia.pdf": "3", "pase-luis.pdf": "4" };
   return {
     PdfReadError,
     readPdf: async (file: File) => {
@@ -131,6 +131,18 @@ const BOOKINGS: Record<string, { bookings: ExtractedBooking[]; warnings: string[
     ],
   },
   "roto.pdf": { warnings: [], bookings: [] },
+  ...Object.fromEntries(
+    ([["ana.pdf", "1", "Ana García", "14C"], ["luis.pdf", "2", "Luis García", "14D"], ["sofia.pdf", "3", "Sofía García", "14E"]] as const).map(([name, sha, passenger, seat]) => [
+      name,
+      { warnings: [], bookings: [
+        extracted({ id: `${sha.repeat(8)}-0`, type: "flight", title: "Vuelo MAD → SPC", provider: "Iberia", reference: "XK7Q2P", from: "MAD", to: "SPC", start: { date: "2031-05-10", time: "08:00" }, end: { date: "2031-05-10", time: "09:45" }, passengers: [{ name: passenger, seat }], source: { fileName: name, sha256: sha.repeat(64) } }),
+        extracted({ id: `${sha.repeat(8)}-1`, type: "flight", title: "Vuelo SPC → MAD", provider: "Iberia", reference: "XK7Q2P", from: "SPC", to: "MAD", start: { date: "2031-05-13", time: "19:00" }, end: { date: "2031-05-13", time: "22:40" }, passengers: [{ name: passenger }], source: { fileName: name, sha256: sha.repeat(64) } }),
+      ] },
+    ]),
+  ),
+  "pase-luis.pdf": { warnings: [], bookings: [
+    extracted({ id: "44444444-0", type: "flight", title: "Vuelo MAD → SPC", provider: "Iberia", reference: "XK7Q2P", from: "MAD", to: "SPC", start: { date: "2031-05-10", time: "08:00" }, passengers: [{ name: "Luis García", seat: "14D" }], source: { fileName: "pase-luis.pdf", sha256: "4".repeat(64) } }),
+  ] },
 };
 
 let importerResponse: unknown = { activities: [] };
@@ -149,11 +161,12 @@ const uploadActivityFile = vi.fn(async (activityId: string, file: File) => {
   void file;
 });
 const fetchActiveTrip = vi.fn(async () => {});
+const patchActivity = vi.fn(async () => {});
 const onClose = vi.fn();
 const onToast = vi.fn();
 
 function load(trip: TripPlan) {
-  useItineraryStore.setState({ activeTrip: trip, trips: [], error: null, fetchActiveTrip, uploadActivityFile, addActivitiesBatch: realAddActivitiesBatch });
+  useItineraryStore.setState({ activeTrip: trip, trips: [], error: null, fetchActiveTrip, uploadActivityFile, patchActivity, addActivitiesBatch: realAddActivitiesBatch });
 }
 
 const pdfFile = (name: string) => new File(["%PDF-1.7 fake"], name, { type: "application/pdf" });
@@ -182,6 +195,7 @@ beforeEach(() => {
   fetchMock.mockClear();
   uploadActivityFile.mockClear();
   fetchActiveTrip.mockClear();
+  patchActivity.mockClear();
   onClose.mockClear();
   onToast.mockClear();
   vi.stubGlobal("fetch", fetchMock);
@@ -416,5 +430,45 @@ describe("BookingImportModal", () => {
     expect((confirmButton() as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(within(ret).getByRole("checkbox", { name: "Incluir" }));
     expect((confirmButton() as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("groups the passengers of one booking into each flight and attaches every passenger's PDF", async () => {
+    renderModal();
+    await selectFiles(["ana.pdf", "luis.pdf", "sofia.pdf"]);
+    fireEvent.click(screen.getByRole("button", { name: "Revisar reservas" }));
+
+    const outbound = screen.getByTestId("booking-card-11111111-0");
+    expect(within(outbound).getByText("Ana García (14C), Luis García (14D), Sofía García (14E)")).toBeTruthy();
+    expect(within(screen.getByTestId("booking-card-22222222-1")).getByText(/sumamos sus pasajeros a ese vuelo/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar reservas (2)" }));
+
+    await waitFor(() => expect(remote.inserts).toHaveLength(1));
+    const rows = remote.inserts[0];
+    expect(rows.map((r) => r.title)).toEqual(["Vuelo MAD → SPC", "Vuelo SPC → MAD"]);
+    expect(String(rows[0].notes)).toContain(["Pasajeros:", "- Ana García · asiento 14C", "- Luis García · asiento 14D", "- Sofía García · asiento 14E"].join("\n"));
+    await waitFor(() => expect(uploadActivityFile).toHaveBeenCalledTimes(3));
+    const targets = new Set(uploadActivityFile.mock.calls.map(([activityId]) => activityId));
+    expect(targets.size).toBe(1);
+    expect(uploadActivityFile.mock.calls.map(([, file]) => (file as File).name)).toEqual(["ana.pdf", "luis.pdf", "sofia.pdf"]);
+  });
+
+  it("attaches a boarding pass to the flight already in the trip and adds its passenger", async () => {
+    const flight = makeActivity("act-flight", {
+      dayId: "d1", title: "Vuelo MAD → SPC", time: "08:00", category: "transport", origin: "booking", notes: "Localizador: XK7Q2P",
+      booking: { version: 1, type: "flight", role: "departure", groupId: "g", title: "Vuelo MAD → SPC", reference: "XK7Q2P", from: "MAD", to: "SPC", start: { date: "2031-05-10", time: "08:00" }, fieldStatus: {}, passengers: [{ name: "Ana García", seat: "14C" }] },
+    });
+    load(makeTrip({ d1: [flight] }));
+    renderModal();
+    await selectFiles(["pase-luis.pdf"]);
+    fireEvent.click(screen.getByRole("button", { name: "Revisar reservas" }));
+    expect(screen.getByText(/Adjuntaremos este PDF a esa reserva/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Adjuntar documentos (1)" }));
+
+    await waitFor(() => expect(uploadActivityFile).toHaveBeenCalledWith("act-flight", expect.objectContaining({ name: "pase-luis.pdf" })));
+    expect(remote.inserts).toEqual([]);
+    expect(patchActivity).toHaveBeenCalledWith("d1", "act-flight", expect.objectContaining({
+      booking: expect.objectContaining({ passengers: [{ name: "Ana García", seat: "14C" }, { name: "Luis García", seat: "14D" }] }),
+    }));
+    expect(await screen.findByText("Documentos adjuntados a reservas de tu viaje: 1.")).toBeTruthy();
   });
 });

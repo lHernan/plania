@@ -804,5 +804,10 @@
   "doc_code_qr_inline": "QR code",
   "doc_code_barcode_inline": "barcode",
   "activity_open_pass": "Open the pass for “{title}”",
-  "doc_ai_found_nothing": "No codes found. You can mark it by hand."
+  "doc_ai_found_nothing": "No codes found. You can mark it by hand.",
+  "booking_import_passengers": "Passengers ({count})",
+  "booking_import_duplicate_attach_hint": "We'll attach this PDF to that booking and add its passengers; include it if it's a different booking.",
+  "booking_import_duplicate_grouped_hint": "It's the same flight as another passenger's: we add its passengers to that flight and attach this PDF.",
+  "booking_import_confirm_attach": "Attach documents ({count})",
+  "booking_import_saved_attached": "Documents attached to bookings in your trip: {count}."
 }

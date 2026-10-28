@@ -1,4 +1,4 @@
-import type { BookingDetails, BookingField, BookingFieldStatus, BookingMoment, BookingType } from "@/lib/types";
+import type { BookingDetails, BookingField, BookingFieldStatus, BookingMoment, BookingType, BookingPassenger } from "@/lib/types";
 import { isValidIsoDate, isValidTime, isValidTimeZone, minutesBetween } from "./timezone";
 
 /** A booking read from a document, before the user confirms it and it becomes activities. */
@@ -31,6 +31,10 @@ const STRING_FIELDS = ["provider", "reference", "from", "to", "address", "pickup
 const STRING_LIMIT = 300;
 const TITLE_LIMIT = 200;
 const DETAILS_LIMIT = 1000;
+const MAX_PASSENGERS = 9;
+const NAME_LIMIT = 80;
+const SEAT_LIMIT = 8;
+const TICKET_LIMIT = 24;
 
 /** True when the text holds at least ~20 letters or digits (a scanned page usually has none). */
 export function hasMeaningfulText(text: string, minChars = 20): boolean {
@@ -67,10 +71,11 @@ export function buildExtractionSystemPrompt(lang?: "es" | "en"): string {
     "- Lodging: start = check-in, end = check-out, address = property address.",
     "- Car rental: start = pickup, end = return, pickupLocation and dropoffLocation.",
     '- "details" is a short summary of other relevant info (flight number, seat, room, notes). Never include personal identity document numbers or payment data.',
+    '- "passengers": everyone named on that booking (each leg), with their seat and ticket number when printed. Never identity document numbers, dates of birth or payment data.',
     languageRule,
     "",
     "OUTPUT: JSON only, no markdown, no comments. Exactly this shape:",
-    '{"bookings":[{"type":"flight","title":F,"provider":F,"reference":F,"startDate":F,"startTime":F,"startTimeZone":F,"endDate":F,"endTime":F,"endTimeZone":F,"from":F,"to":F,"address":F,"pickupLocation":F,"dropoffLocation":F,"details":F}]}',
+    '{"bookings":[{"type":"flight","title":F,"provider":F,"reference":F,"startDate":F,"startTime":F,"startTimeZone":F,"endDate":F,"endTime":F,"endTimeZone":F,"from":F,"to":F,"address":F,"pickupLocation":F,"dropoffLocation":F,"details":F,"passengers":[{"name":"string","seat":"string or null","ticket":"string or null"}]}]}',
     'where F is null or {"value":"string","status":"extracted|estimated|needs_confirmation"}.',
     'If there are no bookings, return {"bookings":[]}.',
   ].join("\n");
@@ -250,8 +255,31 @@ function normalizeOne(raw: Record<string, unknown>, index: number, source: { fil
     fieldStatus.endDate = "needs_confirmation";
   }
 
+  const passengers = readPassengers(raw.passengers);
+  if (passengers.length) booking.passengers = passengers;
+
   booking.source = { fileName: source.fileName, sha256: source.sha256 };
   return booking;
+}
+
+/** Names as printed (trimmed, capped); entries without a name are dropped. */
+function readPassengers(raw: unknown): BookingPassenger[] {
+  if (!Array.isArray(raw)) return [];
+  const text = (value: unknown, limit: number) => {
+    const field = readField(value, limit);
+    return field ? field.value : undefined;
+  };
+  const passengers: BookingPassenger[] = [];
+  for (const entry of raw) {
+    if (passengers.length >= MAX_PASSENGERS) break;
+    if (!isRecord(entry)) continue;
+    const name = text(entry.name, NAME_LIMIT);
+    if (!name) continue;
+    const seat = text(entry.seat, SEAT_LIMIT);
+    const ticket = text(entry.ticket, TICKET_LIMIT);
+    passengers.push({ name, ...(seat ? { seat } : {}), ...(ticket ? { ticket } : {}) });
+  }
+  return passengers;
 }
 
 function endsBeforeStart(start: BookingMoment, end: BookingMoment): boolean {

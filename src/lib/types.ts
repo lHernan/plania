@@ -94,6 +94,9 @@ export type BookingFieldStatus = "extracted" | "estimated" | "needs_confirmation
 /** Local wall-clock moment; timeZone is an IANA zone when known (e.g. "Atlantic/Canary"). */
 export type BookingMoment = { date?: string; time?: string; timeZone?: string };
 
+/** A traveler on a booking, as printed on the document (never identity document numbers). */
+export type BookingPassenger = { name: string; seat?: string; ticket?: string };
+
 export type BookingDetails = {
   version: 1;
   type: BookingType;
@@ -111,6 +114,8 @@ export type BookingDetails = {
   pickupLocation?: string;
   dropoffLocation?: string;
   details?: string;
+  /** Everyone traveling on it: one per document of the same booking, grouped on import. */
+  passengers?: BookingPassenger[];
   fieldStatus: Partial<Record<BookingField, BookingFieldStatus>>;
   /** Fields the user reviewed or edited before confirming; fieldStatus keeps what the AI reported. */
   userConfirmedFields?: BookingField[];

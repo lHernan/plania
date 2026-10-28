@@ -804,5 +804,10 @@
   "doc_code_qr_inline": "código QR",
   "doc_code_barcode_inline": "código de barras",
   "activity_open_pass": "Abrir el pase de «{title}»",
-  "doc_ai_found_nothing": "No encontramos códigos. Puedes marcarlo a mano."
+  "doc_ai_found_nothing": "No encontramos códigos. Puedes marcarlo a mano.",
+  "booking_import_passengers": "Pasajeros ({count})",
+  "booking_import_duplicate_attach_hint": "Adjuntaremos este PDF a esa reserva y sumaremos sus pasajeros; inclúyela si es otra reserva.",
+  "booking_import_duplicate_grouped_hint": "Es el mismo vuelo de otro pasajero: sumamos sus pasajeros a ese vuelo y adjuntamos este PDF.",
+  "booking_import_confirm_attach": "Adjuntar documentos ({count})",
+  "booking_import_saved_attached": "Documentos adjuntados a reservas de tu viaje: {count}."
 }

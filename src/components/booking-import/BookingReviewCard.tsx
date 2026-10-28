@@ -133,6 +133,9 @@ export function BookingReviewCard({
       value: booking[f] ?? "—",
       flag: flagFor(f),
     })),
+    ...(booking.passengers?.length
+      ? [{ label: t("booking_import_passengers", { count: booking.passengers.length }), value: booking.passengers.map((p) => (p.seat ? `${p.name} (${p.seat})` : p.name)).join(", "), flag: "ok" as Flag }]
+      : []),
   ];
 
   return (
@@ -172,7 +175,14 @@ export function BookingReviewCard({
             <span className="font-black text-[var(--color-text)]">
               {t(item.duplicate.kind === "existing" ? "booking_import_duplicate_existing" : "booking_import_duplicate_batch")}
             </span>{" "}
-            ({t(`booking_import_duplicate_reason_${item.duplicate.reason}`)}). {t("booking_import_duplicate_hint")}
+            ({t(`booking_import_duplicate_reason_${item.duplicate.reason}`)}).{" "}
+            {t(
+              item.attachTo
+                ? "booking_import_duplicate_attach_hint"
+                : item.duplicate.kind === "batch" && item.duplicate.reason === "reference"
+                  ? "booking_import_duplicate_grouped_hint"
+                  : "booking_import_duplicate_hint",
+            )}
           </p>
         </div>
       )}
