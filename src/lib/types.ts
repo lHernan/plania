@@ -242,6 +242,8 @@ export type OptimizationSuggestion = {
   title: string;
   reason: string;
   impact: "time" | "cost" | "comfort";
+  /** One-tap fix: give this activity this time. */
+  fix?: { activityId: string; time: string };
 };
 
 export type ShoppingItem = {

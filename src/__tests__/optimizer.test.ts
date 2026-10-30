@@ -42,3 +42,39 @@ describe("optimizeDay", () => {
     ]);
   });
 });
+
+describe("check-out after a departure", () => {
+  const DATE = "2026-11-02";
+  const flight = activity("flight", "Vuelo La Palma → Tenerife Norte", "10:00", 40, {
+    origin: "booking",
+    booking: { version: 1, type: "flight", role: "single", groupId: "f", title: "Vuelo", fieldStatus: {}, start: { date: DATE, time: "10:00" }, end: { date: DATE, time: "10:40" } },
+  });
+  const checkout = activity("checkout", "Check-out: Vivienda vacacional", "10:30", 0, {
+    category: "hotel",
+    origin: "booking",
+    booking: { version: 1, type: "lodging", role: "check_out", groupId: "l", title: "Vivienda", fieldStatus: {}, end: { date: DATE, time: "10:30" } },
+  });
+  const twoDay = (activities: Activity[]) => ({ id: "d2", date: DATE, city: "La Palma", activities }) as TripDay;
+
+  it("offers to move the check-out before the airport time, in Spanish", () => {
+    expect(optimizeDay(twoDay([flight, checkout]), translator(es))).toEqual([
+      {
+        id: "checkout-before-departure-checkout",
+        title: "Check-out: Vivienda vacacional queda después de salir hacia Vuelo La Palma → Tenerife Norte",
+        reason: "Haz el check-out antes de las 07:45 para llegar a tiempo a la salida.",
+        impact: "time",
+        fix: { activityId: "checkout", time: "07:45" },
+      },
+    ]);
+  });
+
+  it("says nothing when the check-out already leaves time to reach the flight", () => {
+    const early = { ...checkout, time: "07:30" };
+    expect(optimizeDay(twoDay([flight, early]), translator(es)).map((s) => s.id)).not.toContain("checkout-before-departure-checkout");
+  });
+
+  it("says nothing about a check-out at the destination after landing", () => {
+    const later = { ...checkout, time: "13:00" };
+    expect(optimizeDay(twoDay([flight, later]), translator(es))).toEqual([]);
+  });
+});

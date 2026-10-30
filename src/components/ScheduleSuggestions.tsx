@@ -9,7 +9,14 @@ import type { OptimizationSuggestion } from "@/lib/types";
  * Schedule notes for the day (tight transfers, overlaps), folded behind one count line so a
  * plan the traveler wants to keep as it is does not fill the panel.
  */
-export function ScheduleSuggestions({ suggestions }: { suggestions: OptimizationSuggestion[] }) {
+export function ScheduleSuggestions({
+  suggestions,
+  onApplyFix,
+}: {
+  suggestions: OptimizationSuggestion[];
+  /** Applies a note's one-tap fix; without it the fix button is hidden (e.g. read-only invitees). */
+  onApplyFix?: (fix: NonNullable<OptimizationSuggestion["fix"]>) => void;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   if (suggestions.length === 0) return null;
@@ -40,6 +47,15 @@ export function ScheduleSuggestions({ suggestions }: { suggestions: Optimization
           <div className="space-y-0.5 min-w-0">
             <p className="text-xs font-bold text-[var(--color-text)] tracking-tight">{s.title}</p>
             <p className="text-[10px] text-[var(--color-text-muted)] font-medium leading-relaxed">{s.reason}</p>
+            {s.fix && onApplyFix && (
+              <button
+                type="button"
+                onClick={() => onApplyFix(s.fix!)}
+                className="mt-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-[var(--color-primary-hover)] transition-colors"
+              >
+                {t("schedule_note_apply_time", { time: s.fix.time })}
+              </button>
+            )}
           </div>
         </div>
       ))}
