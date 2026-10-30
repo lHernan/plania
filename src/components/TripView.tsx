@@ -69,6 +69,7 @@ import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { DocumentViewer } from "@/components/DocumentViewer";
+import { ScheduleSuggestions } from "@/components/ScheduleSuggestions";
 import { ShareTripModal } from "@/components/ShareTripModal";
 import { BookingImportModal } from "@/components/BookingImportModal";
 import { DayGeniusModal } from "@/components/DayGeniusModal";
@@ -926,7 +927,7 @@ export function TripView() {
     };
   }, [activeTrip, activeDay]);
 
-  const suggestions = useMemo(() => activeDay ? optimizeDay(activeDay) : [], [activeDay]);
+  const suggestions = useMemo(() => activeDay ? optimizeDay(activeDay, t) : [], [activeDay, t]);
   const visibleShoppingSuggestions = useMemo(
     () =>
       selectedShoppingItemId
@@ -1890,21 +1891,7 @@ export function TripView() {
               </button>
             </div>
 
-            {suggestions.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-[var(--color-border)]">
-                {suggestions.map((s) => (
-                  <div key={s.id} className="flex gap-3 p-3 rounded-xl bg-[var(--color-surface-subtle)] border border-[var(--color-border)]">
-                    <div className="size-7 rounded-lg bg-[var(--color-accent-ai)]/10 flex items-center justify-center text-[var(--color-accent-ai)] shrink-0">
-                      <Sparkles size={14} />
-                    </div>
-                    <div className="space-y-0.5 min-w-0">
-                      <p className="text-xs font-bold text-[var(--color-text)] tracking-tight">{s.title}</p>
-                      <p className="text-[10px] text-[var(--color-text-muted)] font-medium leading-relaxed">{s.reason}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ScheduleSuggestions suggestions={suggestions} />
           </div>
 
           {/* CRITICAL RESERVATIONS */}
