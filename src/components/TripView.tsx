@@ -64,7 +64,8 @@ import {
   TripDay,
 } from "@/lib/types";
 import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
-import { toCurrency, getMidpointTime, addMinutes } from "@/lib/utils";
+import { toCurrency } from "@/lib/utils";
+import { timeForMove } from "@/lib/schedule/fit";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
@@ -643,11 +644,14 @@ export function TripView() {
     return buildTripMapUrl(locations);
   }, [activeTrip, activeDayId]);
   const [showCompletedDays, setShowCompletedDays] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error"; action?: { label: string; run: () => void } } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+  const showToast = (msg: string, type: "success" | "error" = "success", action?: { label: string; run: () => void }) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, type, action });
+    // A toast with an action stays a bit longer so there is time to tap it.
+    toastTimerRef.current = setTimeout(() => setToast(null), action ? 6000 : 3000);
   };
 
   // Booking import needs a signed-in owner: invitees never see it, guests and the sample trip sign in first.
@@ -987,33 +991,36 @@ export function TripView() {
     await addTripDay(nextDate, "New City", `Day ${activeTrip.days.length + 1}`);
   };
 
+  /** Gives an activity a new time, with an undo in the toast. */
+  const moveActivityTime = (activity: Activity, time: string) => {
+    const dayId = activeDayId;
+    const previous = activity.time;
+    patchActivity(dayId, activity.id, { time });
+    showToast(t("schedule_moved", { title: activity.title, time }), "success", {
+      label: t("schedule_undo"),
+      run: () => patchActivity(dayId, activity.id, { time: previous }),
+    });
+  };
+
+  // Dropping an activity fits it in that gap; bookings keep their time.
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || over.id === active.id || !activeDay) return;
+    const moved = activeDay.activities.find((a) => a.id === String(active.id));
+    if (!moved) return;
 
-    reorderActivities(activeDayId, String(active.id), String(over.id));
-
-    const movedId = String(active.id);
-    const dayActivities = activeDay.activities;
-    const oldIndex = dayActivities.findIndex((a) => a.id === movedId);
-    
-    const currentOrder = sortedActivities;
-    const overViewIndex = currentOrder.findIndex(a => a.id === over.id);
-
-    let newTime = "";
-    if (overViewIndex === 0) {
-      newTime = addMinutes(currentOrder[1].time, -30);
-    } else if (overViewIndex === currentOrder.length - 1) {
-      newTime = addMinutes(currentOrder[currentOrder.length - 2].time, 30);
-    } else {
-      const prev = currentOrder[overViewIndex - 1];
-      const next = currentOrder[overViewIndex];
-      newTime = getMidpointTime(prev.time, next.time);
+    const result = timeForMove(sortedActivities, moved.id, String(over.id), activeDay.date);
+    if (result.kind === "fixed") {
+      showToast(t("schedule_move_fixed", { title: moved.title }), "error");
+      return;
+    }
+    if (result.kind === "beyond_limit") {
+      showToast(t("schedule_move_beyond_limit", { title: moved.title, time: result.limit }), "error");
+      return;
     }
 
-    if (newTime) {
-      patchActivity(activeDayId, movedId, { time: newTime });
-    }
+    reorderActivities(activeDayId, moved.id, String(over.id));
+    if (result.kind === "moved" && result.time !== moved.time) moveActivityTime(moved, result.time);
   };
 
   const activeIndex = activeTrip ? Math.max(0, activeTrip.days.findIndex((d) => d.id === activeDayId)) : 0;
@@ -1891,7 +1898,13 @@ export function TripView() {
               </button>
             </div>
 
-            <ScheduleSuggestions suggestions={suggestions} />
+            <ScheduleSuggestions
+              suggestions={suggestions}
+              onApplyFix={isInvitee ? undefined : (fix) => {
+                const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
+                if (activity) moveActivityTime(activity, fix.time);
+              }}
+            />
           </div>
 
           {/* CRITICAL RESERVATIONS */}
@@ -2324,6 +2337,18 @@ export function TripView() {
             }`}
           >
             {toast.msg}
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.action!.run();
+                  setToast(null);
+                }}
+                className="ml-4 underline underline-offset-4"
+              >
+                {toast.action.label}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
