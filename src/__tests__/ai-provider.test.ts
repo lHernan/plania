@@ -94,3 +94,62 @@ describe("model tiers", () => {
     expect(sentModels()).toEqual(["https://primary.test cheap-model"]);
   });
 });
+
+describe("hung models", () => {
+  const fetchMock = vi.fn();
+  const ok = () => new Response(JSON.stringify({ choices: [{ message: { content: "{\"ok\":true}" } }] }), { status: 200 });
+  const sentModels = () => fetchMock.mock.calls.map(([url, init]) => `${url} ${JSON.parse(init.body as string).model}`);
+  // Never answers; only settles when the request is aborted.
+  const hang = (_url: string, init: RequestInit) =>
+    new Promise<Response>((_, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubEnv("AI_API_URL", "https://primary.test");
+    vi.stubEnv("AI_API_KEY", "primary-key");
+    vi.stubEnv("AI_MODEL", "slow-model,quick-model");
+    vi.stubEnv("AI_FALLBACK_API_URL", "https://fallback.test");
+    vi.stubEnv("AI_FALLBACK_API_KEY", "fallback-key");
+    vi.stubEnv("AI_FALLBACK_MODEL", "fallback-model");
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("moves on to the next model when one does not answer in time", async () => {
+    fetchMock.mockImplementationOnce(hang).mockResolvedValueOnce(ok());
+    const pending = runAiPrompt("system", "user");
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expect(pending).resolves.toBe("{\"ok\":true}");
+    expect(sentModels()).toEqual(["https://primary.test slow-model", "https://primary.test quick-model"]);
+  });
+
+  it("uses the fallback provider when every primary model times out", async () => {
+    fetchMock.mockImplementationOnce(hang).mockImplementationOnce(hang).mockResolvedValueOnce(ok());
+    const pending = runAiPrompt("system", "user");
+    await vi.advanceTimersByTimeAsync(60_000);
+    await expect(pending).resolves.toBe("{\"ok\":true}");
+    expect(sentModels()).toEqual([
+      "https://primary.test slow-model",
+      "https://primary.test quick-model",
+      "https://fallback.test fallback-model",
+    ]);
+  });
+
+  it("waits longer when the caller asks for a longer timeout", async () => {
+    fetchMock.mockImplementationOnce(hang).mockResolvedValueOnce(ok());
+    const pending = runAiPrompt("system", "user", { timeoutMs: 60_000 });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expect(pending).resolves.toBe("{\"ok\":true}");
+  });
+});

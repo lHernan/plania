@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runAiPrompt } from "@/lib/ai/provider";
+import { LONG_REPLY_TIMEOUT_MS, runAiPrompt } from "@/lib/ai/provider";
 import { extractJsonObject } from "@/lib/ai/json-response";
 import { getAuthClient } from "@/lib/supabase-server";
 import { buildGeniusSystemPrompt, buildGeniusUserPrompt, parseGeniusRequest } from "@/lib/day-genius/prompt";
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const content = await runAiPrompt(
       buildGeniusSystemPrompt(lang),
       buildGeniusUserPrompt(context, weather),
-      { maxTokens: GENIUS_MAX_TOKENS },
+      { maxTokens: GENIUS_MAX_TOKENS, timeoutMs: LONG_REPLY_TIMEOUT_MS },
     );
     const parsed = extractJsonObject<unknown>(content);
     if (!parsed) {

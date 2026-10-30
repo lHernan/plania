@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runAiPrompt } from "@/lib/ai/provider";
+import { LONG_REPLY_TIMEOUT_MS, runAiPrompt } from "@/lib/ai/provider";
 import { getAuthClient } from "@/lib/supabase-server";
 import { extractJsonObject } from "@/lib/ai/json-response";
 import { buildPlanningAddendum, buildPlanningUserPrompt, parsePlanningInput } from "@/lib/bookings/planning-prompt";
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       const content = await runAiPrompt(
         buildSystemPrompt(resolvedLang) + "\n\n" + buildPlanningAddendum(resolvedLang),
         buildPlanningUserPrompt(planning.context, planning.request),
-        { maxTokens: PLANNING_MAX_TOKENS },
+        { maxTokens: PLANNING_MAX_TOKENS, timeoutMs: LONG_REPLY_TIMEOUT_MS },
       );
       const parsed = extractJsonObject<{ activities?: unknown; conflicts?: unknown }>(content);
       if (!parsed) {

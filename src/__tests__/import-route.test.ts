@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runAiPrompt = vi.fn();
-vi.mock("@/lib/ai/provider", () => ({ runAiPrompt: (...args: unknown[]) => runAiPrompt(...args) }));
+vi.mock("@/lib/ai/provider", () => ({ LONG_REPLY_TIMEOUT_MS: 60_000, runAiPrompt: (...args: unknown[]) => runAiPrompt(...args) }));
 
 const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string } | null, calls: 0 }));
 vi.mock("@/lib/supabase-server", () => ({
@@ -156,7 +156,7 @@ describe("POST /api/import with planning", () => {
     expect(JSON.parse(json ?? "null")).toEqual(context);
     expect(userPrompt).toContain("<<<USER_REQUEST>>>\nQuiero playas y miradores\n<<<END_USER_REQUEST>>>");
     // Reasoning models spend output tokens before answering; a whole-trip plan needs a larger budget.
-    expect(runAiPrompt.mock.calls[0][2]).toEqual({ maxTokens: 16000 });
+    expect(runAiPrompt.mock.calls[0][2]).toEqual({ maxTokens: 16000, timeoutMs: 60_000 });
   });
 
   it("states the anchoring and honesty rules in the addendum", async () => {
