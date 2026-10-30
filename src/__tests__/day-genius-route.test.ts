@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeniusContext } from "@/lib/day-genius/context";
 
-vi.mock("@/lib/ai/provider", () => ({ runAiPrompt: vi.fn() }));
+vi.mock("@/lib/ai/provider", () => ({ LONG_REPLY_TIMEOUT_MS: 60_000, runAiPrompt: vi.fn() }));
 vi.mock("@/lib/weather/day-forecast", () => ({ fetchDayWeather: vi.fn() }));
 const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string } | null }));
 vi.mock("@/lib/supabase-server", () => ({
@@ -104,7 +104,7 @@ describe("POST /api/day-genius", () => {
     const [system, user, options] = runAiPrompt.mock.calls[0];
     expect(system).toMatch(/rain/i);
     expect(system).toMatch(/Spanish/);
-    expect(options).toEqual({ maxTokens: 16000 });
+    expect(options).toEqual({ maxTokens: 16000, timeoutMs: 60_000 });
     const json = user.split("<<<DAY_CONTEXT>>>\n")[1]?.split("\n<<<END_DAY_CONTEXT>>>")[0];
     expect(JSON.parse(json ?? "null")).toEqual({ ...context, weather: rainyWeather });
   });

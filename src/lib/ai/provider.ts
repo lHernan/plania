@@ -35,9 +35,17 @@ export type AiRequestOptions = {
    * AI_FALLBACK_MODEL_FAST, each falling back to the regular model when unset).
    */
   tier?: "fast";
+  /**
+   * How long one model may take before the next one is tried. A model that never answers
+   * would otherwise hold the request until the platform cuts it with a 504.
+   */
+  timeoutMs?: number;
 };
 
 const DEFAULT_MAX_TOKENS = 4000;
+const DEFAULT_TIMEOUT_MS = 30_000;
+/** For long replies (whole-trip plans, scanned pages) that a healthy model needs more time to write. */
+export const LONG_REPLY_TIMEOUT_MS = 60_000;
 
 function getProviderConfig(fallback = false, tier?: AiRequestOptions["tier"]): ProviderConfig {
   const fast = tier === "fast";
@@ -54,29 +62,36 @@ function getProviderConfig(fallback = false, tier?: AiRequestOptions["tier"]): P
       };
 }
 
-async function callProvider(config: ProviderConfig, model: string, messages: AiMessage[], maxTokens: number) {
-  return fetch(config.url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.key}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.1,
-      max_tokens: maxTokens,
-    }),
-  });
+async function callProvider(config: ProviderConfig, model: string, messages: AiMessage[], maxTokens: number, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(config.url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.key}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.1,
+        max_tokens: maxTokens,
+      }),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function tryModels(config: ProviderConfig, messages: AiMessage[], maxTokens: number): Promise<ProviderResult> {
+async function tryModels(config: ProviderConfig, messages: AiMessage[], maxTokens: number, timeoutMs: number): Promise<ProviderResult> {
   const models = config.models.split(",").map((model) => model.trim()).filter(Boolean);
   let lastResponse: Response | null = null;
 
   for (const model of models) {
     try {
-      const response = await callProvider(config, model, messages, maxTokens);
+      const response = await callProvider(config, model, messages, maxTokens, timeoutMs);
       if (response.ok) return { success: true, response };
 
       lastResponse = response;
@@ -98,11 +113,13 @@ export async function runAiMessages(messages: AiMessage[], options: AiRequestOpt
   }
 
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-  let result = await tryModels(primary, messages, maxTokens);
-  if (!result.success && result.response && [429, 500, 502, 503, 504].includes(result.response.status)) {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let result = await tryModels(primary, messages, maxTokens, timeoutMs);
+  // No response at all means every model timed out or the network failed: the fallback is worth a try too.
+  if (!result.success && (!result.response || [429, 500, 502, 503, 504].includes(result.response.status))) {
     const fallback = getProviderConfig(true, options.tier);
     if (fallback.key && fallback.url && fallback.models) {
-      result = await tryModels(fallback, messages, maxTokens);
+      result = await tryModels(fallback, messages, maxTokens, timeoutMs);
     }
   }
 
@@ -151,5 +168,5 @@ export async function runAiVisionPages(systemPrompt: string, userPrompt: string,
         ...imageUris.map((url) => ({ type: "image_url" as const, image_url: { url } })),
       ],
     },
-  ]);
+  ], { timeoutMs: LONG_REPLY_TIMEOUT_MS });
 }
