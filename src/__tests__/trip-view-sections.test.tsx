@@ -157,6 +157,33 @@ describe("TripView sections", () => {
     expect(nav.push).toHaveBeenCalledWith("/trips/t/map?day=2026-10-26");
   });
 
+  it("an invitee opening the map of a day without a city goes to the read-only map, never to the city prompt", async () => {
+    nav.pathname = "/trips/t";
+    seed("owner");
+    useItineraryStore.setState((s) => ({
+      activeTrip: s.activeTrip && { ...s.activeTrip, days: s.activeTrip.days.map((d) => (d.id === "d1" ? { ...d, city: "" } : d)) },
+    }));
+    renderWithI18n(<TripView />);
+    await act(async () => {});
+    const dayTools = document.querySelector('[data-tour="day-tools"]') as HTMLElement;
+    fireEvent.click(within(dayTools).getByRole("button", { name: /mapa/i }));
+    expect(screen.queryByText("Escribir la ciudad")).toBeNull();
+    expect(nav.push).toHaveBeenCalledWith("/trips/t/map?day=2026-10-26");
+  });
+
+  it("the owner still gets the city prompt for a day without a city", async () => {
+    nav.pathname = "/trips/t";
+    seed("me");
+    useItineraryStore.setState((s) => ({
+      activeTrip: s.activeTrip && { ...s.activeTrip, days: s.activeTrip.days.map((d) => (d.id === "d1" ? { ...d, city: "" } : d)) },
+    }));
+    renderWithI18n(<TripView />);
+    await act(async () => {});
+    const dayTools = document.querySelector('[data-tour="day-tools"]') as HTMLElement;
+    fireEvent.click(within(dayTools).getByRole("button", { name: /mapa/i }));
+    expect(screen.getByText("Escribir la ciudad")).toBeTruthy();
+  });
+
   it("shows the overview as four tabs", async () => {
     await renderAt("/trips/t/overview");
     const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");

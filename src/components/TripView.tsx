@@ -1180,7 +1180,8 @@ export function TripView() {
   }, [scrollToActivityId, section, activeDayId]);
 
   const handleMapOpen = () => {
-    if (activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
+    // The prompt sets the day's city, which people the trip is shared with may not change.
+    if (!isInvitee && activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
       setShowMapCityPrompt(true);
       return;
     }
