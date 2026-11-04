@@ -80,7 +80,7 @@
   "reservation_url": "Reservation URL",
   "save": "Save",
   "cancel": "Cancel",
-  "critical_reservations": "Critical Reservations",
+  "critical_reservations": "To book",
   "add_reservation": "Add Reservation",
   "reservation_title_placeholder": "E.g., Dinner at Le Chateaubriand",
   "reservation_time_placeholder": "E.g., 20:00",
@@ -832,5 +832,18 @@
   "booking_import_duplicate_attach_hint": "We'll attach this PDF to that booking and add its passengers; include it if it's a different booking.",
   "booking_import_duplicate_grouped_hint": "It's the same flight as another passenger's: we add its passengers to that flight and attach this PDF.",
   "booking_import_confirm_attach": "Attach documents ({count})",
-  "booking_import_saved_attached": "Documents attached to bookings in your trip: {count}."
+  "booking_import_saved_attached": "Documents attached to bookings in your trip: {count}.",
+  "wallet_view_tab_bookings": "Bookings",
+  "wallet_view_tab_documents": "Documents",
+  "wallet_view_group_flights": "Flights",
+  "wallet_view_group_lodging": "Lodging",
+  "wallet_view_group_transport": "Transport",
+  "wallet_view_group_tickets": "Tickets",
+  "wallet_view_group_other": "Other bookings",
+  "wallet_view_show_in_itinerary": "Show in itinerary",
+  "wallet_view_copy_reference": "Copy reference",
+  "wallet_view_reference_copied": "Reference copied",
+  "wallet_view_no_bookings": "Upload your bookings and Tachao sorts them for you",
+  "wallet_view_no_documents": "Tickets, passes and confirmations you attach to your activities will show up here.",
+  "wallet_view_no_date": "No date"
 }

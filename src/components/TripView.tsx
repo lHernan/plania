@@ -91,6 +91,7 @@ import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
+import { WalletView } from "@/components/WalletView";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -1176,6 +1177,25 @@ export function TripView() {
     router.push(tripSectionHref(activeTrip.id, target, activeDay?.date));
   };
 
+  // From the wallet: the itinerary opens on the activity's day and scrolls to its card.
+  const [scrollToActivityId, setScrollToActivityId] = useState<string | null>(null);
+  const showActivityInItinerary = (dayId: string, activityId: string) => {
+    if (!activeTrip) return;
+    const day = activeTrip.days.find((d) => d.id === dayId);
+    if (!day) return;
+    setActiveDay(dayId);
+    setScrollToActivityId(activityId);
+    router.push(tripSectionHref(activeTrip.id, "itinerary", day.date));
+  };
+  useEffect(() => {
+    if (!scrollToActivityId || section !== "itinerary") return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`activity-${scrollToActivityId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      setScrollToActivityId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToActivityId, section, activeDayId]);
+
   const handleMapOpen = () => {
     if (activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
       setShowMapCityPrompt(true);
@@ -2005,9 +2025,17 @@ export function TripView() {
       )}
 
       {/* WALLET SECTION */}
-      {section === "wallet" && (
-        <div className="max-w-3xl mx-auto px-5 pt-8 space-y-6">
-          {renderReservations()}
+      {section === "wallet" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 md:px-5 md:pt-8">
+          <WalletView
+            trip={activeTrip}
+            today={isTripCurrentlyActive ? today : null}
+            canImportBookings={canImportBookings}
+            reservations={renderReservations()}
+            onOpenDocument={openPass}
+            onImportBookings={openBookingImport}
+            onShowActivity={showActivityInItinerary}
+          />
         </div>
       )}
 

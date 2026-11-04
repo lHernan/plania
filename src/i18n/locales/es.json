@@ -81,7 +81,7 @@
   "reservation_url": "URL de Reserva",
   "save": "Guardar",
   "cancel": "Cancelar",
-  "critical_reservations": "Reservas críticas",
+  "critical_reservations": "Por reservar",
   "add_reservation": "Agregar Reserva",
   "reservation_title_placeholder": "Ej., Cena en Le Chateaubriand",
   "reservation_time_placeholder": "Ej., 20:00",
@@ -832,5 +832,18 @@
   "booking_import_duplicate_attach_hint": "Adjuntaremos este PDF a esa reserva y sumaremos sus pasajeros; inclúyela si es otra reserva.",
   "booking_import_duplicate_grouped_hint": "Es el mismo vuelo de otro pasajero: sumamos sus pasajeros a ese vuelo y adjuntamos este PDF.",
   "booking_import_confirm_attach": "Adjuntar documentos ({count})",
-  "booking_import_saved_attached": "Documentos adjuntados a reservas de tu viaje: {count}."
+  "booking_import_saved_attached": "Documentos adjuntados a reservas de tu viaje: {count}.",
+  "wallet_view_tab_bookings": "Reservas",
+  "wallet_view_tab_documents": "Documentos",
+  "wallet_view_group_flights": "Vuelos",
+  "wallet_view_group_lodging": "Alojamiento",
+  "wallet_view_group_transport": "Transporte",
+  "wallet_view_group_tickets": "Entradas",
+  "wallet_view_group_other": "Otras reservas",
+  "wallet_view_show_in_itinerary": "Ver en el itinerario",
+  "wallet_view_copy_reference": "Copiar localizador",
+  "wallet_view_reference_copied": "Localizador copiado",
+  "wallet_view_no_bookings": "Sube tus reservas y Tachao las ordena por ti",
+  "wallet_view_no_documents": "Los billetes, entradas y confirmaciones que adjuntes a tus actividades aparecerán aquí.",
+  "wallet_view_no_date": "Sin fecha"
 }

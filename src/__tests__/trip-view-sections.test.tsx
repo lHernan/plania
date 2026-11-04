@@ -36,6 +36,12 @@ vi.mock("@/components/CriticalReservationsPanel", () => ({
 vi.mock("@/components/ShoppingListPanel", () => ({
   ShoppingListPanel: () => <section data-testid="shopping" />,
 }));
+// The viewer loads PDF tooling; a stub shows which file and title it was opened with.
+vi.mock("@/components/DocumentViewer", () => ({
+  DocumentViewer: ({ file, activityTitle }: { file: { fileName: string }; activityTitle: string }) => (
+    <div data-testid="viewer">{file.fileName} · {activityTitle}</div>
+  ),
+}));
 vi.mock("@/components/ChatPanel", () => ({ ChatPanel: () => null }));
 vi.mock("@/components/TripSwitcher", () => ({ TripSwitcher: () => null }));
 vi.mock("@/components/ProductTour", () => ({
@@ -47,9 +53,28 @@ const { TripView } = await import("@/components/TripView");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 const { useAuthStore } = await import("@/store/use-auth-store");
 
+const boardingPass = {
+  id: "f1",
+  activityId: "a2",
+  tripId: "t",
+  userId: "me",
+  fileUrl: "https://files/pass.pdf",
+  filePath: "pass.pdf",
+  fileType: "pdf" as const,
+  fileName: "pass.pdf",
+  createdAt: "",
+};
+
 function seed(ownerId: string) {
+  const flight = makeActivity("a2", {
+    title: "Flight home",
+    origin: "booking",
+    booking: { version: 1, type: "flight", role: "single", groupId: "g1", title: "Tokyo → Madrid", fieldStatus: {} },
+    files: [boardingPass],
+  });
   const day = makeDay("d1", [makeActivity("a1")]);
-  const trip = { ...makeTrip([day]), id: "t", userId: ownerId };
+  const second = { ...makeDay("d2", [flight]), date: "2026-10-27" };
+  const trip = { ...makeTrip([day, second]), id: "t", userId: ownerId };
   useItineraryStore.setState({
     activeTrip: trip,
     activeDayId: "d1",
@@ -123,6 +148,27 @@ describe("TripView sections", () => {
     expect(screen.getByTestId("shopping")).toBeTruthy();
     expect(screen.queryByTestId("reservations")).toBeNull();
     expect(document.querySelector('[data-tour="travel-tools"]')).not.toBeNull();
+  });
+
+  it("shows the wallet bookings tab with the to-book block under it", async () => {
+    await renderAt("/trips/t/wallet");
+    expect(screen.getByRole("tab", { name: "Reservas" }).getAttribute("aria-selected")).toBe("true");
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByRole("article", { name: "Tokyo → Madrid" })).toBeTruthy();
+    expect(within(panel).getByTestId("reservations")).toBeTruthy();
+  });
+
+  it("opens a booking document from the wallet in one tap", async () => {
+    await renderAt("/trips/t/wallet");
+    fireEvent.click(screen.getByRole("button", { name: /pass.pdf/ }));
+    expect(screen.getByTestId("viewer").textContent).toBe("pass.pdf · Flight home");
+  });
+
+  it("shows a booking in the itinerary on its day", async () => {
+    await renderAt("/trips/t/wallet");
+    fireEvent.click(screen.getByRole("button", { name: "Ver en el itinerario" }));
+    expect(nav.push).toHaveBeenCalledWith("/trips/t?day=2026-10-27");
+    expect(useItineraryStore.getState().activeDayId).toBe("d2");
   });
 
   it("offers the add button only on the itinerary and the agent everywhere", async () => {
