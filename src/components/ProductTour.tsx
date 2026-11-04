@@ -13,12 +13,16 @@ const SPOT_PADDING = 8;
 const CARD_WIDTH = 340;
 const CARD_GAP = 14;
 
-const anchorOf = (step: TourStep) => document.querySelector<HTMLElement>(`[data-tour="${step.id}"]`);
-
 /** In the DOM and actually displayed (Tailwind `hidden` on this screen size does not count). */
 function isShown(element: HTMLElement): boolean {
   if (typeof element.checkVisibility === "function") return element.checkVisibility();
   return true;
+}
+
+/** The displayed element for a step; some exist twice (section bar on mobile, tabs on desktop). */
+function anchorOf(step: TourStep): HTMLElement | null {
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${step.id}"]`));
+  return candidates.find(isShown) ?? candidates[0] ?? null;
 }
 
 function readSeen(): boolean {

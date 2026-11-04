@@ -30,8 +30,6 @@ import {
   Edit2,
   X,
   Loader2,
-  User as UserIcon,
-  LogOut,
   ShieldCheck,
   ChevronRight,
   ChevronLeft,
@@ -39,17 +37,14 @@ import {
   Eye,
   EyeOff,
   Share2,
-  Sun,
-  Moon,
-  Monitor,
   Compass,
   FileUp,
-  HelpCircle,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
+import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import {
@@ -533,7 +528,7 @@ function ActivityEditModal({
 }
 
 export function TripView() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, t } = useI18n();
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
   const tripLoaded = useItineraryStore((s) => Boolean(s.activeTrip) && !s.loading);
   // First visit on this device: a guided tour of the screen (replayable from the "?" button).
@@ -575,7 +570,6 @@ export function TripView() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingImport, setShowBookingImport] = useState(false);
   const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   // The section comes from the path; the layout keeps this one TripView mounted across them.
   const router = useRouter();
@@ -602,16 +596,7 @@ export function TripView() {
 
   // Initialize theme from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("plania_theme") as "light" | "dark" | "system" | null;
-    const mode = stored || "system";
-    setThemeMode(mode);
-    const html = document.documentElement;
-    if (mode === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      html.classList.toggle("dark", prefersDark);
-    } else {
-      html.classList.toggle("dark", mode === "dark");
-    }
+    applyTheme(readTheme());
   }, []);
 
   // Auto-save draft when user logs in
@@ -1514,89 +1499,28 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              data-tour="tour-help"
-              onClick={tour.start}
-              aria-label={t("tour_help")}
-              title={t("tour_help")}
-              className="flex size-9 items-center justify-center rounded-full text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]"
-            >
-              <HelpCircle size={18} />
-            </button>
-            {/* Theme toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const html = document.documentElement;
-                const current = localStorage.getItem("plania_theme") || "system";
-                const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
-                localStorage.setItem("plania_theme", next);
-                if (next === "system") {
-                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-                  html.classList.toggle("dark", prefersDark);
-                } else {
-                  html.classList.toggle("dark", next === "dark");
-                }
-                setThemeMode(next as "light" | "dark" | "system");
-              }}
-              className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-              title={t("trip_view_theme", { mode: t(`trip_view_theme_${themeMode}`) })}
-            >
-              {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
-            </button>
-
-            {/* Language toggle */}
-            <div className="flex items-center rounded-full bg-[var(--color-surface-subtle)] p-0.5">
-              {(["es", "en"] as const).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLang(code)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
-                    lang === code
-                      ? "bg-[var(--color-primary)] text-white shadow-sm"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                  }`}
-                >
-                  {code === "es" ? "ES" : "EN"}
-                </button>
-              ))}
-            </div>
-
             {user && !user.is_anonymous ? (
-              <div className="flex items-center gap-1.5">
-                {activeTrip && (
-                  <div className="hidden sm:flex mr-2">
-                    {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
-                        <Share2 size={10} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowShareModal(true)}
-                        data-tour="share"
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
-                      >
-                        <Share2 size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-                <div className="size-7 rounded-full bg-[var(--color-primary-subtle)] flex items-center justify-center text-[var(--color-primary)] border border-[var(--color-primary)]/20">
-                  <UserIcon size={12} />
+              activeTrip && (
+                <div className="hidden sm:flex">
+                  {isInvitee ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
+                      <Share2 size={10} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowShareModal(true)}
+                      data-tour="share"
+                      className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
+                    >
+                      <Share2 size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => authSignOut()}
-                  className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
-                >
-                  <LogOut size={12} />
-                </button>
-              </div>
+              )
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
@@ -1606,6 +1530,14 @@ export function TripView() {
                 <span>{t("save")}</span>
               </button>
             )}
+
+            {/* Account, language, theme, tour and sign in/out */}
+            <AccountMenu
+              email={user && !user.is_anonymous ? user.email ?? "" : null}
+              onStartTour={tour.start}
+              onSignOut={() => authSignOut()}
+              onSignIn={() => setShowAuthModal(true)}
+            />
           </div>
         </div>
 
@@ -1912,6 +1844,7 @@ export function TripView() {
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
+                                 onOpenBooking={() => goToSection("wallet")}
                                />
                              ))}
                          </div>
@@ -1938,6 +1871,7 @@ export function TripView() {
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
+                                 onOpenBooking={() => goToSection("wallet")}
                                />
                            ))}
                          </div>

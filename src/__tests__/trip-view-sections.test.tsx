@@ -56,6 +56,7 @@ vi.mock("@/components/ProductTour", () => ({
 }));
 
 const { TripView } = await import("@/components/TripView");
+const { TOUR_STEPS } = await import("@/lib/tour/steps");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 const { useAuthStore } = await import("@/store/use-auth-store");
 
@@ -259,6 +260,69 @@ describe("TripView sections", () => {
     await renderAt("/trips/t/map");
     expect(screen.queryByRole("button", { name: "Agregar actividad" })).toBeNull();
     expect(within(screen.getByTestId("day-map")).getByRole("button", { name: /agente/i })).toBeTruthy();
+  });
+
+  describe("activity card chips on the itinerary", () => {
+    async function showFlightDay(ownerId = "me") {
+      nav.pathname = "/trips/t";
+      seed(ownerId);
+      useItineraryStore.setState({ activeDayId: "d2" });
+      renderWithI18n(<TripView />);
+      await act(async () => {});
+    }
+
+    it("opens the boarding pass in one tap from the itinerary, for invitees too", async () => {
+      await showFlightDay("owner");
+      fireEvent.click(screen.getByRole("button", { name: "Abrir el pase de «Flight home»" }));
+      expect(screen.getByTestId("viewer").textContent).toBe("pass.pdf · Flight home");
+    });
+
+    it("the booking chip goes to the wallet keeping the day", async () => {
+      await showFlightDay();
+      fireEvent.click(screen.getByRole("button", { name: "Ver la reserva de «Flight home» en la Cartera" }));
+      expect(nav.push).toHaveBeenCalledWith("/trips/t/wallet?day=2026-10-27");
+    });
+  });
+
+  describe("header account menu", () => {
+    it("moves theme, language and sign out into the avatar menu, keeping share in the header", async () => {
+      await renderAt("/trips/t");
+      const signOut = vi.fn(async () => {});
+      act(() => useAuthStore.setState({ signOut } as never));
+      const header = document.querySelector("header") as HTMLElement;
+      expect(within(header).queryByRole("button", { name: "ES" })).toBeNull();
+      expect(within(header).queryByRole("button", { name: "Ver el tour de la app" })).toBeNull();
+      expect(document.querySelector('[data-tour="share"]')).not.toBeNull();
+      fireEvent.click(within(header).getByRole("button", { name: "Menú de la cuenta" }));
+      const menu = screen.getByRole("menu");
+      expect(menu.textContent).toContain("me@x.io");
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Cerrar sesión" }));
+      expect(signOut).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the save button for anonymous visitors and offers sign in in the menu", async () => {
+      await renderAt("/trips/t");
+      act(() => useAuthStore.setState({ user: { id: "anon", is_anonymous: true } } as never));
+      const header = document.querySelector("header") as HTMLElement;
+      expect(within(header).getByRole("button", { name: "Guardar" })).toBeTruthy();
+      fireEvent.click(within(header).getByRole("button", { name: "Menú de la cuenta" }));
+      expect(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Iniciar sesión" })).toBeTruthy();
+    });
+  });
+
+  it("has every tour step's anchor on the itinerary, where the tour runs", async () => {
+    await renderAt("/trips/t");
+    const missing = TOUR_STEPS.filter((step) => !step.anchorless && !document.querySelector(`[data-tour="${step.id}"]`));
+    expect(missing.map((step) => step.id)).toEqual([]);
+  });
+
+  it("points the wallet and trip tour steps at their section links", async () => {
+    await renderAt("/trips/t");
+    for (const [anchor, href] of [["section-wallet", "/trips/t/wallet"], ["section-overview", "/trips/t/overview"]]) {
+      const links = document.querySelectorAll(`[data-tour="${anchor}"]`);
+      expect(links).toHaveLength(2);
+      links.forEach((link) => expect(link.getAttribute("href")).toBe(href));
+    }
   });
 
   it("renders the section bar and the desktop tabs", async () => {
