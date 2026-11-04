@@ -142,6 +142,12 @@ describe("TripView sections", () => {
     await renderAt("/trips/t/map", "owner");
     expect(screen.getByTestId("day-map")).toBeTruthy();
     expect(map.props?.canEdit).toBe(false);
+    expect((map.props?.floatingActions as { props: { onAdd?: unknown } }).props.onAdd).toBeUndefined();
+  });
+
+  it("keeps the add button in the map's dock for the owner, as the old mobile map did", async () => {
+    await renderAt("/trips/t/map");
+    expect(typeof (map.props?.floatingActions as { props: { onAdd?: unknown } }).props.onAdd).toBe("function");
   });
 
   it("closing the map returns to the itinerary with the day", async () => {
@@ -276,7 +282,7 @@ describe("TripView sections", () => {
     expect(useItineraryStore.getState().activeDayId).toBe("d2");
   });
 
-  it("offers the add button only on the itinerary and the agent everywhere", async () => {
+  it("offers the add button on the itinerary and inside the map dock, and the agent everywhere", async () => {
     await renderAt("/trips/t");
     expect(screen.getByRole("button", { name: "Agregar actividad" })).toBeTruthy();
     cleanup();
@@ -285,7 +291,8 @@ describe("TripView sections", () => {
     expect(screen.getAllByRole("button", { name: /agente/i }).length).toBeGreaterThan(0);
     cleanup();
     await renderAt("/trips/t/map");
-    expect(screen.queryByRole("button", { name: "Agregar actividad" })).toBeNull();
+    // On the map, both live in its bottom dock, as on the old mobile map.
+    expect(within(screen.getByTestId("day-map")).getByRole("button", { name: "Agregar actividad" })).toBeTruthy();
     expect(within(screen.getByTestId("day-map")).getByRole("button", { name: /agente/i })).toBeTruthy();
   });
 

@@ -1933,7 +1933,7 @@ export function TripView() {
                 onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
                 onOpenDetails={(id) => setEditingActivityId(id)}
                 onClose={() => goToSection("itinerary")}
-                floatingActions={<FloatingActions showAgent={floatingActionsProps.showAgent} />}
+                floatingActions={<FloatingActions {...floatingActionsProps} />}
               />
             ) : null}
           </div>
