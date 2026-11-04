@@ -845,5 +845,19 @@
   "wallet_view_reference_copied": "Localizador copiado",
   "wallet_view_no_bookings": "Sube tus reservas y Tachao las ordena por ti",
   "wallet_view_no_documents": "Los billetes, entradas y confirmaciones que adjuntes a tus actividades aparecerán aquí.",
-  "wallet_view_no_date": "Sin fecha"
+  "wallet_view_no_date": "Sin fecha",
+  "trip_overview_tabs_label": "Apartados del viaje",
+  "trip_overview_tab_summary": "Resumen",
+  "trip_overview_tab_packing": "Maleta",
+  "trip_overview_tab_shopping": "Compras",
+  "trip_overview_tab_tools": "Herramientas",
+  "trip_overview_no_dates": "{count} días, sin fechas",
+  "trip_overview_travelers": "{count} viajeros",
+  "trip_overview_context_empty": "Cuéntanos cuántos viajan y con qué equipaje para afinar las sugerencias.",
+  "trip_overview_edit_context": "Editar contexto del viaje",
+  "trip_overview_preparation": "Preparación",
+  "trip_overview_reservations_pending": "{count} reservas por hacer",
+  "trip_overview_reservations_done": "Reservas al día",
+  "trip_overview_day_empty": "{day}: sin actividades",
+  "trip_overview_days_done": "Todos los días tienen planes"
 }

@@ -17,8 +17,6 @@ import {
   MapPin,
   CreditCard,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Sparkles,
   Plane,
@@ -92,6 +90,7 @@ import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { WalletView } from "@/components/WalletView";
+import { TripOverview } from "@/components/TripOverview";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -577,7 +576,6 @@ export function TripView() {
   const [showBookingImport, setShowBookingImport] = useState(false);
   const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
-  const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   // The section comes from the path; the layout keeps this one TripView mounted across them.
   const router = useRouter();
@@ -1316,8 +1314,8 @@ export function TripView() {
     );
   }
 
-  // Sidebar blocks: the itinerary keeps them in its aside, and the wallet and overview
-  // sections show them on their own until those sections get their own screens.
+  // Former sidebar blocks: the wallet shows the reservations and the trip overview places
+  // the rest in its tabs.
   const renderAiQuickActions = () => (
     <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
@@ -1454,26 +1452,18 @@ export function TripView() {
       )}
     </>
   );
+  // The city cards follow the selected day.
   const renderTravelTools = () => (
-    <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
-      <button
-        onClick={() => setShowTravelTools(!showTravelTools)}
-        className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-      >
-        <span>{t("trip_view_travel_tools")}</span>
-        {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-      {showTravelTools && (
-        <div className="px-5 pb-5 space-y-4">
-          {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
-          {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
-          {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
-          {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
-          {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
-        </div>
-      )}
+    <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_travel_tools")}</h3>
+      {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+      {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
     </div>
   );
+  const renderPacking = () =>
+    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null;
 
   return (
     // On mobile the bottom padding clears the fixed section bar (4rem) and, outside the map,
@@ -1747,7 +1737,7 @@ export function TripView() {
       )}
 
       {section === "itinerary" && (
-      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 ios-compact-gap">
+      <div className="max-w-3xl mx-auto px-5 pt-8">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div data-tour="timeline" className="space-y-8">
           {/* DAY INTRO */}
@@ -1987,15 +1977,6 @@ export function TripView() {
             </SortableContext>
           </DndContext>
         </div>
-
-        {/* SIDEBAR */}
-        <aside className="space-y-6">
-          {renderAiQuickActions()}
-          {renderReservations()}
-          {renderShopping()}
-          {renderBudget()}
-          {renderTravelTools()}
-        </aside>
       </div>
       )}
 
@@ -2040,12 +2021,19 @@ export function TripView() {
       )}
 
       {/* OVERVIEW SECTION */}
-      {section === "overview" && (
-        <div className="max-w-3xl mx-auto px-5 pt-8 space-y-6">
-          {renderAiQuickActions()}
-          {renderShopping()}
-          {renderBudget()}
-          {renderTravelTools()}
+      {section === "overview" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 md:px-5 md:pt-8">
+          <TripOverview
+            trip={activeTrip}
+            canShare={!isInvitee}
+            onEditContext={() => setTravelContextOpen(true)}
+            onShare={() => setShowShareModal(true)}
+            budget={renderBudget()}
+            aiQuickActions={renderAiQuickActions()}
+            packing={renderPacking()}
+            shopping={renderShopping()}
+            tools={renderTravelTools()}
+          />
         </div>
       )}
 

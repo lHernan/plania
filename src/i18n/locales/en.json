@@ -845,5 +845,19 @@
   "wallet_view_reference_copied": "Reference copied",
   "wallet_view_no_bookings": "Upload your bookings and Tachao sorts them for you",
   "wallet_view_no_documents": "Tickets, passes and confirmations you attach to your activities will show up here.",
-  "wallet_view_no_date": "No date"
+  "wallet_view_no_date": "No date",
+  "trip_overview_tabs_label": "Trip overview",
+  "trip_overview_tab_summary": "Summary",
+  "trip_overview_tab_packing": "Packing",
+  "trip_overview_tab_shopping": "Shopping",
+  "trip_overview_tab_tools": "Tools",
+  "trip_overview_no_dates": "{count} days, no dates",
+  "trip_overview_travelers": "{count} travelers",
+  "trip_overview_context_empty": "Tell us how many of you are traveling and with what luggage to fine-tune the suggestions.",
+  "trip_overview_edit_context": "Edit trip context",
+  "trip_overview_preparation": "Preparation",
+  "trip_overview_reservations_pending": "{count} bookings to make",
+  "trip_overview_reservations_done": "Bookings up to date",
+  "trip_overview_day_empty": "{day}: no activities",
+  "trip_overview_days_done": "Every day has plans"
 }

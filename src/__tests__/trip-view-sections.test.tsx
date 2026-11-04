@@ -42,6 +42,12 @@ vi.mock("@/components/DocumentViewer", () => ({
     <div data-testid="viewer">{file.fileName} · {activityTitle}</div>
   ),
 }));
+// The travel tools and the packing list fetch on mount; stubs show where they are rendered.
+vi.mock("@/components/ArrivalAssistant", () => ({ ArrivalAssistant: () => <section data-testid="arrival" /> }));
+vi.mock("@/components/CityPaymentGuideCard", () => ({ CityPaymentGuideCard: () => <section data-testid="payments" /> }));
+vi.mock("@/components/CurrencyConverter", () => ({ CurrencyConverter: () => <section data-testid="currency" /> }));
+vi.mock("@/components/EmergencyInfoCard", () => ({ EmergencyInfoCard: () => <section data-testid="emergency" /> }));
+vi.mock("@/components/PackingListCard", () => ({ PackingListCard: () => <section data-testid="packing" /> }));
 vi.mock("@/components/ChatPanel", () => ({ ChatPanel: () => null }));
 vi.mock("@/components/TripSwitcher", () => ({ TripSwitcher: () => null }));
 vi.mock("@/components/ProductTour", () => ({
@@ -72,7 +78,7 @@ function seed(ownerId: string) {
     booking: { version: 1, type: "flight", role: "single", groupId: "g1", title: "Tokyo → Madrid", fieldStatus: {} },
     files: [boardingPass],
   });
-  const day = makeDay("d1", [makeActivity("a1")]);
+  const day = makeDay("d1", [makeActivity("a1", { expectedCost: 40 })]);
   const second = { ...makeDay("d2", [flight]), date: "2026-10-27" };
   const trip = { ...makeTrip([day, second]), id: "t", userId: ownerId };
   useItineraryStore.setState({
@@ -105,11 +111,22 @@ afterEach(() => {
 });
 
 describe("TripView sections", () => {
-  it("shows the timeline and the sidebar on the itinerary", async () => {
+  it("shows the timeline with the day's activities on the itinerary", async () => {
     await renderAt("/trips/t");
-    expect(document.querySelector('[data-tour="timeline"]')).not.toBeNull();
-    expect(screen.getByTestId("reservations")).toBeTruthy();
+    const timeline = document.querySelector('[data-tour="timeline"]') as HTMLElement;
+    expect(within(timeline).getByText("Activity a1")).toBeTruthy();
     expect(screen.queryByTestId("day-map")).toBeNull();
+  });
+
+  it("no longer shows the sidebar blocks on the itinerary", async () => {
+    await renderAt("/trips/t");
+    expect(document.querySelector("aside")).toBeNull();
+    expect(document.querySelector('[data-tour="ai-shortcuts"]')).toBeNull();
+    expect(document.querySelector('[data-tour="travel-tools"]')).toBeNull();
+    expect(screen.queryByTestId("reservations")).toBeNull();
+    expect(screen.queryByTestId("shopping")).toBeNull();
+    expect(screen.queryByText("Presupuesto")).toBeNull();
+    expect(screen.queryByTestId("packing")).toBeNull();
   });
 
   it("fills the map section with the day's map, editable for the owner", async () => {
@@ -139,15 +156,75 @@ describe("TripView sections", () => {
     expect(nav.push).toHaveBeenCalledWith("/trips/t/map?day=2026-10-26");
   });
 
-  it("shows the reservations on the wallet and the other blocks on the overview", async () => {
-    await renderAt("/trips/t/wallet");
-    expect(screen.getByTestId("reservations")).toBeTruthy();
-    expect(screen.queryByTestId("shopping")).toBeNull();
-    cleanup();
+  it("shows the overview as four tabs", async () => {
     await renderAt("/trips/t/overview");
-    expect(screen.getByTestId("shopping")).toBeTruthy();
-    expect(screen.queryByTestId("reservations")).toBeNull();
-    expect(document.querySelector('[data-tour="travel-tools"]')).not.toBeNull();
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Resumen", "Maleta", "Compras", "Herramientas"]);
+  });
+
+  describe("every former sidebar feature stays reachable", () => {
+    it("critical reservations, in the wallet", async () => {
+      await renderAt("/trips/t/wallet");
+      expect(screen.getByTestId("reservations")).toBeTruthy();
+    });
+
+    it("AI quick actions with Day Genius, in the overview summary", async () => {
+      await renderAt("/trips/t/overview");
+      const ai = document.querySelector('[data-tour="ai-shortcuts"]') as HTMLElement;
+      expect(within(ai).getByRole("button", { name: /Genio del Dia/ })).toBeTruthy();
+    });
+
+    it("the trip context editor, in the overview summary", async () => {
+      await renderAt("/trips/t/overview");
+      fireEvent.click(screen.getByRole("button", { name: "Editar contexto del viaje" }));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
+
+    it("booking import, in the overview summary", async () => {
+      await renderAt("/trips/t/overview");
+      const ai = document.querySelector('[data-tour="ai-shortcuts"]') as HTMLElement;
+      expect(within(ai).getByRole("button", { name: "Importar reservas" })).toBeTruthy();
+    });
+
+    it("notes import to the timeline, in the overview summary", async () => {
+      await renderAt("/trips/t/overview");
+      expect(screen.getByRole("button", { name: "Sincronizar a la Linea de Tiempo" })).toBeTruthy();
+    });
+
+    it("the budget, in the overview summary", async () => {
+      await renderAt("/trips/t/overview");
+      expect(within(screen.getByRole("tabpanel")).getByText("Presupuesto")).toBeTruthy();
+    });
+
+    it("sharing, in the overview summary for the owner only", async () => {
+      await renderAt("/trips/t/overview");
+      expect(within(screen.getByRole("tabpanel")).getByRole("button", { name: "Compartir" })).toBeTruthy();
+      cleanup();
+      await renderAt("/trips/t/overview", "owner");
+      expect(within(screen.getByRole("tabpanel")).queryByRole("button", { name: "Compartir" })).toBeNull();
+    });
+
+    it("the packing list, in the packing tab", async () => {
+      await renderAt("/trips/t/overview");
+      fireEvent.click(screen.getByRole("tab", { name: "Maleta" }));
+      expect(within(screen.getByRole("tabpanel")).getByTestId("packing")).toBeTruthy();
+    });
+
+    it("the shopping list, in the shopping tab", async () => {
+      await renderAt("/trips/t/overview");
+      fireEvent.click(screen.getByRole("tab", { name: "Compras" }));
+      expect(within(screen.getByRole("tabpanel")).getByTestId("shopping")).toBeTruthy();
+    });
+
+    it("arrival, payments, currency and emergencies, in the tools tab", async () => {
+      await renderAt("/trips/t/overview");
+      fireEvent.click(screen.getByRole("tab", { name: "Herramientas" }));
+      const panel = screen.getByRole("tabpanel");
+      expect(panel.querySelector('[data-tour="travel-tools"]')).not.toBeNull();
+      for (const id of ["arrival", "payments", "currency", "emergency"]) {
+        expect(within(panel).getByTestId(id)).toBeTruthy();
+      }
+    });
   });
 
   it("shows the wallet bookings tab with the to-book block under it", async () => {
