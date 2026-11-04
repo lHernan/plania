@@ -629,6 +629,8 @@ export const useItineraryStore = create<Store>((set, get) => {
     }
 
       if (!trips || trips.length === 0) {
+      // A trip asked for by id (a URL) that is gone or not shared opens the one the selection would pick.
+      if (tripId) return fetchFreshTrip();
       set({ activeTrip: null, activeDayId: "", loading: false, hasFetched: true });
       return;
     }

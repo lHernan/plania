@@ -71,6 +71,19 @@ describe("loading the active trip", () => {
     expect(db.tripQueries).toHaveLength(1);
   });
 
+  it("opens the requested trip when it is available", async () => {
+    useAuthStore.setState({ user: { id: "u-inv" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-own");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-own" });
+  });
+
+  it("falls back to the trip it would select when the requested one is not available", async () => {
+    useAuthStore.setState({ user: { id: "u-inv" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-gone");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-shared" });
+    expect(useItineraryStore.getState().hasFetched).toBe(true);
+  });
+
   it("stays empty when nothing is owned or shared", async () => {
     db.shares = [];
     useAuthStore.setState({ user: { id: "u-nobody" } as never });

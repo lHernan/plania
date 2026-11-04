@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { tripPath } from "@/lib/trip-routes";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight, Loader2, CheckCircle2, AlertCircle, Calendar, Clock } from "lucide-react";
@@ -85,7 +86,7 @@ export default function SharePage() {
       const data = await res.json();
       if (res.ok) {
         if (data.tripId) await switchTrip(data.tripId);
-        router.push("/trips");
+        router.push(data.tripId ? tripPath(data.tripId) : "/trips");
       } else {
         setError(data.error ? { text: data.error } : { key: "share_page_accept_failed" });
       }

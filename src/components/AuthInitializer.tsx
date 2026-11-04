@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { claimPendingInvitations } from "@/lib/share/claim-client";
+import { parseTripPath, tripPath } from "@/lib/trip-routes";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
@@ -65,18 +66,21 @@ export function AuthInitializer() {
       // so an invitee with no trips of their own lands on the shared one.
       if (!isAnonymous && !isOffline()) await claimPendingInvitations();
       void fetchAllTrips();
-      void fetchActiveTrip();
+      // A trip URL opens that trip; anywhere else the selection picks one.
+      const urlTripId = parseTripPath(pathname)?.tripId;
+      void (urlTripId ? fetchActiveTrip(urlTripId) : fetchActiveTrip());
     })();
   }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id, user?.is_anonymous]);
 
   useEffect(() => {
-    if (activeTrip && pathname === "/") {
-      router.push("/trips");
+    if (activeTrip && (pathname === "/" || pathname === "/trips")) {
+      router.push(tripPath(activeTrip.id));
     }
   }, [activeTrip, pathname, router]);
 
   useEffect(() => {
-    if (initialized && hasFetched && !loading && !activeTrip && pathname === "/trips") {
+    const onTripPage = pathname === "/trips" || pathname.startsWith("/trips/");
+    if (initialized && hasFetched && !loading && !activeTrip && onTripPage) {
       // When offline, stay on /trips — the landing page is useless without
       // connectivity and the cache may still be hydrating the active trip.
       if (isOffline()) return;
