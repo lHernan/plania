@@ -14,5 +14,15 @@ export function parseTripPath(pathname: string): { tripId: string; section: Trip
   if (root !== "trips" || !rawId || rest.length > 0) return null;
   const section = (rawSection ?? "itinerary") as TripSection;
   if (rawSection === "itinerary" || !TRIP_SECTIONS.includes(section)) return null;
-  return { tripId: decodeURIComponent(rawId), section };
+  const tripId = decodeTripId(rawId);
+  return tripId ? { tripId, section } : null;
+}
+
+/** A trip id from a URL segment; empty when its percent-encoding is malformed. */
+export function decodeTripId(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return "";
+  }
 }

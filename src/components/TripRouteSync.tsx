@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { parseTripPath, tripPath } from "@/lib/trip-routes";
+import { decodeTripId, parseTripPath, tripPath } from "@/lib/trip-routes";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
 /**
@@ -16,7 +16,7 @@ export function TripRouteSync() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const params = useParams<{ tripId: string }>();
-  const urlTripId = params?.tripId ? decodeURIComponent(params.tripId) : "";
+  const urlTripId = params?.tripId ? decodeTripId(params.tripId) : "";
 
   const activeTrip = useItineraryStore((s) => s.activeTrip);
   const activeDayId = useItineraryStore((s) => s.activeDayId);

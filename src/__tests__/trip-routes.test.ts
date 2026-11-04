@@ -23,5 +23,6 @@ describe("trip routes", () => {
     expect(parseTripPath("/trips/")).toBeNull();
     expect(parseTripPath("/trips/t1/unknown")).toBeNull();
     expect(parseTripPath("/share/tok")).toBeNull();
+    expect(parseTripPath("/trips/%E0")).toBeNull();
   });
 });
