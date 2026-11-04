@@ -83,9 +83,9 @@ serve(async (req: Request) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: `Plania <noreply@${new URL(APP_URL).hostname}>`,
+          from: `Tachao <noreply@${new URL(APP_URL).hostname}>`,
           to: inviteeEmail,
-          subject: `${ownerEmail} compartió "${tripName}" contigo en Plania`,
+          subject: `${ownerEmail} compartió "${tripName}" contigo en Tachao`,
           html: buildEmailHtml({ tripName, ownerEmail, ctaUrl: signInLink ?? inviteUrl, shareUrl: inviteUrl }),
         }),
       });

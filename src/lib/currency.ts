@@ -1,7 +1,7 @@
 /**
  * City/country → currency resolution and exchange-rate types.
  *
- * The mapping is intentionally small: it covers the cities Plania already
+ * The mapping is intentionally small: it covers the cities Tachao already
  * knows (payment guides) plus common travel destinations.  Unknown cities
  * return `undefined` and the widget simply hides.
  */
