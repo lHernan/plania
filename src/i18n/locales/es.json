@@ -367,6 +367,12 @@
   "lang_es": "Español",
   "lang_en": "English",
 
+  "section_nav_label": "Secciones del viaje",
+  "section_itinerary": "Itinerario",
+  "section_map": "Mapa",
+  "section_wallet": "Cartera",
+  "section_overview": "Viaje",
+
   "map": "Mapa",
   "map_no_locations": "Sin ubicaciones para mostrar",
   "map_loading": "Cargando mapa...",
