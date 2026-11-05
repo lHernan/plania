@@ -121,10 +121,23 @@ describe("TripView header cover", () => {
     await renderTrip({ coverPath: "t/header.jpg" });
     const header = screen.getByRole("banner");
     const surfaces = header.querySelectorAll("[data-over-cover]");
-    expect(surfaces).toHaveLength(3);
-    expect(header.querySelector('[data-over-cover="tabs"] nav')).toBeTruthy();
+    expect(surfaces).toHaveLength(2);
     expect(within(header.querySelector('[data-over-cover="controls"]') as HTMLElement).getByRole("button", { name: "Menú de la cuenta" })).toBeTruthy();
     surfaces.forEach((surface) => expect(surface.className).toContain("backdrop-blur"));
+  });
+
+  it("shows each section tab as its own pill over the photo instead of a band", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const tabs = within(within(screen.getByRole("banner")).getByRole("navigation", { name: "Secciones del viaje" })).getAllByRole("link");
+    expect(tabs).toHaveLength(4);
+    tabs.forEach((tab) => expect(tab.className).toMatch(/rounded-full[\s\S]*backdrop-blur/));
+  });
+
+  it("keeps the account menu above the day strip over the photo", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const controls = screen.getByRole("banner").querySelector('[data-over-cover="controls"]') as HTMLElement;
+    expect(controls.className).toMatch(/\brelative\b/);
+    expect(controls.className).toMatch(/\bz-20\b/);
   });
 
   it("keeps the plain header when the trip has no cover", async () => {
@@ -132,5 +145,8 @@ describe("TripView header cover", () => {
     const header = screen.getByRole("banner");
     expect(within(header).queryByTestId("trip-header-cover")).toBeNull();
     expect(header.querySelectorAll("[data-over-cover]")).toHaveLength(0);
+    within(within(screen.getByRole("banner")).getByRole("navigation", { name: "Secciones del viaje" }))
+      .getAllByRole("link")
+      .forEach((tab) => expect(tab.className).not.toContain("backdrop-blur"));
   });
 });

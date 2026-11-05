@@ -1698,7 +1698,7 @@ export function TripView() {
           {/* Right: user controls */}
           <div
             data-over-cover={headerCover ? "controls" : undefined}
-            className={`flex shrink-0 items-center gap-2${headerCover ? ` rounded-full px-1 ${OVER_COVER_SURFACE}` : ""}`}
+            className={`flex shrink-0 items-center gap-2${headerCover ? ` relative z-20 rounded-full px-1 ${OVER_COVER_SURFACE}` : ""}`}
           >
             {user && !user.is_anonymous ? (
               activeTrip && (
@@ -1743,11 +1743,7 @@ export function TripView() {
         </div>
 
         {/* Trip sections as tabs on desktop; mobile uses the bottom bar */}
-        {activeTrip && (
-          <div data-over-cover={headerCover ? "tabs" : undefined} className={headerCover ? OVER_COVER_SURFACE : undefined}>
-            <TripSectionNav tripId={activeTrip.id} variant="tabs" />
-          </div>
-        )}
+        {activeTrip && <TripSectionNav tripId={activeTrip.id} variant="tabs" overCover={Boolean(headerCover)} />}
 
         {/* Date strip */}
         <div data-tour="day-strip" className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">

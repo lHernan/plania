@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { CalendarDays, Luggage, Map as MapIcon, Wallet, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { OVER_COVER_SURFACE } from "@/components/TripCover";
 import { parseTripPath, tripPath, TRIP_SECTIONS, type TripSection } from "@/lib/trip-routes";
 
 const SECTION_ICONS: Record<TripSection, LucideIcon> = {
@@ -28,8 +29,9 @@ export function tripSectionHref(tripId: string, section: TripSection, day?: stri
 /**
  * The four sections of a trip. `bar` is the fixed bottom bar on mobile; `tabs` is the row
  * inside the header on desktop. Both are links, so each section has its own address.
+ * Over a trip cover (`overCover`) the tabs become separate frosted pills so they read on any photo.
  */
-export function TripSectionNav({ tripId, variant }: { tripId: string; variant: "bar" | "tabs" }) {
+export function TripSectionNav({ tripId, variant, overCover = false }: { tripId: string; variant: "bar" | "tabs"; overCover?: boolean }) {
   const { t } = useI18n();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -53,7 +55,7 @@ export function TripSectionNav({ tripId, variant }: { tripId: string; variant: "
           : "hidden md:flex items-center gap-1 px-4 max-w-7xl mx-auto"
       }
     >
-      <ul className={isBar ? "grid grid-cols-4" : "flex items-center gap-1"}>
+      <ul className={isBar ? "grid grid-cols-4" : overCover ? "flex items-center gap-2 py-1.5" : "flex items-center gap-1"}>
         {TRIP_SECTIONS.map((section) => {
           const Icon = SECTION_ICONS[section];
           const active = section === current;
@@ -68,7 +70,13 @@ export function TripSectionNav({ tripId, variant }: { tripId: string; variant: "
                     ? `flex h-16 min-h-11 min-w-11 flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]/40 ${
                         active ? "text-[var(--color-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                       }`
-                    : `inline-flex min-h-11 min-w-11 items-center gap-2 border-b-2 px-4 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40 ${
+                    : overCover
+                      ? `inline-flex min-h-11 min-w-11 items-center gap-2 rounded-full border px-4 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40 ${OVER_COVER_SURFACE} ${
+                          active
+                            ? "border-[var(--color-primary)] text-[var(--color-primary)]"
+                            : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+                        }`
+                      : `inline-flex min-h-11 min-w-11 items-center gap-2 border-b-2 px-4 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40 ${
                         active
                           ? "border-[var(--color-primary)] text-[var(--color-primary)]"
                           : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
