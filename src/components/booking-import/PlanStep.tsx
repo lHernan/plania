@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { LoaderCircle, Sparkles, TriangleAlert } from "lucide-react";
+import { LoaderCircle, TriangleAlert } from "lucide-react";
+import { TachiAvatar } from "@/components/TachiAvatar";
 import { useI18n } from "@/components/I18nProvider";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import {
@@ -184,7 +185,7 @@ export function PlanStep({
             disabled={busy}
             className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-accent-ai)] px-4 text-sm font-black text-white disabled:opacity-60"
           >
-            {busy ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
+            {busy ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <TachiAvatar size={16} />}
             {busy ? t("booking_import_generating") : t("booking_import_generate")}
           </button>
         </>

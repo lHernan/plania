@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { TachiAvatar } from "@/components/TachiAvatar";
 import { useI18n } from "@/components/I18nProvider";
 import type { OptimizationSuggestion } from "@/lib/types";
 
@@ -34,7 +35,7 @@ export function ScheduleSuggestions({
         className="w-full flex items-center justify-between gap-2 px-1 py-1 text-xs font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
       >
         <span className="flex items-center gap-2">
-          <Sparkles size={14} className="text-[var(--color-accent-ai)]" aria-hidden />
+          <TachiAvatar size={16} />
           {label}
         </span>
         {open ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
@@ -42,7 +43,7 @@ export function ScheduleSuggestions({
       {open && suggestions.map((s) => (
         <div key={s.id} className="flex gap-3 p-3 rounded-xl bg-[var(--color-surface-subtle)] border border-[var(--color-border)]">
           <div className="size-7 rounded-lg bg-[var(--color-accent-ai)]/10 flex items-center justify-center text-[var(--color-accent-ai)] shrink-0">
-            <Sparkles size={14} />
+            <TachiAvatar size={16} />
           </div>
           <div className="space-y-0.5 min-w-0">
             <p className="text-xs font-bold text-[var(--color-text)] tracking-tight">{s.title}</p>

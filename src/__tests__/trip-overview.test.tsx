@@ -37,7 +37,6 @@ function renderOverview(plan: TripPlan = trip(), { canShare = true, lang = "es" 
       canShare={canShare}
       {...callbacks}
       budget={<div data-testid="budget" />}
-      aiQuickActions={<div data-testid="ai" />}
       packing={<div data-testid="packing" />}
       shopping={<div data-testid="shopping" />}
       tools={<div data-testid="tools" />}
@@ -95,7 +94,8 @@ describe("TripOverview summary", () => {
     expect(within(panel).getByText("Tokyo · Kyoto")).toBeTruthy();
     expect(within(panel).getByText("3 viajeros")).toBeTruthy();
     expect(within(panel).getByTestId("budget")).toBeTruthy();
-    expect(within(panel).getByTestId("ai")).toBeTruthy();
+    // AI shortcuts moved to Tachi: the summary no longer carries them.
+    expect(within(panel).queryByText("Acciones rápidas con IA")).toBeNull();
   });
 
   it("says the trip has no dates and asks for the context when they are missing", () => {

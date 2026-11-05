@@ -1,6 +1,7 @@
 "use client";
 
-import { Sparkles, Ticket } from "lucide-react";
+import { Ticket } from "lucide-react";
+import { TachiAvatar } from "@/components/TachiAvatar";
 import { useI18n } from "@/components/I18nProvider";
 import type { Activity } from "@/lib/types";
 
@@ -32,7 +33,7 @@ export function OriginBadge({ activity, className = "" }: { activity: Pick<Activ
         className={`inline-flex items-center gap-1 rounded-full border border-dashed border-[var(--color-accent-ai)]/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-[var(--color-accent-ai)] ${className}`}
         title={t("origin_suggested_hint")}
       >
-        <Sparkles size={10} aria-hidden="true" />
+        <TachiAvatar size={12} />
         <span>{t("origin_suggested")}</span>
       </span>
     );

@@ -3,24 +3,24 @@
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
-import { ChatFab } from "@/components/ChatFab";
+import { TachiButton } from "@/components/TachiButton";
 
 /**
- * Quick actions ("+" and travel agent) as one group with consistent spacing.
+ * Quick actions ("+" and Tachi) as one group with consistent spacing.
  * The group never positions itself: the caller decides where it lives — fixed over the
  * page, or inside the map's bottom dock so it stacks above the activity card.
  */
 export function FloatingActions({
   onAdd,
-  showAgent = true,
+  onAskTachi,
   className = "",
 }: {
   onAdd?: () => void;
-  showAgent?: boolean;
+  onAskTachi?: () => void;
   className?: string;
 }) {
   const { t } = useI18n();
-  if (!onAdd && !showAgent) return null;
+  if (!onAdd && !onAskTachi) return null;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -37,7 +37,7 @@ export function FloatingActions({
           <Plus size={24} />
         </motion.button>
       )}
-      {showAgent && <ChatFab />}
+      {onAskTachi && <TachiButton onClick={onAskTachi} />}
     </div>
   );
 }

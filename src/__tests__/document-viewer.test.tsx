@@ -130,12 +130,12 @@ describe("DocumentViewer", () => {
     useAuthStore.setState({ user: { id: "anon", is_anonymous: true } as never });
     open();
     expect(await screen.findByRole("button", { name: "Marcar el código a mano" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Buscar con IA" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Buscar con Tachi" })).toBeNull();
   });
 
   it("offers the AI scan only when nothing was found, sending a small JPEG", async () => {
     open();
-    const scan = await screen.findByRole("button", { name: "Buscar con IA" });
+    const scan = await screen.findByRole("button", { name: "Buscar con Tachi" });
     await act(async () => fireEvent.click(scan));
     const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
     const body = JSON.parse(init.body as string);
@@ -170,7 +170,7 @@ describe("DocumentViewer", () => {
   it("says when the AI found nothing either", async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ regions: [] })));
     open();
-    const scan = await screen.findByRole("button", { name: "Buscar con IA" });
+    const scan = await screen.findByRole("button", { name: "Buscar con Tachi" });
     await act(async () => fireEvent.click(scan));
     expect(await screen.findByText("No encontramos códigos. Puedes marcarlo a mano.")).toBeTruthy();
   });
