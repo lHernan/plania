@@ -30,6 +30,9 @@ export function TripCoverImage({ path }: { path?: string | null }) {
   );
 }
 
+/** Frosted surface for header controls over the cover, so they read on any photo. */
+export const OVER_COVER_SURFACE = "bg-[var(--color-surface)]/80 backdrop-blur-md shadow-sm";
+
 /**
  * The cover behind the whole trip header (every section); the header must be `relative isolate`.
  * A light surface-colored veil only behind the trip name on the left keeps it legible in both

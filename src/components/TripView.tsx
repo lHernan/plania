@@ -95,7 +95,7 @@ import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
-import { TripHeaderCover } from "@/components/TripCover";
+import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
 import { isTripUndated } from "@/lib/trip-undated";
 import { canEditTripCover } from "@/lib/trip-cover";
@@ -657,6 +657,8 @@ export function TripView() {
     }
   }, [activeTripIsDraft, user, saveDraft]);
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
+  /** The trip cover behind the header; its controls then get their own surface. */
+  const headerCover = activeTrip?.coverPath ?? null;
   // Planned by number of days: the day dates are placeholders, so days go by number and the
   // trip is never live until its dates are set ([Fijar fechas], owner only like other trip edits).
   const undated = isTripUndated(activeTrip);
@@ -1678,18 +1680,26 @@ export function TripView() {
       {/* COMPACT STICKY HEADER */}
       <header className="relative isolate border-b border-[var(--color-border)]">
         {/* The trip cover sits behind the whole header: top bar, section tabs and day strip */}
-        {activeTrip?.coverPath && <TripHeaderCover path={activeTrip.coverPath} />}
+        {headerCover && <TripHeaderCover path={headerCover} />}
         {/* Top bar: trip selector + controls */}
         <div className="flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
           {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
               overflows narrow screens (an overflow widens the layout viewport and every
               fixed overlay with it, e.g. the mobile map). */}
           <div data-tour="trip-switcher" className="min-w-0 flex-1">
-            <TripSwitcher />
+            <div
+              data-over-cover={headerCover ? "trip" : undefined}
+              className={headerCover ? `inline-flex max-w-full rounded-2xl px-3 py-1 ${OVER_COVER_SURFACE}` : "contents"}
+            >
+              <TripSwitcher />
+            </div>
           </div>
 
           {/* Right: user controls */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            data-over-cover={headerCover ? "controls" : undefined}
+            className={`flex shrink-0 items-center gap-2${headerCover ? ` rounded-full px-1 ${OVER_COVER_SURFACE}` : ""}`}
+          >
             {user && !user.is_anonymous ? (
               activeTrip && (
                 <div className="hidden sm:flex">
@@ -1733,7 +1743,11 @@ export function TripView() {
         </div>
 
         {/* Trip sections as tabs on desktop; mobile uses the bottom bar */}
-        {activeTrip && <TripSectionNav tripId={activeTrip.id} variant="tabs" />}
+        {activeTrip && (
+          <div data-over-cover={headerCover ? "tabs" : undefined} className={headerCover ? OVER_COVER_SURFACE : undefined}>
+            <TripSectionNav tripId={activeTrip.id} variant="tabs" />
+          </div>
+        )}
 
         {/* Date strip */}
         <div data-tour="day-strip" className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">

@@ -117,8 +117,20 @@ describe("TripView header cover", () => {
     expect(header.className).toContain("isolate");
   });
 
+  it("puts the trip name, the account controls and the section tabs on their own surface over the photo", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const header = screen.getByRole("banner");
+    const surfaces = header.querySelectorAll("[data-over-cover]");
+    expect(surfaces).toHaveLength(3);
+    expect(header.querySelector('[data-over-cover="tabs"] nav')).toBeTruthy();
+    expect(within(header.querySelector('[data-over-cover="controls"]') as HTMLElement).getByRole("button", { name: "Menú de la cuenta" })).toBeTruthy();
+    surfaces.forEach((surface) => expect(surface.className).toContain("backdrop-blur"));
+  });
+
   it("keeps the plain header when the trip has no cover", async () => {
     await renderTrip({ coverPath: null });
-    expect(within(screen.getByRole("banner")).queryByTestId("trip-header-cover")).toBeNull();
+    const header = screen.getByRole("banner");
+    expect(within(header).queryByTestId("trip-header-cover")).toBeNull();
+    expect(header.querySelectorAll("[data-over-cover]")).toHaveLength(0);
   });
 });
