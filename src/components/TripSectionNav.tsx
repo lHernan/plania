@@ -13,6 +13,12 @@ const SECTION_ICONS: Record<TripSection, LucideIcon> = {
   overview: Luggage,
 };
 
+/** Tour steps that explain what lives in these sections, shown on their links. */
+const TOUR_ANCHORS: Partial<Record<TripSection, string>> = {
+  wallet: "section-wallet",
+  overview: "section-overview",
+};
+
 /** A section of the trip with the selected day (`?day=`), so the day carries over. */
 export function tripSectionHref(tripId: string, section: TripSection, day?: string | null): string {
   const path = tripPath(tripId, section);
@@ -39,6 +45,7 @@ export function TripSectionNav({ tripId, variant }: { tripId: string; variant: "
 
   return (
     <nav
+      data-tour="sections"
       aria-label={t("section_nav_label")}
       className={
         isBar
@@ -55,6 +62,7 @@ export function TripSectionNav({ tripId, variant }: { tripId: string; variant: "
               <Link
                 href={tripSectionHref(tripId, section, day)}
                 aria-current={active ? "page" : undefined}
+                data-tour={TOUR_ANCHORS[section]}
                 className={
                   isBar
                     ? `flex h-16 min-h-11 min-w-11 flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]/40 ${

@@ -20,7 +20,7 @@ describe("ProductTour", () => {
     const onClose = vi.fn();
     renderWithI18n(
       <>
-        {anchors(["trip-switcher", "day-strip", "timeline", "shopping"])}
+        {anchors(["trip-switcher", "day-strip", "timeline", "section-overview"])}
         <ProductTour open onClose={onClose} />
       </>,
     );
@@ -42,7 +42,7 @@ describe("ProductTour", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-    expect(dialog().textContent).toContain("Lista de compras");
+    expect(dialog().textContent).toContain("Todo el viaje");
     fireEvent.click(screen.getByRole("button", { name: "¡A tachar!" }));
     expect(onClose).toHaveBeenCalledWith(true);
   });
@@ -57,8 +57,28 @@ describe("ProductTour", () => {
 
   it("explains every section the trip screen marks", () => {
     expect(TOUR_STEPS.map((s) => s.id)).toEqual([
-      "welcome", "trip-switcher", "day-strip", "day-tools", "timeline", "ai-shortcuts", "reservations", "shopping", "travel-tools", "travel-agent", "share", "tour-help",
+      "welcome", "trip-switcher", "sections", "day-strip", "day-tools", "timeline", "section-wallet", "section-overview", "travel-agent", "share", "tour-help",
     ]);
+  });
+
+  it("highlights the copy of an anchor that is on screen when there are several", () => {
+    // The section nav exists twice (bottom bar on mobile, tabs on desktop); only one is displayed.
+    const hidden = document.createElement("div");
+    hidden.dataset.tour = "sections";
+    hidden.checkVisibility = () => false;
+    const shown = document.createElement("div");
+    shown.dataset.tour = "sections";
+    shown.checkVisibility = () => true;
+    document.body.append(hidden, shown);
+    renderWithI18n(<ProductTour open onClose={vi.fn()} />);
+    expect(screen.getByRole("dialog").textContent).toContain("1 de 2");
+    fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
+    expect(screen.getByRole("dialog").textContent).toContain("Las secciones");
+    const scroll = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>;
+    expect(scroll.mock.contexts).toContain(shown);
+    expect(scroll.mock.contexts).not.toContain(hidden);
+    hidden.remove();
+    shown.remove();
   });
 
   it("still welcomes when no section is on screen", () => {

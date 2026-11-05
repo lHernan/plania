@@ -17,8 +17,6 @@ import {
   MapPin,
   CreditCard,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Sparkles,
   Plane,
@@ -32,8 +30,6 @@ import {
   Edit2,
   X,
   Loader2,
-  User as UserIcon,
-  LogOut,
   ShieldCheck,
   ChevronRight,
   ChevronLeft,
@@ -41,17 +37,14 @@ import {
   Eye,
   EyeOff,
   Share2,
-  Sun,
-  Moon,
-  Monitor,
   Compass,
   FileUp,
-  HelpCircle,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
+import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import {
@@ -91,6 +84,8 @@ import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
+import { WalletView } from "@/components/WalletView";
+import { TripOverview } from "@/components/TripOverview";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -533,7 +528,7 @@ function ActivityEditModal({
 }
 
 export function TripView() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, t } = useI18n();
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
   const tripLoaded = useItineraryStore((s) => Boolean(s.activeTrip) && !s.loading);
   // First visit on this device: a guided tour of the screen (replayable from the "?" button).
@@ -575,8 +570,6 @@ export function TripView() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingImport, setShowBookingImport] = useState(false);
   const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
-  const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
   // The section comes from the path; the layout keeps this one TripView mounted across them.
   const router = useRouter();
@@ -603,16 +596,7 @@ export function TripView() {
 
   // Initialize theme from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("plania_theme") as "light" | "dark" | "system" | null;
-    const mode = stored || "system";
-    setThemeMode(mode);
-    const html = document.documentElement;
-    if (mode === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      html.classList.toggle("dark", prefersDark);
-    } else {
-      html.classList.toggle("dark", mode === "dark");
-    }
+    applyTheme(readTheme());
   }, []);
 
   // Auto-save draft when user logs in
@@ -1176,8 +1160,28 @@ export function TripView() {
     router.push(tripSectionHref(activeTrip.id, target, activeDay?.date));
   };
 
+  // From the wallet: the itinerary opens on the activity's day and scrolls to its card.
+  const [scrollToActivityId, setScrollToActivityId] = useState<string | null>(null);
+  const showActivityInItinerary = (dayId: string, activityId: string) => {
+    if (!activeTrip) return;
+    const day = activeTrip.days.find((d) => d.id === dayId);
+    if (!day) return;
+    setActiveDay(dayId);
+    setScrollToActivityId(activityId);
+    router.push(tripSectionHref(activeTrip.id, "itinerary", day.date));
+  };
+  useEffect(() => {
+    if (!scrollToActivityId || section !== "itinerary") return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`activity-${scrollToActivityId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      setScrollToActivityId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToActivityId, section, activeDayId]);
+
   const handleMapOpen = () => {
-    if (activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
+    // The prompt sets the day's city, which people the trip is shared with may not change.
+    if (!isInvitee && activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
       setShowMapCityPrompt(true);
       return;
     }
@@ -1296,8 +1300,8 @@ export function TripView() {
     );
   }
 
-  // Sidebar blocks: the itinerary keeps them in its aside, and the wallet and overview
-  // sections show them on their own until those sections get their own screens.
+  // Former sidebar blocks: the wallet shows the reservations and the trip overview places
+  // the rest in its tabs.
   const renderAiQuickActions = () => (
     <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
@@ -1434,26 +1438,18 @@ export function TripView() {
       )}
     </>
   );
+  // The city cards follow the selected day.
   const renderTravelTools = () => (
-    <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
-      <button
-        onClick={() => setShowTravelTools(!showTravelTools)}
-        className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-      >
-        <span>{t("trip_view_travel_tools")}</span>
-        {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-      {showTravelTools && (
-        <div className="px-5 pb-5 space-y-4">
-          {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
-          {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
-          {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
-          {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
-          {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
-        </div>
-      )}
+    <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_travel_tools")}</h3>
+      {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+      {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
     </div>
   );
+  const renderPacking = () =>
+    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null;
 
   return (
     // On mobile the bottom padding clears the fixed section bar (4rem) and, outside the map,
@@ -1504,89 +1500,28 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              data-tour="tour-help"
-              onClick={tour.start}
-              aria-label={t("tour_help")}
-              title={t("tour_help")}
-              className="flex size-9 items-center justify-center rounded-full text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]"
-            >
-              <HelpCircle size={18} />
-            </button>
-            {/* Theme toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const html = document.documentElement;
-                const current = localStorage.getItem("plania_theme") || "system";
-                const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
-                localStorage.setItem("plania_theme", next);
-                if (next === "system") {
-                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-                  html.classList.toggle("dark", prefersDark);
-                } else {
-                  html.classList.toggle("dark", next === "dark");
-                }
-                setThemeMode(next as "light" | "dark" | "system");
-              }}
-              className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-              title={t("trip_view_theme", { mode: t(`trip_view_theme_${themeMode}`) })}
-            >
-              {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
-            </button>
-
-            {/* Language toggle */}
-            <div className="flex items-center rounded-full bg-[var(--color-surface-subtle)] p-0.5">
-              {(["es", "en"] as const).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLang(code)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
-                    lang === code
-                      ? "bg-[var(--color-primary)] text-white shadow-sm"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                  }`}
-                >
-                  {code === "es" ? "ES" : "EN"}
-                </button>
-              ))}
-            </div>
-
             {user && !user.is_anonymous ? (
-              <div className="flex items-center gap-1.5">
-                {activeTrip && (
-                  <div className="hidden sm:flex mr-2">
-                    {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
-                        <Share2 size={10} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowShareModal(true)}
-                        data-tour="share"
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
-                      >
-                        <Share2 size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-                <div className="size-7 rounded-full bg-[var(--color-primary-subtle)] flex items-center justify-center text-[var(--color-primary)] border border-[var(--color-primary)]/20">
-                  <UserIcon size={12} />
+              activeTrip && (
+                <div className="hidden sm:flex">
+                  {isInvitee ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
+                      <Share2 size={10} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowShareModal(true)}
+                      data-tour="share"
+                      className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
+                    >
+                      <Share2 size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => authSignOut()}
-                  className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
-                >
-                  <LogOut size={12} />
-                </button>
-              </div>
+              )
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
@@ -1596,6 +1531,14 @@ export function TripView() {
                 <span>{t("save")}</span>
               </button>
             )}
+
+            {/* Account, language, theme, tour and sign in/out */}
+            <AccountMenu
+              email={user && !user.is_anonymous ? user.email ?? "" : null}
+              onStartTour={tour.start}
+              onSignOut={() => authSignOut()}
+              onSignIn={() => setShowAuthModal(true)}
+            />
           </div>
         </div>
 
@@ -1727,7 +1670,7 @@ export function TripView() {
       )}
 
       {section === "itinerary" && (
-      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 ios-compact-gap">
+      <div className="max-w-3xl mx-auto px-5 pt-8">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div data-tour="timeline" className="space-y-8">
           {/* DAY INTRO */}
@@ -1902,6 +1845,7 @@ export function TripView() {
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
+                                 onOpenBooking={() => goToSection("wallet")}
                                />
                              ))}
                          </div>
@@ -1928,6 +1872,7 @@ export function TripView() {
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
+                                 onOpenBooking={() => goToSection("wallet")}
                                />
                            ))}
                          </div>
@@ -1967,15 +1912,6 @@ export function TripView() {
             </SortableContext>
           </DndContext>
         </div>
-
-        {/* SIDEBAR */}
-        <aside className="space-y-6">
-          {renderAiQuickActions()}
-          {renderReservations()}
-          {renderShopping()}
-          {renderBudget()}
-          {renderTravelTools()}
-        </aside>
       </div>
       )}
 
@@ -1997,7 +1933,7 @@ export function TripView() {
                 onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
                 onOpenDetails={(id) => setEditingActivityId(id)}
                 onClose={() => goToSection("itinerary")}
-                floatingActions={<FloatingActions showAgent={floatingActionsProps.showAgent} />}
+                floatingActions={<FloatingActions {...floatingActionsProps} />}
               />
             ) : null}
           </div>
@@ -2005,19 +1941,34 @@ export function TripView() {
       )}
 
       {/* WALLET SECTION */}
-      {section === "wallet" && (
-        <div className="max-w-3xl mx-auto px-5 pt-8 space-y-6">
-          {renderReservations()}
+      {section === "wallet" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 md:px-5 md:pt-8">
+          <WalletView
+            trip={activeTrip}
+            today={isTripCurrentlyActive ? today : null}
+            canImportBookings={canImportBookings}
+            reservations={renderReservations()}
+            onOpenDocument={openPass}
+            onImportBookings={openBookingImport}
+            onShowActivity={showActivityInItinerary}
+          />
         </div>
       )}
 
       {/* OVERVIEW SECTION */}
-      {section === "overview" && (
-        <div className="max-w-3xl mx-auto px-5 pt-8 space-y-6">
-          {renderAiQuickActions()}
-          {renderShopping()}
-          {renderBudget()}
-          {renderTravelTools()}
+      {section === "overview" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 md:px-5 md:pt-8">
+          <TripOverview
+            trip={activeTrip}
+            canShare={!isInvitee}
+            onEditContext={() => setTravelContextOpen(true)}
+            onShare={() => setShowShareModal(true)}
+            budget={renderBudget()}
+            aiQuickActions={renderAiQuickActions()}
+            packing={renderPacking()}
+            shopping={renderShopping()}
+            tools={renderTravelTools()}
+          />
         </div>
       )}
 
