@@ -95,8 +95,10 @@ import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
+import { TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
 import { isTripUndated } from "@/lib/trip-undated";
+import { canEditTripCover } from "@/lib/trip-cover";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -821,6 +823,18 @@ export function TripView() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   const isOnline = useOfflineStore((s) => s.isOnline);
+
+  // Cover: the owner and shared editors change it (role as resolved by the packing load);
+  // viewers only see it. A draft or an offline trip shows the controls disabled with the reason.
+  const setTripCover = useItineraryStore((s) => s.setTripCover);
+  const removeTripCover = useItineraryStore((s) => s.removeTripCover);
+  const coverEditor = activeTripIsDraft || canEditTripCover(activeTrip, user?.id)
+    ? {
+        onChange: setTripCover,
+        onRemove: removeTripCover,
+        blocked: activeTripIsDraft ? ("draft" as const) : !isOnline ? ("offline" as const) : undefined,
+      }
+    : undefined;
 
   const cancelVoice = () => {
     if (recognitionRef.current) recognitionRef.current.stop();
@@ -1663,56 +1677,59 @@ export function TripView() {
       )}
       {/* COMPACT STICKY HEADER */}
       <header className="border-b border-[var(--color-border)]">
-        {/* Top bar: trip selector + controls */}
-        <div className="flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
-          {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
-              overflows narrow screens (an overflow widens the layout viewport and every
-              fixed overlay with it, e.g. the mobile map). */}
-          <div data-tour="trip-switcher" className="min-w-0 flex-1">
-            <TripSwitcher />
-          </div>
-
-          {/* Right: user controls */}
-          <div className="flex shrink-0 items-center gap-2">
-            {user && !user.is_anonymous ? (
-              activeTrip && (
-                <div className="hidden sm:flex">
-                  {isInvitee ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
-                      <Share2 size={10} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">
-                        {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
-                      </span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowShareModal(true)}
-                      data-tour="share"
-                      className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
-                    >
-                      <Share2 size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
-                    </button>
-                  )}
-                </div>
-              )
-            ) : (
-              <button
-                onClick={() => requireAuth(activeTripIsDraft ? "draft" : undefined)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
-              >
-                <ShieldCheck size={10} />
-                <span>{t("save")}</span>
-              </button>
-            )}
-
-            {/* Account, language, theme, tour and sign in/out */}
-            <AccountMenu
-              email={user && !user.is_anonymous ? user.email ?? "" : null}
-              onStartTour={tour.start}
-              onSignOut={() => authSignOut()}
-              onSignIn={() => setShowAuthModal(true)}
-            />
+        {/* Top bar: trip selector + controls, over the trip cover when there is one */}
+        <div className="relative">
+          {activeTrip?.coverPath && <TripHeaderCover path={activeTrip.coverPath} />}
+          <div className="relative flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
+            {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
+                overflows narrow screens (an overflow widens the layout viewport and every
+                fixed overlay with it, e.g. the mobile map). */}
+            <div data-tour="trip-switcher" className="min-w-0 flex-1">
+              <TripSwitcher />
+            </div>
+  
+            {/* Right: user controls */}
+            <div className="flex shrink-0 items-center gap-2">
+              {user && !user.is_anonymous ? (
+                activeTrip && (
+                  <div className="hidden sm:flex">
+                    {isInvitee ? (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
+                        <Share2 size={10} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowShareModal(true)}
+                        data-tour="share"
+                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
+                      >
+                        <Share2 size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              ) : (
+                <button
+                  onClick={() => requireAuth(activeTripIsDraft ? "draft" : undefined)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
+                >
+                  <ShieldCheck size={10} />
+                  <span>{t("save")}</span>
+                </button>
+              )}
+  
+              {/* Account, language, theme, tour and sign in/out */}
+              <AccountMenu
+                email={user && !user.is_anonymous ? user.email ?? "" : null}
+                onStartTour={tour.start}
+                onSignOut={() => authSignOut()}
+                onSignIn={() => setShowAuthModal(true)}
+              />
+            </div>
           </div>
         </div>
 
@@ -2151,6 +2168,7 @@ export function TripView() {
             onEditContext={() => setTravelContextOpen(true)}
             onShare={() => setShowShareModal(true)}
             onSetDates={undated && !isInvitee ? () => setSetDatesOpen(true) : undefined}
+            coverEditor={coverEditor}
             budget={renderBudget()}
             packing={renderPacking()}
             shopping={renderShopping()}
