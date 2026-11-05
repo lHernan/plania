@@ -71,7 +71,11 @@ import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { ShoppingListPanel } from "@/components/ShoppingListPanel";
 import { CriticalReservationsPanel } from "@/components/CriticalReservationsPanel";
 import { ProductTour, useProductTour } from "@/components/ProductTour";
-import { isPlaceholderCity } from "@/lib/day-genius/context";
+import { isPlaceholderCity, tripTimeZone } from "@/lib/day-genius/context";
+import { getCurrentTripDateTime } from "@/lib/travel-context";
+import { daysUntilStart, nowNext, tripMode } from "@/lib/trip-mode";
+import { NowNextCard } from "@/components/NowNextCard";
+import { TripModeBanner } from "@/components/TripModeBanner";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -1102,6 +1106,20 @@ export function TripView() {
     }
   };
 
+  // "Now" on the trip's clock (its time zone, else the device's); nowTs ticks every minute.
+  const tripNow = useMemo(
+    () => (activeTrip && nowTs ? getCurrentTripDateTime(new Date(nowTs), tripTimeZone(activeTrip, Intl.DateTimeFormat().resolvedOptions().timeZone)) : null),
+    [activeTrip, nowTs],
+  );
+  const itineraryMode = activeTrip && tripNow ? tripMode(activeTrip, tripNow.date) : null;
+  const nowAndNext = useMemo(
+    () => (activeDay && tripNow && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
+    [activeDay, tripNow],
+  );
+  const showActivityCard = (activityId: string) => {
+    document.getElementById(`activity-${activityId}`)?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  };
+
   const nextActivity = (activeDay?.activities || [])
     .filter((item) => item.state !== "completed")
     .sort((a, b) => a.time.localeCompare(b.time))[0];
@@ -1672,6 +1690,23 @@ export function TripView() {
       {section === "itinerary" && (
       <div className="max-w-3xl mx-auto px-5 pt-8">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
+        {activeTrip && itineraryMode === "planning" && (
+          <TripModeBanner
+            mode="planning"
+            daysUntilStart={tripNow ? daysUntilStart(activeTrip, tripNow.date) : null}
+            preparationHref={tripSectionHref(activeTrip.id, "overview")}
+          />
+        )}
+        {activeTrip && itineraryMode === "memory" && (
+          <TripModeBanner
+            mode="memory"
+            crossedOff={activeTrip.days.reduce((sum, day) => sum + day.activities.filter((a) => a.state === "completed").length, 0)}
+            total={activeTrip.days.reduce((sum, day) => sum + day.activities.length, 0)}
+          />
+        )}
+        {nowAndNext && (
+          <NowNextCard now={nowAndNext.now} next={nowAndNext.next} onOpenFile={openPass} onShowActivity={showActivityCard} />
+        )}
         <div data-tour="timeline" className="space-y-8">
           {/* DAY INTRO */}
           {activeDay ? (
