@@ -5,9 +5,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/use-auth-store";
 import { supabase } from "@/lib/supabase";
 import { useI18n } from "@/components/I18nProvider";
-import { X, Mail, Lock, Loader2, ArrowRight, KeyRound } from "lucide-react";
+import { X, Mail, Lock, Loader2, ArrowRight, KeyRound, Save } from "lucide-react";
+import { TachiAvatar } from "@/components/TachiAvatar";
 
-export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string) => void }) {
+/** Why the account is asked for: the sheet says it in its own words. */
+export type AuthReason = "draft" | "tachi";
+
+export function AuthModal({
+  isOpen,
+  onClose,
+  onShowToast,
+  reason,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onShowToast: (msg: string) => void;
+  reason?: AuthReason;
+}) {
   const { t } = useI18n();
   const [isLogin, setIsLogin] = useState(true);
   const [isReset, setIsReset] = useState(false);
@@ -108,6 +122,24 @@ export function AuthModal({ isOpen, onClose, onShowToast }: { isOpen: boolean; o
           >
             <X size={20} className="text-[var(--color-text-muted)]" />
           </button>
+
+          {reason && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 pr-10">
+              {reason === "tachi" ? (
+                <TachiAvatar size={28} />
+              ) : (
+                <Save size={22} aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
+              )}
+              <div>
+                <p className="text-sm font-black text-[var(--color-text)]">
+                  {reason === "tachi" ? t("auth_reason_tachi_title") : t("auth_reason_draft_title")}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                  {reason === "tachi" ? t("auth_reason_tachi_body") : t("auth_reason_draft_body")}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="mb-8">
             <h2 className="text-3xl font-black text-[var(--color-text)] mb-2 font-[family-name:var(--font-display)]">{title}</h2>

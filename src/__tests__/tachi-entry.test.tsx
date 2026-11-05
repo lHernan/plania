@@ -98,6 +98,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   useChatStore.setState({ isOpen: false, messages: [], loadedTripId: null, loadingHistory: false, sending: false, error: null, draft: "" });
   map.props = null;
+  useItineraryStore.setState({ activeTripIsDraft: false } as never);
 });
 afterEach(() => {
   cleanup();
@@ -126,6 +127,25 @@ describe("Tachi, the single AI entry point", () => {
     expect(screen.getByText("Bienvenido de nuevo")).toBeTruthy();
     expect(screen.queryByRole("complementary", { name: "Tachi" })).toBeNull();
     expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/"))).toEqual([]);
+  });
+
+  it("tells a guest the sign-in is for Tachi", async () => {
+    await renderAt("/trips/t", "guest");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: ASK }));
+    });
+    expect(screen.getByText("Tachi es para usuarios registrados. Inicia sesión y seguiremos donde lo dejaste.")).toBeTruthy();
+  });
+
+  it("tells a guest saving a draft that the sign-in keeps it", async () => {
+    await renderAt("/trips/t", "guest");
+    useItineraryStore.setState({ activeTripIsDraft: true } as never);
+    await act(async () => {});
+    const banner = screen.getByText("Este viaje es un borrador y solo está en este dispositivo. Inicia sesión para guardarlo.").parentElement!;
+    await act(async () => {
+      fireEvent.click(within(banner).getByRole("button", { name: "Guardar" }));
+    });
+    expect(screen.getByText("Guarda tu borrador")).toBeTruthy();
   });
 
   it("opens with the active day in its header", async () => {
