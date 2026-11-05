@@ -9,7 +9,7 @@ import { useItineraryStore } from "@/store/use-itinerary-store";
  * Keeps the URL and the active trip in step once the trip is loaded (AuthInitializer loads
  * the first one from the URL): a new trip id in the URL opens that trip, and a trip opened
  * from inside the app (the trip switcher) moves the URL to it, keeping the section.
- * `?day=YYYY-MM-DD` selects that day once per trip and then follows the selected day.
+ * `?day=YYYY-MM-DD` selects that day whenever it changes, and the URL follows the selected day.
  */
 export function TripRouteSync() {
   const router = useRouter();
@@ -28,7 +28,9 @@ export function TripRouteSync() {
   // trip on arrival counts as the URL asking for a trip.
   const seenUrlTripId = useRef<string | null>(null);
   const pendingTripId = useRef<string | null>(null);
-  const dayAppliedForTrip = useRef<string | null>(null);
+  // The trip and ?day= last applied to the store, so each new ?day= (on arrival or from a
+  // link inside the app) is applied once before the selected day is written back.
+  const appliedDayKey = useRef<string | null>(null);
 
   const activeTripId = activeTrip?.id;
   const section = parseTripPath(pathname)?.section ?? "itinerary";
@@ -60,21 +62,23 @@ export function TripRouteSync() {
   const dayParam = searchParams?.get("day") ?? null;
 
   // Runs before the read below, so the day from the URL is not overwritten in the same pass.
+  const dayKey = activeTrip ? `${activeTrip.id}|${dayParam ?? ""}` : null;
+
   useEffect(() => {
-    if (!activeTrip || dayAppliedForTrip.current !== activeTrip.id) return;
+    if (!activeTrip || appliedDayKey.current !== dayKey) return;
     const date = activeTrip.days.find((d) => d.id === activeDayId)?.date;
     if (!date || date === dayParam) return;
     const url = new URL(window.location.href);
     url.searchParams.set("day", date);
     window.history.replaceState(window.history.state, "", url.toString());
-  }, [activeDayId, activeTrip, dayParam]);
+  }, [activeDayId, activeTrip, dayKey, dayParam]);
 
   useEffect(() => {
-    if (!activeTrip || activeTrip.id !== urlTripId || dayAppliedForTrip.current === activeTrip.id) return;
-    dayAppliedForTrip.current = activeTrip.id;
+    if (!activeTrip || activeTrip.id !== urlTripId || appliedDayKey.current === dayKey) return;
+    appliedDayKey.current = dayKey;
     const day = dayParam ? activeTrip.days.find((d) => d.date === dayParam) : undefined;
     if (day) setActiveDay(day.id);
-  }, [activeTrip, dayParam, setActiveDay, urlTripId]);
+  }, [activeTrip, dayKey, dayParam, setActiveDay, urlTripId]);
 
   return null;
 }

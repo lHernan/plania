@@ -77,6 +77,15 @@ describe("TripRouteSync", () => {
     await waitFor(() => expect(useItineraryStore.getState().activeDayId).toBe("t1-d2"));
   });
 
+  it("selects a day a link inside the app puts in the URL after the trip is open", async () => {
+    const view = render(<TripRouteSync />);
+    nav.search = "day=2026-11-16";
+    window.history.replaceState(null, "", "/trips/t1?day=2026-11-16");
+    view.rerender(<TripRouteSync />);
+    await waitFor(() => expect(useItineraryStore.getState().activeDayId).toBe("t1-d2"));
+    expect(window.location.search).toBe("?day=2026-11-16");
+  });
+
   it("writes the selected day to the URL", async () => {
     render(<TripRouteSync />);
     act(() => useItineraryStore.setState({ activeDayId: "t1-d2" }));

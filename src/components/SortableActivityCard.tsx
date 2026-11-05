@@ -9,12 +9,12 @@ import {
   Camera,
   CheckCircle2,
   ExternalLink,
+  FileText,
   GripVertical,
   Info,
   Map as MapIcon,
   MapPin,
   MessageCircle,
-  Ticket,
   Music,
   Plane,
   ShoppingBag,
@@ -23,6 +23,7 @@ import {
 import { useI18n } from "@/components/I18nProvider";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { OriginBadge } from "@/components/OriginBadge";
+import { BOOKING_TYPE_ICONS } from "@/components/booking-import/labels";
 import type { Activity, ActivityCategory, ActivityFile } from "@/lib/types";
 
 export const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
@@ -41,6 +42,10 @@ export const getCategoryStyle = (category: string) =>
   CATEGORY_STYLES[category as ActivityCategory] ??
   CATEGORY_STYLES["other" as ActivityCategory];
 
+/** Compact chip; the invisible ::before stretches the tap target to 44px tall without growing the card. */
+const CHIP_CLASS =
+  "relative inline-flex items-center gap-1 rounded-full border border-[var(--color-primary)]/30 bg-[var(--color-primary-subtle)] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--color-primary)] hover:brightness-95 transition-all before:absolute before:-inset-y-3.5 before:-inset-x-1 before:content-[''] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]";
+
 export function SortableActivityCard({
   activity,
   onComplete,
@@ -48,6 +53,7 @@ export function SortableActivityCard({
   onEdit,
   onComment,
   onOpenFile,
+  onOpenBooking,
   justCompleted = false,
 }: {
   activity: Activity;
@@ -57,13 +63,16 @@ export function SortableActivityCard({
   onComment?: () => void;
   /** Opens an attachment (boarding pass, ticket) straight from the card. */
   onOpenFile?: (file: ActivityFile) => void;
+  /** Shows the booking in the wallet; without it the booking is only marked with a badge. */
+  onOpenBooking?: () => void;
   /** True only right after the user completed it, so loads and day switches never animate. */
   justCompleted?: boolean;
 }) {
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   // PDFs first: boarding passes and tickets usually come as PDFs.
-  const pass = [...(activity.files ?? [])].sort((a, b) => Number(b.fileType === "pdf") - Number(a.fileType === "pdf"))[0];
+  const files = activity.files ?? [];
+  const pass = [...files].sort((a, b) => Number(b.fileType === "pdf") - Number(a.fileType === "pdf"))[0];
   const animateCompletion = justCompleted && !reducedMotion;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
@@ -160,7 +169,7 @@ export function SortableActivityCard({
                 · {activity.durationMin}{t("mins_short")}
               </span>
             ) : null}
-            <OriginBadge activity={activity} className="ml-auto shrink-0" />
+            {!(onOpenBooking && activity.origin === "booking") && <OriginBadge activity={activity} className="ml-auto shrink-0" />}
           </div>
 
           <h4
@@ -193,25 +202,60 @@ export function SortableActivityCard({
               </span>
             )}
           </div>
+
+          {/* CHIPS: the booking (to the wallet) and its documents (a single one opens straight away) */}
+          {((onOpenBooking && activity.origin === "booking") || (onOpenFile && pass)) && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {onOpenBooking && activity.origin === "booking" && (() => {
+                const BookingIcon = BOOKING_TYPE_ICONS[activity.booking?.type ?? "other"] ?? FileText;
+                return (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenBooking();
+                    }}
+                    aria-label={t("activity_chip_booking", { title: activity.title })}
+                    title={t("activity_chip_booking", { title: activity.title })}
+                    className={CHIP_CLASS}
+                  >
+                    <BookingIcon size={11} aria-hidden="true" />
+                    <span>{activity.booking?.reference || t("origin_booking")}</span>
+                  </button>
+                );
+              })()}
+              {onOpenFile && pass && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // The pass (a PDF first) opens in one tap; the card opens the full list.
+                    onOpenFile(pass);
+                  }}
+                  aria-label={
+                    files.length === 1
+                      ? t("activity_open_pass", { title: activity.title })
+                      : t("activity_chip_documents", { count: files.length, title: activity.title })
+                  }
+                  title={
+                    files.length === 1
+                      ? t("activity_open_pass", { title: activity.title })
+                      : t("activity_chip_documents", { count: files.length, title: activity.title })
+                  }
+                  className={CHIP_CLASS}
+                >
+                  <FileText size={11} aria-hidden="true" />
+                  <span className="tabular-nums">{files.length}</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ACTION GROUP */}
         <div className="flex items-center gap-1">
-          {onOpenFile && pass && (
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenFile(pass);
-              }}
-              aria-label={t("activity_open_pass", { title: activity.title })}
-              title={t("activity_open_pass", { title: activity.title })}
-              className="size-7 rounded-lg flex items-center justify-center text-[var(--color-primary)] bg-[var(--color-primary-subtle)] hover:brightness-95 transition-all"
-            >
-              <Ticket size={15} />
-            </button>
-          )}
           {onComment && (
             <button
               onPointerDown={(e) => e.stopPropagation()}

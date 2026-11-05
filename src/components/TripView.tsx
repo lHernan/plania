@@ -17,8 +17,6 @@ import {
   MapPin,
   CreditCard,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Sparkles,
   Plane,
@@ -32,8 +30,6 @@ import {
   Edit2,
   X,
   Loader2,
-  User as UserIcon,
-  LogOut,
   ShieldCheck,
   ChevronRight,
   ChevronLeft,
@@ -41,17 +37,14 @@ import {
   Eye,
   EyeOff,
   Share2,
-  Sun,
-  Moon,
-  Monitor,
   Compass,
   FileUp,
-  HelpCircle,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { AuthModal } from "@/components/AuthModal";
+import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
 import {
@@ -90,10 +83,14 @@ import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
-import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
+import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
+import { WalletView } from "@/components/WalletView";
+import { TripOverview } from "@/components/TripOverview";
+import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter } from "next/navigation";
 
 const DayMapView = dynamic(() => import("@/components/DayMapView"), {
   ssr: false,
@@ -531,7 +528,7 @@ function ActivityEditModal({
 }
 
 export function TripView() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, t } = useI18n();
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
   const tripLoaded = useItineraryStore((s) => Boolean(s.activeTrip) && !s.loading);
   // First visit on this device: a guided tour of the screen (replayable from the "?" button).
@@ -573,13 +570,11 @@ export function TripView() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingImport, setShowBookingImport] = useState(false);
   const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
-  const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
-  const [showMap, setShowMap] = useState(false);
-  // Only one map instance is mounted: side panel on desktop, full-screen overlay on mobile.
-  const isDesktop = useMediaQuery(DESKTOP_QUERY);
-  const isMobileMapOpen = showMap && !isDesktop;
+  // The section comes from the path; the layout keeps this one TripView mounted across them.
+  const router = useRouter();
+  const pathname = usePathname();
+  const section: TripSection = parseTripPath(pathname ?? "")?.section ?? "itinerary";
   // Publishes the sticky header's real height (it wraps with the day strip) so sticky
   // panels below it, like the desktop map, size themselves instead of guessing offsets.
   const headerObserverRef = useRef<ResizeObserver | null>(null);
@@ -601,16 +596,7 @@ export function TripView() {
 
   // Initialize theme from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("plania_theme") as "light" | "dark" | "system" | null;
-    const mode = stored || "system";
-    setThemeMode(mode);
-    const html = document.documentElement;
-    if (mode === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      html.classList.toggle("dark", prefersDark);
-    } else {
-      html.classList.toggle("dark", mode === "dark");
-    }
+    applyTheme(readTheme());
   }, []);
 
   // Auto-save draft when user logs in
@@ -697,7 +683,7 @@ export function TripView() {
   };
 
   const [showAdd, setShowAdd] = useState(false);
-  // Same quick actions wherever they are docked (page corner or mobile map overlay).
+  // Same quick actions wherever they are docked (page corner or the map section).
   const floatingActionsProps = {
     onAdd: isInvitee ? undefined : () => setShowAdd(true),
     showAgent: Boolean(activeTrip),
@@ -892,13 +878,24 @@ export function TripView() {
 
   // One-shot initial fetch: fires exactly once when the component mounts with a known user.
   // We use a ref (not hasFetched) so that subsequent switchTrip calls don't re-trigger this.
+  // On a trip route the URL names the trip: never fetch another one (a fetch without an id
+  // would race AuthInitializer's fetch of the URL trip), and skip it when the trip is
+  // already loaded or loading. The layout remounts TripView on every trip switch, where
+  // TripRouteSync opens the new trip, so a loaded trip is left alone.
+  const mountTripId = parseTripPath(pathname ?? "")?.tripId;
   const hasFetchedRef = useRef(false);
   useEffect(() => {
     if (isMounted && user?.id && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
-      fetchActiveTrip();
+      if (!mountTripId) {
+        fetchActiveTrip();
+        return;
+      }
+      const { activeTrip: loadedTrip, loading: tripLoading } = useItineraryStore.getState();
+      if (tripLoading || loadedTrip) return;
+      fetchActiveTrip(mountTripId);
     }
-  }, [isMounted, user?.id, fetchActiveTrip]);
+  }, [isMounted, user?.id, fetchActiveTrip, mountTripId]);
 
   useEffect(() => {
     if (timelineRef.current) {
@@ -1157,16 +1154,38 @@ export function TripView() {
     void loadShoppingSuggestions();
   }, [activeDay, activeTrip, activeTrip?.name, ignoredSuggestionKeys, mergedCandidatePlaces, shoppingItems]);
 
-  const handleMapToggle = () => {
-    if (showMap) {
-      setShowMap(false);
-      return;
-    }
-    if (activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
+  /** Moves to another section of this trip, keeping the selected day. */
+  const goToSection = (target: TripSection) => {
+    if (!activeTrip) return;
+    router.push(tripSectionHref(activeTrip.id, target, activeDay?.date));
+  };
+
+  // From the wallet: the itinerary opens on the activity's day and scrolls to its card.
+  const [scrollToActivityId, setScrollToActivityId] = useState<string | null>(null);
+  const showActivityInItinerary = (dayId: string, activityId: string) => {
+    if (!activeTrip) return;
+    const day = activeTrip.days.find((d) => d.id === dayId);
+    if (!day) return;
+    setActiveDay(dayId);
+    setScrollToActivityId(activityId);
+    router.push(tripSectionHref(activeTrip.id, "itinerary", day.date));
+  };
+  useEffect(() => {
+    if (!scrollToActivityId || section !== "itinerary") return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`activity-${scrollToActivityId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      setScrollToActivityId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToActivityId, section, activeDayId]);
+
+  const handleMapOpen = () => {
+    // The prompt sets the day's city, which people the trip is shared with may not change.
+    if (!isInvitee && activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
       setShowMapCityPrompt(true);
       return;
     }
-    setShowMap(true);
+    goToSection("map");
   };
 
   const handleMapUseDeviceLocation = async () => {
@@ -1201,7 +1220,7 @@ export function TripView() {
       }
 
       setShowMapCityPrompt(false);
-      setShowMap(true);
+      goToSection("map");
     } catch (error) {
       showToast(
         error instanceof Error ? error.message : t("map_location_failed"),
@@ -1281,8 +1300,161 @@ export function TripView() {
     );
   }
 
+  // Former sidebar blocks: the wallet shows the reservations and the trip overview places
+  // the rest in its tabs.
+  const renderAiQuickActions = () => (
+    <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
+      <div className="space-y-3">
+        <button
+          onClick={() => openDayGenius(activeDayId)}
+          disabled={isInvitee}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
+        >
+          <Sparkles size={16} />
+          {t("day_genius")} — {t("ai_route_optimization")}
+        </button>
+        <button
+          onClick={() => setTravelContextOpen(true)}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+        >
+          <Compass size={16} />
+          {t("trip_context")}
+        </button>
+        {canImportBookings && (
+          <button
+            onClick={openBookingImport}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary)]/15 transition-colors"
+          >
+            <FileUp size={16} />
+            {t("booking_import_action")}
+          </button>
+        )}
+        <div className="relative">
+          <textarea
+            value={importText}
+            onChange={(e) => handleImportTextChange(e.target.value)}
+            placeholder={t("paste_notes")}
+            className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
+          />
+          <div className="absolute bottom-3 right-3 flex items-center gap-2">
+            {voiceState === "preview" && (
+              <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
+                <Loader2 size={14} className="animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{t("syncing_in", { seconds: previewCountdown })}</span>
+                <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
+                  <X size={12} />
+                </button>
+                <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title={t("edit_manually")}>
+                  <Edit2 size={12} />
+                </button>
+              </div>
+            )}
+            {isSpeechSupported && voiceState === "idle" && (
+              <button onClick={startListening} className="p-2 rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all">
+                <Mic size={18} />
+              </button>
+            )}
+            {voiceState === "listening" && (
+              <button onClick={cancelVoice} className="p-2 rounded-full bg-[var(--color-danger)]/10 text-[var(--color-danger)] animate-pulse transition-all">
+                <Mic size={18} />
+              </button>
+            )}
+            {voiceState === "syncing" && (
+              <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
+            )}
+            {voiceState === "idle" && !isSpeechSupported && (
+              <Bot className="text-[var(--color-text-muted)]" size={20} />
+            )}
+          </div>
+        </div>
+        <button
+          className={`w-full rounded-xl px-4 py-3 text-xs font-bold transition-all tracking-wider uppercase disabled:opacity-60 ${
+            isImporting || voiceState === 'syncing'
+              ? "bg-[var(--color-text-muted)] text-[var(--color-surface)] cursor-wait"
+              : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed"
+          }`}
+          disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
+          onClick={() => handleImportSync(importText)}
+        >
+          {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
+        </button>
+      </div>
+
+      <ScheduleSuggestions
+        suggestions={suggestions}
+        onApplyFix={isInvitee ? undefined : (fix) => {
+          const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
+          if (activity) moveActivityTime(activity, fix.time);
+        }}
+      />
+    </div>
+  );
+  const renderReservations = () => (
+    <CriticalReservationsPanel
+      canEdit={!isInvitee}
+      onBooked={(title) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: title, kind: "reservation" })}
+    />
+  );
+  const renderShopping = () => (
+    <ShoppingListPanel
+      canEdit={!isInvitee}
+      today={todayStr}
+      selectedItemId={selectedShoppingItemId}
+      onSelectItem={setSelectedShoppingItemId}
+      onToast={showToast}
+      onBought={(itemName) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: itemName, kind: "shopping" })}
+      onNearbyPlaces={setNearbyPlaces}
+    />
+  );
+  const renderBudget = () => (
+    <>
+      {activeTrip && budgetSummary.total > 0 && (
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
+            {tripMapUrl ? (
+              <a
+                href={tripMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] hover:underline"
+              >
+                {t("trip_map_view")}
+              </a>
+            ) : null}
+          </div>
+          <p className="text-2xl font-black text-[var(--color-text)]">
+            {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {budgetSummary.perDay.map((d) => (
+              <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
+                {d.date}: {d.total.toFixed(2)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+  // The city cards follow the selected day.
+  const renderTravelTools = () => (
+    <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_travel_tools")}</h3>
+      {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+      {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+      {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+      {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
+    </div>
+  );
+  const renderPacking = () =>
+    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null;
+
   return (
-    <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${showMap && isDesktop ? "pb-0" : "pb-32"} ios-compact-shell`}>
+    // On mobile the bottom padding clears the fixed section bar (4rem) and, outside the map,
+    // the quick actions stacked above it.
+    <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${section === "map" ? "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0" : "pb-[calc(env(safe-area-inset-bottom,0px)+10rem)] md:pb-32"} ios-compact-shell`}>
       {confirmDialog}
       <ProductTour
         open={tour.open}
@@ -1328,89 +1500,28 @@ export function TripView() {
 
           {/* Right: user controls */}
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              data-tour="tour-help"
-              onClick={tour.start}
-              aria-label={t("tour_help")}
-              title={t("tour_help")}
-              className="flex size-9 items-center justify-center rounded-full text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]"
-            >
-              <HelpCircle size={18} />
-            </button>
-            {/* Theme toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const html = document.documentElement;
-                const current = localStorage.getItem("plania_theme") || "system";
-                const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
-                localStorage.setItem("plania_theme", next);
-                if (next === "system") {
-                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-                  html.classList.toggle("dark", prefersDark);
-                } else {
-                  html.classList.toggle("dark", next === "dark");
-                }
-                setThemeMode(next as "light" | "dark" | "system");
-              }}
-              className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-              title={t("trip_view_theme", { mode: t(`trip_view_theme_${themeMode}`) })}
-            >
-              {themeMode === "light" ? <Sun size={14} /> : themeMode === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
-            </button>
-
-            {/* Language toggle */}
-            <div className="flex items-center rounded-full bg-[var(--color-surface-subtle)] p-0.5">
-              {(["es", "en"] as const).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLang(code)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all ${
-                    lang === code
-                      ? "bg-[var(--color-primary)] text-white shadow-sm"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                  }`}
-                >
-                  {code === "es" ? "ES" : "EN"}
-                </button>
-              ))}
-            </div>
-
             {user && !user.is_anonymous ? (
-              <div className="flex items-center gap-1.5">
-                {activeTrip && (
-                  <div className="hidden sm:flex mr-2">
-                    {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
-                        <Share2 size={10} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowShareModal(true)}
-                        data-tour="share"
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
-                      >
-                        <Share2 size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-                <div className="size-7 rounded-full bg-[var(--color-primary-subtle)] flex items-center justify-center text-[var(--color-primary)] border border-[var(--color-primary)]/20">
-                  <UserIcon size={12} />
+              activeTrip && (
+                <div className="hidden sm:flex">
+                  {isInvitee ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
+                      <Share2 size={10} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowShareModal(true)}
+                      data-tour="share"
+                      className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
+                    >
+                      <Share2 size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => authSignOut()}
-                  className="size-7 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"
-                >
-                  <LogOut size={12} />
-                </button>
-              </div>
+              )
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
@@ -1420,8 +1531,19 @@ export function TripView() {
                 <span>{t("save")}</span>
               </button>
             )}
+
+            {/* Account, language, theme, tour and sign in/out */}
+            <AccountMenu
+              email={user && !user.is_anonymous ? user.email ?? "" : null}
+              onStartTour={tour.start}
+              onSignOut={() => authSignOut()}
+              onSignIn={() => setShowAuthModal(true)}
+            />
           </div>
         </div>
+
+        {/* Trip sections as tabs on desktop; mobile uses the bottom bar */}
+        {activeTrip && <TripSectionNav tripId={activeTrip.id} variant="tabs" />}
 
         {/* Date strip */}
         <div data-tour="day-strip" className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">
@@ -1489,7 +1611,7 @@ export function TripView() {
       </div>
 
       {/* Day Summary Bar */}
-      {activeDay && (
+      {section === "itinerary" && activeDay && (
         <div className="max-w-7xl mx-auto px-5 pt-3">
           <div data-tour="day-tools" className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2.5">
             <div className="flex items-center gap-2 min-w-0">
@@ -1533,24 +1655,22 @@ export function TripView() {
                     <Sparkles size={12} />
                     {t("day_genius")}
                   </button>
-                  <button
-                    onClick={handleMapToggle}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                      showMap
-                        ? "bg-[var(--color-primary)] text-white"
-                        : "bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)]"
-                    }`}
-                  >
-                    <MapIcon size={12} /> {t("map")}
-                  </button>
                 </>
               )}
+              {/* The map is its own section, open to every role (read-only for viewers) */}
+              <button
+                onClick={handleMapOpen}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+              >
+                <MapIcon size={12} /> {t("map")}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 ${showMap ? "lg:grid-cols-[1fr_1fr]" : "lg:grid-cols-[1fr_340px]"} gap-10 ios-compact-gap`}>
+      {section === "itinerary" && (
+      <div className="max-w-3xl mx-auto px-5 pt-8">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div data-tour="timeline" className="space-y-8">
           {/* DAY INTRO */}
@@ -1725,6 +1845,7 @@ export function TripView() {
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
+                                 onOpenBooking={() => goToSection("wallet")}
                                />
                              ))}
                          </div>
@@ -1751,6 +1872,7 @@ export function TripView() {
                                  onEdit={() => setEditingActivityId(activity.id)}
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
+                                 onOpenBooking={() => goToSection("wallet")}
                                />
                            ))}
                          </div>
@@ -1790,229 +1912,77 @@ export function TripView() {
             </SortableContext>
           </DndContext>
         </div>
-
-        {/* SIDEBAR / MAP */}
-        {showMap && activeDay && isDesktop ? (
-          // The grid item stretches with the row and owns the bottom spacing, so the sticky
-          // panel can stay pinned through the whole scroll range (a sticky element never
-          // leaves its grid area; page padding outside the grid would push it under the header).
-          <div className="hidden lg:block">
-          <div className="sticky top-[calc(var(--app-header-h,8.75rem)+1rem)] h-[calc(100dvh-var(--app-header-h,8.75rem)-2rem)]">
-            <DayMapView
-              dayId={activeDay.id}
-              activities={activeDay.activities}
-              city={activeDay.city}
-              anchor={mapAnchor ?? undefined}
-              activeActivityId={activeMapActivityId}
-              canEdit={!isInvitee}
-              preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
-              onActivitySelect={(id) => {
-                setActiveMapActivityId(id);
-                if (id) document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-              }}
-              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
-              onOpenDetails={(id) => setEditingActivityId(id)}
-              onClose={() => setShowMap(false)}
-            />
-          </div>
-          <div aria-hidden="true" className="h-32" />
-          </div>
-        ) : (
-        <aside className="space-y-6">
-          {/* AI QUICK ACTIONS */}
-          <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => openDayGenius(activeDayId)}
-                disabled={isInvitee}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
-              >
-                <Sparkles size={16} />
-                {t("day_genius")} — {t("ai_route_optimization")}
-              </button>
-              <button
-                onClick={() => setTravelContextOpen(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
-              >
-                <Compass size={16} />
-                {t("trip_context")}
-              </button>
-              {canImportBookings && (
-                <button
-                  onClick={openBookingImport}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary)]/15 transition-colors"
-                >
-                  <FileUp size={16} />
-                  {t("booking_import_action")}
-                </button>
-              )}
-              <div className="relative">
-                <textarea
-                  value={importText}
-                  onChange={(e) => handleImportTextChange(e.target.value)}
-                  placeholder={t("paste_notes")}
-                  className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
-                />
-                <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                  {voiceState === "preview" && (
-                    <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{t("syncing_in", { seconds: previewCountdown })}</span>
-                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
-                        <X size={12} />
-                      </button>
-                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title={t("edit_manually")}>
-                        <Edit2 size={12} />
-                      </button>
-                    </div>
-                  )}
-                  {isSpeechSupported && voiceState === "idle" && (
-                    <button onClick={startListening} className="p-2 rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all">
-                      <Mic size={18} />
-                    </button>
-                  )}
-                  {voiceState === "listening" && (
-                    <button onClick={cancelVoice} className="p-2 rounded-full bg-[var(--color-danger)]/10 text-[var(--color-danger)] animate-pulse transition-all">
-                      <Mic size={18} />
-                    </button>
-                  )}
-                  {voiceState === "syncing" && (
-                    <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
-                  )}
-                  {voiceState === "idle" && !isSpeechSupported && (
-                    <Bot className="text-[var(--color-text-muted)]" size={20} />
-                  )}
-                </div>
-              </div>
-              <button
-                className={`w-full rounded-xl px-4 py-3 text-xs font-bold transition-all tracking-wider uppercase disabled:opacity-60 ${
-                  isImporting || voiceState === 'syncing'
-                    ? "bg-[var(--color-text-muted)] text-[var(--color-surface)] cursor-wait"
-                    : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed"
-                }`}
-                disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
-                onClick={() => handleImportSync(importText)}
-              >
-                {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
-              </button>
-            </div>
-
-            <ScheduleSuggestions
-              suggestions={suggestions}
-              onApplyFix={isInvitee ? undefined : (fix) => {
-                const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
-                if (activity) moveActivityTime(activity, fix.time);
-              }}
-            />
-          </div>
-
-          {/* CRITICAL RESERVATIONS */}
-          <CriticalReservationsPanel
-            canEdit={!isInvitee}
-            onBooked={(title) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: title, kind: "reservation" })}
-          />
-
-          {/* SHOPPING LIST */}
-          <ShoppingListPanel
-            canEdit={!isInvitee}
-            today={todayStr}
-            selectedItemId={selectedShoppingItemId}
-            onSelectItem={setSelectedShoppingItemId}
-            onToast={showToast}
-            onBought={(itemName) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: itemName, kind: "shopping" })}
-            onNearbyPlaces={setNearbyPlaces}
-          />
-
-          {/* BUDGET SUMMARY */}
-          {activeTrip && budgetSummary.total > 0 && (
-            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
-                {tripMapUrl ? (
-                  <a
-                    href={tripMapUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] hover:underline"
-                  >
-                    {t("trip_map_view")}
-                  </a>
-                ) : null}
-              </div>
-              <p className="text-2xl font-black text-[var(--color-text)]">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {budgetSummary.perDay.map((d) => (
-                  <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
-                    {d.date}: {d.total.toFixed(2)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TRAVEL TOOLS — collapsible */}
-          <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
-            <button
-              onClick={() => setShowTravelTools(!showTravelTools)}
-              className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-            >
-              <span>{t("trip_view_travel_tools")}</span>
-              {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {showTravelTools && (
-              <div className="px-5 pb-5 space-y-4">
-                {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
-                {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
-                {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
-                {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
-                {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
-              </div>
-            )}
-          </div>
-        </aside>
-        )}
       </div>
+      )}
 
-      {/* Mobile map overlay */}
-      <AnimatePresence>
-        {isMobileMapOpen && activeDay && (
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-50 bg-[var(--color-bg)] lg:hidden"
-          >
-            {/* Mobile keeps the map open and shows the selection as a bottom card */}
-            <DayMapView
-              dayId={activeDay.id}
-              activities={activeDay.activities}
-              city={activeDay.city}
-              anchor={mapAnchor ?? undefined}
-              activeActivityId={activeMapActivityId}
-              canEdit={!isInvitee}
-              preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
-              onActivitySelect={setActiveMapActivityId}
-              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
-              onOpenDetails={(id) => setEditingActivityId(id)}
-              onClose={() => setShowMap(false)}
-              floatingActions={<FloatingActions {...floatingActionsProps} />}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* MAP SECTION: the active day's map fills the content area, for every role */}
+      {section === "map" && (
+        <div className="max-w-7xl mx-auto px-3 py-3 md:px-5">
+          {/* isolate keeps Leaflet's z-indexes inside the map, under the section bar and sheets */}
+          <div className="isolate h-[calc(100dvh-var(--app-header-h,8.75rem)-env(safe-area-inset-bottom,0px)-5.5rem)] md:h-[calc(100dvh-var(--app-header-h,8.75rem)-1.5rem)]">
+            {activeDay ? (
+              <DayMapView
+                dayId={activeDay.id}
+                activities={activeDay.activities}
+                city={activeDay.city}
+                anchor={mapAnchor ?? undefined}
+                activeActivityId={activeMapActivityId}
+                canEdit={!isInvitee}
+                preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
+                onActivitySelect={setActiveMapActivityId}
+                onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+                onOpenDetails={(id) => setEditingActivityId(id)}
+                onClose={() => goToSection("itinerary")}
+                floatingActions={<FloatingActions {...floatingActionsProps} />}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
 
-      {/* Ô×ò THE PRIMARY FAB */}
-      {/* Over the mobile map overlay the same actions live in the map's bottom dock instead */}
-      {!(isMobileMapOpen && activeDay) && (
+      {/* WALLET SECTION */}
+      {section === "wallet" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 md:px-5 md:pt-8">
+          <WalletView
+            trip={activeTrip}
+            today={isTripCurrentlyActive ? today : null}
+            canImportBookings={canImportBookings}
+            reservations={renderReservations()}
+            onOpenDocument={openPass}
+            onImportBookings={openBookingImport}
+            onShowActivity={showActivityInItinerary}
+          />
+        </div>
+      )}
+
+      {/* OVERVIEW SECTION */}
+      {section === "overview" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 md:px-5 md:pt-8">
+          <TripOverview
+            trip={activeTrip}
+            canShare={!isInvitee}
+            onEditContext={() => setTravelContextOpen(true)}
+            onShare={() => setShowShareModal(true)}
+            budget={renderBudget()}
+            aiQuickActions={renderAiQuickActions()}
+            packing={renderPacking()}
+            shopping={renderShopping()}
+            tools={renderTravelTools()}
+          />
+        </div>
+      )}
+
+      {/* THE PRIMARY FAB: "+" only on the itinerary; on the map the agent docks inside the map.
+          On mobile it sits above the section bar. */}
+      {section !== "map" && (
         <FloatingActions
-          {...floatingActionsProps}
-          className="fixed right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+2rem)] z-50"
+          onAdd={section === "itinerary" ? floatingActionsProps.onAdd : undefined}
+          showAgent={floatingActionsProps.showAgent}
+          className="fixed right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] md:bottom-[calc(env(safe-area-inset-bottom,0px)+2rem)] z-50"
         />
       )}
+
+      {activeTrip && <TripSectionNav tripId={activeTrip.id} variant="bar" />}
 
       {activeTrip && (
         <>
@@ -2253,7 +2223,7 @@ export function TripView() {
                       setEditingDay(null);
                       if (openMapAfterDayEditRef.current) {
                         openMapAfterDayEditRef.current = false;
-                        setShowMap(true);
+                        goToSection("map");
                       }
                     }}
                     className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
