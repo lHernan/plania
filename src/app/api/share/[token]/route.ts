@@ -26,7 +26,7 @@ export async function GET(
 
     const { data: linkRow, error: linkError } = await supabase
       .from("trip_share_links")
-      .select("id, trip_id, role, email, expires_at, revoked_at, accepted_by, accepted_at")
+      .select("trip_id, role, expires_at, revoked_at, accepted_by")
       .eq("token", token)
       .maybeSingle();
 
@@ -38,7 +38,7 @@ export async function GET(
 
     const { data: trip, error: tripError } = await supabase
       .from("trips")
-      .select("id, name, start_date, end_date, user_id")
+      .select("id, name, start_date, end_date")
       .eq("id", link.trip_id)
       .single();
 
@@ -51,11 +51,9 @@ export async function GET(
       tripName: trip.name,
       startDate: trip.start_date,
       endDate: trip.end_date,
-      ownerId: trip.user_id,
       role: link.role,
-      email: link.email,
+      // Who accepted, the invited email and the owner id stay private: anyone with the link sees this.
       accepted: Boolean(link.accepted_by),
-      acceptedAt: link.accepted_at,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error desconocido";

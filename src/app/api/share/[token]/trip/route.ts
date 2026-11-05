@@ -1,8 +1,8 @@
 /**
  * GET /api/share/[token]/trip
  *
- * Returns the full trip plan (days, activities, reservations) for a valid
- * share link, without requiring authentication. Read-only.
+ * Returns the trip plan as the public page shows it (days and activities, only their public
+ * fields; no reservations) for a valid share link, without requiring authentication. Read-only.
  *
  * The token is checked here with the service role client; RLS grants no reads through share
  * links. When the trip has memories shared with the whole trip, they are included (with
@@ -12,7 +12,16 @@
 import { NextResponse } from "next/server";
 import { getServiceRoleSupabase } from "@/lib/supabase-server";
 import { hasServiceRoleKey } from "@/lib/share/grant";
-import { checkShareLink, readPublicCoverUrl, readPublicMemories, SERVICE_ROLE_REQUIRED_ERROR } from "@/lib/share/public-trip";
+import {
+  checkShareLink,
+  PUBLIC_ACTIVITY_COLUMNS,
+  PUBLIC_DAY_COLUMNS,
+  readPublicCoverUrl,
+  readPublicMemories,
+  SERVICE_ROLE_REQUIRED_ERROR,
+  toPublicActivity,
+  toPublicDay,
+} from "@/lib/share/public-trip";
 
 export async function GET(
   request: Request,
@@ -39,11 +48,10 @@ export async function GET(
     const link = checked.link;
     const tripId = link.trip_id;
 
-    const [{ data: trip }, { data: days }, { data: activities }, { data: reservations }] = await Promise.all([
+    const [{ data: trip }, { data: days }, { data: activities }] = await Promise.all([
       supabase.from("trips").select("id, name, start_date, end_date").eq("id", tripId).single(),
-      supabase.from("trip_days").select("*").eq("trip_id", tripId).order("date", { ascending: true }),
-      supabase.from("activities").select("*").eq("trip_id", tripId).order("sort_order", { ascending: true }),
-      supabase.from("critical_reservations").select("*").eq("trip_id", tripId),
+      supabase.from("trip_days").select(PUBLIC_DAY_COLUMNS).eq("trip_id", tripId).order("date", { ascending: true }),
+      supabase.from("activities").select(PUBLIC_ACTIVITY_COLUMNS).eq("trip_id", tripId).order("sort_order", { ascending: true }),
     ]);
 
     if (!trip) {
@@ -52,13 +60,13 @@ export async function GET(
 
     const [memories, coverUrl] = await Promise.all([readPublicMemories(supabase, tripId), readPublicCoverUrl(supabase, tripId)]);
 
-    // Without public memories or a cover the payload stays exactly as it was.
+    // Memories and the cover are added only when the trip has them.
     return NextResponse.json({
       trip: { id: trip.id, name: trip.name, startDate: trip.start_date, endDate: trip.end_date, ...(coverUrl ? { coverUrl } : {}) },
       role: link.role,
-      days: days ?? [],
-      activities: activities ?? [],
-      reservations: reservations ?? [],
+      // Mapped as well as selected: a column added later never reaches the public page by itself.
+      days: ((days ?? []) as Record<string, unknown>[]).map(toPublicDay),
+      activities: ((activities ?? []) as Record<string, unknown>[]).map(toPublicActivity),
       ...(memories.length > 0 ? { memories } : {}),
     });
   } catch (error) {

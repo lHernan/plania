@@ -26,6 +26,36 @@ export function checkShareLink<Row extends { revoked_at: string | null; expires_
   return { ok: true, link };
 }
 
+/** The columns of a day the public page shows. */
+export const PUBLIC_DAY_COLUMNS = "id, date, city, label";
+/** The columns of an activity the public page shows; notes, bookings and costs stay private. */
+export const PUBLIC_ACTIVITY_COLUMNS = "id, day_id, title, time, duration_min, location, category, state";
+
+export type PublicDay = { id: string; date: string; city: string | null; label: string | null };
+export type PublicActivity = {
+  id: string;
+  day_id: string;
+  title: string;
+  time: string | null;
+  duration_min?: number | null;
+  location?: string | null;
+  category?: string | null;
+  state?: string | null;
+};
+
+const pick = <T extends string>(row: Record<string, unknown>, keys: readonly T[]) =>
+  Object.fromEntries(keys.filter((key) => row[key] !== undefined).map((key) => [key, row[key]])) as Record<T, unknown>;
+
+/** Only the public fields of a day row, whatever the query returned. */
+export function toPublicDay(row: Record<string, unknown>): PublicDay {
+  return pick(row, ["id", "date", "city", "label"] as const) as PublicDay;
+}
+
+/** Only the public fields of an activity row, whatever the query returned. */
+export function toPublicActivity(row: Record<string, unknown>): PublicActivity {
+  return pick(row, ["id", "day_id", "title", "time", "duration_min", "location", "category", "state"] as const) as PublicActivity;
+}
+
 type MemoryRow = { id: string; trip_id: string; activity_id: string | null; note: string | null; rating: number | null; audience: string; created_at: string };
 type PhotoRow = { id: string; memory_id: string; trip_id: string; path: string; caption: string | null; sort_order: number | null };
 
