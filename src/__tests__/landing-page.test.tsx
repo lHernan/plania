@@ -87,6 +87,13 @@ describe("landing for visitors", () => {
     expect(nav.push).toHaveBeenCalledWith("/plan?dest=Lisboa&days=4");
   });
 
+  it("sends a registered user who asks Tachi to the planner instead of the sign-in sheet", async () => {
+    await renderHome("registered");
+    fireEvent.click(screen.getByRole("button", { name: "¡Pregúntale a Tachi!" }));
+    expect(nav.push).toHaveBeenCalledWith("/plan");
+    expect(screen.queryByText(/Inicia sesión/)).toBeNull();
+  });
+
   it("a template opens as a draft", async () => {
     await renderHome();
     fireEvent.click(screen.getAllByRole("button", { name: "Usar como plantilla" })[0]);

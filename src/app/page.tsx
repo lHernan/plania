@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, LayoutTemplate, Plus, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -16,6 +17,7 @@ import { buildDraftTrip, newDraftId, plannedDates, defaultPlannerForm } from "@/
 
 export default function Home() {
   const { t } = useI18n();
+  const router = useRouter();
   const { user, signOut } = useAuthStore();
   const { createTrip, loadTemplate, loading, hasFetched } = useItineraryStore();
 
@@ -133,7 +135,8 @@ export default function Home() {
 
         <ValueBlocks />
 
-        <TachiIntro onAsk={() => openAuth("tachi")} />
+        {/* Registered users go straight to planning with Tachi; guests are asked to sign in first. */}
+        <TachiIntro onAsk={() => (user && !user.is_anonymous ? router.push("/plan") : openAuth("tachi"))} />
 
         {/* Example trips */}
         <section className="space-y-4">

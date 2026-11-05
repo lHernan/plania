@@ -154,9 +154,13 @@ describe("Tachi, the single AI entry point", () => {
     expect(within(sheet).getByText("Tokyo · lunes 26")).toBeTruthy();
   });
 
-  it("offers the itinerary actions on the itinerary, three at most", async () => {
+  it("offers the itinerary actions on the itinerary, three first and the rest on demand", async () => {
     await renderAt("/trips/t");
-    expect(actionNames(await openTachi())).toEqual(["Reorganizar el día", "Importar notas", "Importar reservas"]);
+    const sheet = await openTachi();
+    expect(actionNames(sheet)).toEqual(["Reorganizar el día", "Rellenar huecos", "Importar notas"]);
+    fireEvent.click(within(sheet).getByRole("button", { name: "Más acciones" }));
+    expect(actionNames(sheet)).toEqual(["Reorganizar el día", "Rellenar huecos", "Importar notas", "Importar reservas"]);
+    expect(within(sheet).queryByRole("button", { name: "Más acciones" })).toBeNull();
   });
 
   it("offers the wallet actions on the wallet", async () => {

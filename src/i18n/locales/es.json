@@ -971,5 +971,6 @@
   "auth_reason_draft_title": "Guarda tu borrador",
   "auth_reason_draft_body": "Crea una cuenta o inicia sesión para guardar este viaje. No perderás nada.",
   "auth_reason_tachi_title": "Pregúntale a Tachi",
-  "auth_reason_tachi_body": "Tachi es para usuarios registrados. Inicia sesión y seguiremos donde lo dejaste."
+  "auth_reason_tachi_body": "Tachi es para usuarios registrados. Inicia sesión y seguiremos donde lo dejaste.",
+  "tachi_more_actions": "Más acciones"
 }

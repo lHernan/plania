@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { makeActivity, makeDay, makeTrip, renderWithI18n } from "./helpers/dom";
 import { TripOverview } from "@/components/TripOverview";
 import type { CriticalReservation, TripPlan } from "@/lib/types";
+import type { ReactNode } from "react";
 
 afterEach(cleanup);
 
@@ -30,7 +31,7 @@ function trip(overrides: Partial<TripPlan> = {}): TripPlan {
 
 const callbacks = { onEditContext: vi.fn(), onShare: vi.fn() };
 
-function renderOverview(plan: TripPlan = trip(), { canShare = true, lang = "es" as "es" | "en" } = {}) {
+function renderOverview(plan: TripPlan = trip(), { canShare = true, lang = "es" as "es" | "en", tips = undefined as ReactNode } = {}) {
   return renderWithI18n(
     <TripOverview
       trip={plan}
@@ -40,6 +41,7 @@ function renderOverview(plan: TripPlan = trip(), { canShare = true, lang = "es" 
       packing={<div data-testid="packing" />}
       shopping={<div data-testid="shopping" />}
       tools={<div data-testid="tools" />}
+      tips={tips}
     />,
     lang,
   );
@@ -67,6 +69,11 @@ describe("TripOverview tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Herramientas" }));
     expect(within(screen.getByRole("tabpanel")).getByTestId("tools")).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Herramientas" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("shows the schedule tips in the summary when given (guests, who cannot open Tachi)", () => {
+    renderOverview(trip(), { tips: <div data-testid="tips" /> });
+    expect(screen.getByTestId("tips")).toBeTruthy();
   });
 
   it("moves between tabs with the arrow keys", () => {

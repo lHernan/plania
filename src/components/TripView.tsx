@@ -1510,14 +1510,15 @@ export function TripView() {
     ...((section === "itinerary" || section === "map") && canEditDay
       ? [{ id: "rearrange", label: t("day_genius"), icon: <CalendarClock size={16} />, onSelect: runFromTachi(() => openDayGenius(activeDayId)) }]
       : []),
+    // Spec order for the itinerary: rearrange the day, fill gaps, import notes (then the rest on demand).
+    ...(section === "itinerary"
+      ? [{ id: "gaps", label: t("tachi_action_fill_gaps"), icon: <Clock3 size={16} />, onSelect: askTachi(t("tachi_prompt_fill_gaps")) }]
+      : []),
     ...(section === "itinerary" && !isInvitee
       ? [
           { id: "notes", label: t("tachi_action_import_notes"), icon: <FileText size={16} />, panel: renderNotesImport() },
           { id: "bookings", label: t("booking_import_action"), icon: <FileUp size={16} />, onSelect: runFromTachi(openBookingImport) },
         ]
-      : []),
-    ...(section === "itinerary"
-      ? [{ id: "gaps", label: t("tachi_action_fill_gaps"), icon: <Clock3 size={16} />, onSelect: askTachi(t("tachi_prompt_fill_gaps")) }]
       : []),
     ...(section === "wallet" && canImportBookings
       ? [{ id: "pdf", label: t("tachi_action_import_pdf"), icon: <FileUp size={16} />, onSelect: runFromTachi(openBookingImport) }]
@@ -2067,6 +2068,7 @@ export function TripView() {
             packing={renderPacking()}
             shopping={renderShopping()}
             tools={renderTravelTools()}
+            tips={isRegistered ? undefined : renderScheduleTips()}
             tab={overviewTab}
             onTabChange={setOverviewTab}
           />

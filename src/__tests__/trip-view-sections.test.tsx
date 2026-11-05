@@ -223,7 +223,9 @@ describe("TripView sections", () => {
 
     it("booking import, as a Tachi action on the itinerary", async () => {
       await renderAt("/trips/t");
-      expect(within(await openTachi()).getByRole("button", { name: "Importar reservas" })).toBeTruthy();
+      const sheet = await openTachi();
+      fireEvent.click(within(sheet).getByRole("button", { name: "Más acciones" }));
+      expect(within(sheet).getByRole("button", { name: "Importar reservas" })).toBeTruthy();
     });
 
     it("notes import to the timeline, inside Tachi on the itinerary", async () => {
