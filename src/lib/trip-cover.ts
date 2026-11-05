@@ -1,4 +1,5 @@
 import type { PackingRole } from "@/lib/types";
+import { createSignedUrlCache, type SignedUrlClient } from "@/lib/signed-url-cache";
 
 /** Private bucket of user-uploaded trip covers; objects live under `<tripId>/` (see trip_covers_migration.sql). */
 export const TRIP_COVERS_BUCKET = "trip-covers";
@@ -12,7 +13,6 @@ export const TRIP_COVER_TYPES: Record<string, string> = {
 export const TRIP_COVER_ACCEPT = Object.keys(TRIP_COVER_TYPES).join(",");
 /** Signed URLs last an hour; a cached one is reused until five minutes before it expires. */
 export const TRIP_COVER_URL_SECONDS = 3600;
-const URL_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 export type TripCoverError = "draft" | "offline" | "forbidden" | "type" | "size" | "upload" | "unavailable";
 
@@ -41,31 +41,20 @@ export function canEditTripCover(
   return trip.packing?.role === "editor";
 }
 
-type SignedUrlClient = {
-  storage: {
-    from: (bucket: string) => {
-      createSignedUrl: (path: string, expiresIn: number) => PromiseLike<{ data: { signedUrl: string } | null; error: unknown }>;
-    };
-  };
-};
-
-const urlCache = new Map<string, { url: string; expiresAt: number }>();
-const pending = new Map<string, Promise<string | null>>();
+const coverUrls = createSignedUrlCache(TRIP_COVERS_BUCKET, TRIP_COVER_URL_SECONDS);
 
 /** A still-valid signed URL for the path, if one was already resolved. */
 export function getCachedTripCoverUrl(path: string): string | null {
-  const cached = urlCache.get(path);
-  return cached && cached.expiresAt - URL_REFRESH_MARGIN_MS > Date.now() ? cached.url : null;
+  return coverUrls.getCached(path);
 }
 
 /** Drops a cached URL, e.g. when the image failed to load. */
 export function forgetTripCoverUrl(path: string) {
-  urlCache.delete(path);
+  coverUrls.forget(path);
 }
 
 export function clearTripCoverUrlCache() {
-  urlCache.clear();
-  pending.clear();
+  coverUrls.clear();
 }
 
 /**
@@ -73,24 +62,5 @@ export function clearTripCoverUrlCache() {
  * error it resolves to null (the placeholder shows) and the failure is not cached.
  */
 export function resolveTripCoverUrl(path: string, client: SignedUrlClient): Promise<string | null> {
-  const cached = getCachedTripCoverUrl(path);
-  if (cached) return Promise.resolve(cached);
-  if (typeof navigator !== "undefined" && !navigator.onLine) return Promise.resolve(null);
-  const inFlight = pending.get(path);
-  if (inFlight) return inFlight;
-
-  const request = (async () => {
-    try {
-      const { data, error } = await client.storage.from(TRIP_COVERS_BUCKET).createSignedUrl(path, TRIP_COVER_URL_SECONDS);
-      if (error || !data?.signedUrl) return null;
-      urlCache.set(path, { url: data.signedUrl, expiresAt: Date.now() + TRIP_COVER_URL_SECONDS * 1000 });
-      return data.signedUrl;
-    } catch {
-      return null;
-    } finally {
-      pending.delete(path);
-    }
-  })();
-  pending.set(path, request);
-  return request;
+  return coverUrls.resolve(path, client);
 }
