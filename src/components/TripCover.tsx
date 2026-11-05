@@ -30,6 +30,19 @@ export function TripCoverImage({ path }: { path?: string | null }) {
   );
 }
 
+/**
+ * The cover behind the trip header (every section). The surface-colored veil is solid where the
+ * trip name and controls sit and fades out to the right, so text stays legible in both themes.
+ */
+export function TripHeaderCover({ path }: { path: string }) {
+  return (
+    <div aria-hidden="true" data-testid="trip-header-cover" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <TripCoverImage path={path} />
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-surface)] via-[var(--color-surface)]/85 to-[var(--color-surface)]/40" />
+    </div>
+  );
+}
+
 /** A cover band: the uploaded photo, or the default gradient until the curated set exists. */
 export function TripCover({ path, className = "" }: { path?: string | null; className?: string }) {
   return (

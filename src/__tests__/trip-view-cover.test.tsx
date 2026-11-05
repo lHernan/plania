@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, screen } from "@testing-library/react";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import { makeDay, makeTrip, mockMatchMedia, renderWithI18n } from "./helpers/dom";
 import type { PackingRole } from "@/lib/types";
 
@@ -15,6 +15,9 @@ vi.mock("@/lib/supabase", () => ({
     auth: {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       getSession: async () => ({ data: { session: null } }),
+    },
+    storage: {
+      from: () => ({ createSignedUrl: async (path: string) => ({ data: { signedUrl: `https://cdn.test/${path}` }, error: null }) }),
     },
   },
 }));
@@ -37,13 +40,18 @@ const { TripView } = await import("@/components/TripView");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 const { useAuthStore } = await import("@/store/use-auth-store");
 
-async function renderTrip({ ownerId = "me", role, draft = false }: { ownerId?: string; role?: PackingRole; draft?: boolean } = {}) {
+async function renderTrip({
+  ownerId = "me",
+  role,
+  draft = false,
+  coverPath = "t/a.jpg",
+}: { ownerId?: string; role?: PackingRole; draft?: boolean; coverPath?: string | null } = {}) {
   const trip = {
     ...makeTrip([makeDay("d1", [])]),
     id: "t",
     name: "Lisboa",
     userId: ownerId,
-    coverPath: "t/a.jpg",
+    coverPath,
     ...(role ? { packing: { items: [], remote: true, role } } : {}),
   };
   useItineraryStore.setState({
@@ -92,5 +100,18 @@ describe("TripView cover controls", () => {
     await renderTrip({ draft: true });
     expect((screen.getByRole("button", { name: "Cambiar portada" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText("Guarda el viaje para añadir una portada.")).toBeTruthy();
+  });
+});
+
+describe("TripView header cover", () => {
+  it("shows the trip cover behind the header", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const header = screen.getByRole("banner");
+    await waitFor(() => expect(within(header).getByTestId("trip-header-cover").querySelector("img")?.getAttribute("src")).toBe("https://cdn.test/t/header.jpg"));
+  });
+
+  it("keeps the plain header when the trip has no cover", async () => {
+    await renderTrip({ coverPath: null });
+    expect(within(screen.getByRole("banner")).queryByTestId("trip-header-cover")).toBeNull();
   });
 });
