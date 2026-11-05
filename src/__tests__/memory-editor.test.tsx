@@ -175,7 +175,7 @@ describe("MemoryEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Quitar foto 1" }));
     fireEvent.click(screen.getByRole("radio", { name: "Solo algunas personas" }));
     const list = await screen.findByRole("group", { name: "Personas que lo ven" });
-    fireEvent.click(within(list).getByRole("checkbox", { name: /ana@x\.io/ }));
+    fireEvent.click(await within(list).findByRole("checkbox", { name: /ana@x\.io/ }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar recuerdo" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(actions.updateMemory).toHaveBeenCalledWith("m1", { note: "Greatest sunset", rating: 4 });
