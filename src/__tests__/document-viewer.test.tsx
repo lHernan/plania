@@ -5,7 +5,7 @@ import { renderWithI18n } from "./helpers/dom";
 import type { ActivityFile } from "@/lib/types";
 
 vi.mock("@/lib/supabase", () => ({
-  supabase: { from: () => ({}), auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), getSession: async () => ({ data: { session: null } }) } },
+  supabase: { from: () => ({}), auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), getSession: async () => ({ data: { session: { access_token: "tok" } } }) } },
 }));
 
 const docs = vi.hoisted(() => ({
@@ -62,6 +62,7 @@ if (typeof window.PointerEvent === "undefined") {
 
 const codesModule = (await import("@/lib/documents/codes")) as unknown as { resetCalls: () => void };
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
+const { useAuthStore } = await import("@/store/use-auth-store");
 const { DocumentViewer } = await import("@/components/DocumentViewer");
 
 const file: ActivityFile = { id: "f1", activityId: "a1", fileUrl: "https://x.test/object/public/activity-files/boarding.pdf", fileType: "pdf", fileName: "boarding.pdf" } as ActivityFile;
@@ -78,6 +79,7 @@ beforeEach(() => {
   codesModule.resetCalls();
   for (const m of [setFileFocusArea, onClose, onDelete, release, fetchMock]) m.mockClear();
   useItineraryStore.setState({ setFileFocusArea });
+  useAuthStore.setState({ user: { id: "u1", is_anonymous: false } as never });
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
   Object.defineProperty(navigator, "wakeLock", { value: { request: vi.fn(async () => ({ release })) }, configurable: true });
   vi.stubGlobal("fetch", fetchMock);
@@ -124,12 +126,21 @@ describe("DocumentViewer", () => {
     expect(screen.getByRole("dialog", { name: "Código 1 de 1" })).toBeTruthy();
   });
 
+  it("does not offer the AI scan to a guest, who can still mark the code by hand", async () => {
+    useAuthStore.setState({ user: { id: "anon", is_anonymous: true } as never });
+    open();
+    expect(await screen.findByRole("button", { name: "Marcar el código a mano" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Buscar con IA" })).toBeNull();
+  });
+
   it("offers the AI scan only when nothing was found, sending a small JPEG", async () => {
     open();
     const scan = await screen.findByRole("button", { name: "Buscar con IA" });
     await act(async () => fireEvent.click(scan));
-    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    const body = JSON.parse(init.body as string);
     expect(body.imageUri.startsWith("data:image/jpeg")).toBe(true);
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
     expect(await screen.findByRole("button", { name: "Mostrar código (1)" })).toBeTruthy();
   });
 
