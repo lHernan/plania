@@ -26,6 +26,12 @@ self.addEventListener("message", (event) => {
   if (data.type === "DELETE_DOCUMENT" && typeof data.url === "string") {
     event.waitUntil(removeCachedDocument(data.url));
   }
+
+  // Pages reached by in-app navigation never pass through a navigation request, so the app
+  // asks for them to be cached: offline, a trip opened that way still has its page.
+  if (data.type === "CACHE_PAGE" && typeof data.url === "string") {
+    event.waitUntil(cachePageByUrl(data.url));
+  }
 });
 
 self.addEventListener("fetch", (event) => {
@@ -72,10 +78,44 @@ async function handleNavigationRequest(request) {
     // A trip page is the same page for any ?day=, so a cached copy under another day serves it.
     const cached = (await cache.match(request)) || (await cache.match(request, { ignoreSearch: true }));
     if (cached) return cached;
+    // Every trip page is the same app page (it reads the trip and section from the address),
+    // so another cached trip page serves it, preferring one of the same trip; the landing
+    // would show at the trip address instead.
+    const tripPage = await findCachedTripPage(cache, new URL(request.url).pathname);
+    if (tripPage) return tripPage;
     // Fallback to cached root
     const rootCached = await cache.match("/");
     if (rootCached) return rootCached;
     return new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
+  }
+}
+
+function tripIdOf(pathname) {
+  const match = /^\/trips\/([^/]+)/.exec(pathname);
+  return match ? match[1] : null;
+}
+
+async function findCachedTripPage(cache, pathname) {
+  const tripId = tripIdOf(pathname);
+  if (!tripId) return null;
+  const tripKeys = (await cache.keys()).filter((key) => tripIdOf(new URL(key.url).pathname));
+  const sameTrip = tripKeys.find((key) => tripIdOf(new URL(key.url).pathname) === tripId);
+  const key = sameTrip || tripKeys[0];
+  return key ? (await cache.match(key)) || null : null;
+}
+
+async function cachePageByUrl(rawUrl) {
+  const url = new URL(rawUrl, self.location.origin);
+  if (url.origin !== self.location.origin) return;
+  url.search = "";
+  url.hash = "";
+  try {
+    const response = await fetch(url.toString(), { credentials: "same-origin" });
+    if (!response.ok) return;
+    const cache = await caches.open("pages-v1");
+    await cache.put(url.toString(), response);
+  } catch {
+    // Offline or failed: the page stays as it was cached.
   }
 }
 

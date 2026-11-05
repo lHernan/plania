@@ -86,6 +86,36 @@ describe("TripRouteSync", () => {
     expect(window.location.search).toBe("?day=2026-11-16");
   });
 
+  it("reads the trip from the address, not from a page cached for another trip", async () => {
+    // Offline, the service worker may serve trip t9's cached page at /trips/t1: params say t9.
+    nav.tripId = "t9";
+    nav.pathname = "/trips/t1";
+    render(<TripRouteSync />);
+    await act(async () => {});
+    expect(switchTrip).not.toHaveBeenCalled();
+    expect(nav.replace).not.toHaveBeenCalled();
+  });
+
+  it("asks the service worker to keep the trip page for offline use, once per page", async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(navigator, "serviceWorker", { value: { controller: { postMessage } }, configurable: true });
+    nav.pathname = "/trips/t1/map";
+    const view = render(<TripRouteSync />);
+    view.rerender(<TripRouteSync />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+    expect(postMessage).toHaveBeenCalledWith({ type: "CACHE_PAGE", url: `${window.location.origin}/trips/t1/map` });
+  });
+
+  it("does not ask to cache pages while offline", async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(navigator, "serviceWorker", { value: { controller: { postMessage } }, configurable: true });
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    render(<TripRouteSync />);
+    await act(async () => {});
+    expect(postMessage).not.toHaveBeenCalled();
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+  });
+
   it("writes the selected day to the URL", async () => {
     render(<TripRouteSync />);
     act(() => useItineraryStore.setState({ activeDayId: "t1-d2" }));
