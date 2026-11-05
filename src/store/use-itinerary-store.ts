@@ -11,6 +11,15 @@ import {
   shoppingItemToDb,
   shoppingPatchToDb,
 } from "@/lib/shopping/db";
+import {
+  isMissingPackingTable,
+  loadTripPacking,
+  packingListToRecords,
+  recordsOf,
+  savePackingMeta,
+  writePackingChange,
+  type PackingPatch,
+} from "@/lib/packing-sync";
 import { removeCachedDocument } from "@/lib/offline-documents";
 import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
 import {
@@ -33,6 +42,9 @@ import type {
   BookingDetails,
   CriticalReservation,
   FocusArea,
+  PackingList,
+  PackingRecord,
+  PackingScope,
   SharedTripSummary,
   ShoppingItem,
   TripDay,
@@ -180,6 +192,14 @@ type Store = {
   updateShoppingItem: (itemId: string, patch: Partial<ShoppingItem>) => Promise<void>;
   removeShoppingItem: (itemId: string) => Promise<void>;
   ignoreShoppingSuggestion: (ignoreKey: string) => Promise<void>;
+  /** Generation: replaces the chosen packing list (mine, or the shared one) with a new one. */
+  replacePackingList: (scope: PackingScope, list: PackingList) => Promise<void>;
+  /** Adds a manual item to the first category of the chosen list. */
+  addPackingItem: (scope: PackingScope, name: string) => Promise<void>;
+  togglePackingItem: (itemId: string) => Promise<void>;
+  /** Shared list only: who brings the item (a trip member), or nobody. */
+  assignPackingItem: (itemId: string, userId: string | null) => Promise<void>;
+  removePackingItem: (itemId: string) => Promise<void>;
   uploadActivityFile: (activityId: string, file: File) => Promise<void>;
   deleteActivityFile: (fileId: string) => Promise<void>;
   setFileFocusArea: (fileId: string, focusArea: FocusArea | null) => Promise<void>;
@@ -570,6 +590,33 @@ export const useItineraryStore = create<Store>((set, get) => {
     if (error && !isMissingShoppingTable(error)) set({ error: error.message ?? "Shopping list sync failed" });
   };
 
+  /**
+   * Mirrors a packing change in Supabase (or the offline queue), like the shopping list: the
+   * sample trip and trips loaded while the packing_items migration is missing stay on this device.
+   */
+  const syncPacking = async (operation: OfflineMutationQueueEntry["operation"], payload: Record<string, unknown>) => {
+    if (get().activeTripIsDraft || !get().activeTrip?.packing?.remote) return;
+    if (!isOnline()) {
+      await enqueueMutation(operation, "packing_item", payload);
+      return;
+    }
+    const error = await writePackingChange(supabase as never, operation, payload, new Map());
+    if (error && !isMissingPackingTable(error)) set({ error: error.message ?? "Packing list sync failed" });
+  };
+
+  const writePackingItems = (update: (items: PackingRecord[]) => PackingRecord[]) =>
+    writeState((current) => ({
+      activeTrip: current.activeTrip?.packing
+        ? { ...current.activeTrip, packing: { ...current.activeTrip.packing, items: update(current.activeTrip.packing.items) } }
+        : current.activeTrip,
+    }));
+
+  const patchPackingItem = async (itemId: string, patch: PackingPatch) => {
+    if (!get().activeTrip?.packing?.items.some((item) => item.id === itemId)) return;
+    await writePackingItems((items) => items.map((item) => (item.id === itemId ? { ...item, ...patch } : item)));
+    await syncPacking("update", { itemId, patch });
+  };
+
   // The day that is today where the trip happens (its time zone, else the device's), not in UTC.
   // An undated trip has no today: its day dates are placeholders.
   const findTripToday = (plan: TripPlan) => {
@@ -691,6 +738,13 @@ export const useItineraryStore = create<Store>((set, get) => {
       (files ?? []) as ActivityFileDb[]
     );
     const cachedTrip = userId ? (await loadOfflineTripCache(userId))?.tripPlans?.[baseTripPlan.id] : null;
+    const packing = await loadTripPacking({
+      client: supabase as never,
+      tripId: baseTripPlan.id,
+      userId,
+      tripOwnerId: trip.user_id,
+      cached: cachedTrip?.packing,
+    });
     const shopping = await loadShoppingItems({
       client: supabase as never,
       tripId: baseTripPlan.id,
@@ -703,6 +757,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       ...baseTripPlan,
       shoppingItems: shopping.items,
       ignoredShoppingSuggestionKeys: cachedTrip?.ignoredShoppingSuggestionKeys ?? [],
+      packing,
     });
 
     set((state) => {
@@ -880,6 +935,12 @@ export const useItineraryStore = create<Store>((set, get) => {
       if (orderedActivityIds.length === 0) return;
       const { error } = await supabase.from("activities").upsert(orderedActivityIds);
       if (error) throw error;
+      return;
+    }
+
+    if (entry.target === "packing_item") {
+      const error = await writePackingChange(supabase as never, entry.operation, payload, idMap);
+      if (error && !isMissingPackingTable(error)) throw error;
       return;
     }
 
@@ -2275,6 +2336,60 @@ export const useItineraryStore = create<Store>((set, get) => {
             }
           : null,
       }));
+    },
+
+    replacePackingList: async (scope, list) => {
+      const activeTrip = get().activeTrip;
+      const ownerId = getCurrentUserId();
+      if (!activeTrip?.packing || !ownerId) return;
+      const previousIds = recordsOf(activeTrip.packing.items, scope, ownerId).map((item) => item.id);
+      const nextItems = packingListToRecords(list, scope, ownerId);
+      await writePackingItems((items) => [...items.filter((item) => !previousIds.includes(item.id)), ...nextItems]);
+      savePackingMeta(activeTrip.id, scope, { generatedAt: list.generatedAt, weatherSummaries: list.weatherSummaries });
+      if (previousIds.length > 0) await syncPacking("delete", { itemIds: previousIds });
+      await syncPacking("create", { tripId: activeTrip.id, items: nextItems });
+    },
+
+    addPackingItem: async (scope, name) => {
+      const activeTrip = get().activeTrip;
+      const ownerId = getCurrentUserId();
+      const trimmed = name.trim();
+      if (!activeTrip?.packing || !ownerId || !trimmed) return;
+      const current = recordsOf(activeTrip.packing.items, scope, ownerId);
+      const firstCategory = current[0]?.category;
+      if (firstCategory === undefined) return;
+      const item: PackingRecord = {
+        id: crypto.randomUUID(),
+        name: trimmed,
+        quantity: 1,
+        reason: "Manually added",
+        status: "pending",
+        scope,
+        category: firstCategory,
+        ownerId: scope === "personal" ? ownerId : null,
+        assignedTo: null,
+        sortOrder: Math.max(...current.map((entry) => entry.sortOrder)) + 1,
+      };
+      await writePackingItems((items) => [...items, item]);
+      await syncPacking("create", { tripId: activeTrip.id, items: [item] });
+    },
+
+    togglePackingItem: async (itemId) => {
+      const item = get().activeTrip?.packing?.items.find((entry) => entry.id === itemId);
+      if (!item) return;
+      await patchPackingItem(itemId, { status: item.status === "packed" ? "pending" : "packed" });
+    },
+
+    assignPackingItem: async (itemId, userId) => {
+      const item = get().activeTrip?.packing?.items.find((entry) => entry.id === itemId);
+      if (!item || item.scope !== "shared") return;
+      await patchPackingItem(itemId, { assignedTo: userId });
+    },
+
+    removePackingItem: async (itemId) => {
+      if (!get().activeTrip?.packing?.items.some((item) => item.id === itemId)) return;
+      await writePackingItems((items) => items.filter((item) => item.id !== itemId));
+      await syncPacking("delete", { itemIds: [itemId] });
     },
 
     uploadActivityFile: async (activityId, file) => {

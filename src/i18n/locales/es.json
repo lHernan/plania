@@ -995,5 +995,16 @@
   "trip_set_dates_offline": "Conéctate a internet para fijar las fechas.",
   "trip_set_dates_failed": "No se pudieron guardar las fechas. Inténtalo de nuevo.",
   "packing_no_dates_undated": "Fija las fechas del viaje en Resumen para generar una lista de equipaje inteligente.",
-  "account_menu_home": "Inicio"
+  "account_menu_home": "Inicio",
+  "packing_mode_label": "Lista de equipaje",
+  "packing_mode_personal": "Mi maleta",
+  "packing_mode_shared": "Compartida",
+  "packing_shared_read_only": "Solo lectura: la persona dueña del viaje y quienes lo editan gestionan la lista compartida.",
+  "packing_assign_for": "Quién lo lleva: {item}",
+  "packing_assigned_to": "Quién lo lleva: {name}",
+  "packing_assigned_nobody": "Sin asignar",
+  "packing_person_me": "Yo",
+  "packing_person_owner": "Dueño del viaje",
+  "packing_person_other": "Otra persona del viaje",
+  "packing_remove_item": "Quitar {item}"
 }

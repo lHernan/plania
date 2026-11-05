@@ -995,5 +995,16 @@
   "trip_set_dates_offline": "Connect to the internet to set the dates.",
   "trip_set_dates_failed": "Could not save the dates. Try again.",
   "packing_no_dates_undated": "Set the trip dates in Summary to generate a smart packing list.",
-  "account_menu_home": "Home"
+  "account_menu_home": "Home",
+  "packing_mode_label": "Packing list",
+  "packing_mode_personal": "My packing",
+  "packing_mode_shared": "Shared",
+  "packing_shared_read_only": "Read only: the trip owner and editors manage the shared list.",
+  "packing_assign_for": "Who brings it: {item}",
+  "packing_assigned_to": "Who brings it: {name}",
+  "packing_assigned_nobody": "Unassigned",
+  "packing_person_me": "Me",
+  "packing_person_owner": "Trip owner",
+  "packing_person_other": "Another trip member",
+  "packing_remove_item": "Remove {item}"
 }

@@ -176,6 +176,8 @@ export type TripPlan = {
   criticalReservations: CriticalReservation[];
   shoppingItems: ShoppingItem[];
   ignoredShoppingSuggestionKeys: string[];
+  /** Server packing lists (personal + shared); absent for the sample trip and before the first load. */
+  packing?: TripPacking;
 };
 
 export type ArrivalTransportMode = "public_transport" | "taxi" | "ride_hailing" | "private_transfer" | "other";
@@ -432,6 +434,8 @@ export type PackingItem = {
   quantity: number;
   reason: string;
   status: PackingItemStatus;
+  /** Shared list only: the trip member who brings it. */
+  assignedTo?: string | null;
 };
 
 export type PackingCategory = {
@@ -451,4 +455,28 @@ export type PackingList = {
   generatedAt: string;
   weatherSummaries: WeatherSummary[];
   categories: PackingCategory[];
+};
+
+/** "personal": each person's own list; "shared": one list for everyone on the trip. */
+export type PackingScope = "personal" | "shared";
+
+export type PackingRole = "owner" | "editor" | "viewer";
+
+/** One packing_items row as the app keeps it. */
+export type PackingRecord = PackingItem & {
+  scope: PackingScope;
+  category: string;
+  /** Set for personal rows (the signed-in user), null for shared ones. */
+  ownerId: string | null;
+  assignedTo: string | null;
+  sortOrder: number;
+  createdAt?: string;
+};
+
+export type TripPacking = {
+  items: PackingRecord[];
+  /** False while the packing_items table does not exist: changes then stay on this device. */
+  remote: boolean;
+  /** The caller's access to the shared list. */
+  role: PackingRole;
 };

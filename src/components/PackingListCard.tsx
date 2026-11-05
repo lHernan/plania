@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   ChevronDown,
   Luggage,
@@ -9,16 +9,20 @@ import {
   Plus,
   RefreshCw,
   Check,
+  X,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { authHeaders } from "@/lib/auth-headers";
 import { isTripUndated } from "@/lib/trip-undated";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useItineraryStore } from "@/store/use-itinerary-store";
 import { TachiAvatar } from "@/components/TachiAvatar";
 import type {
   PackingCategory,
   PackingList,
+  PackingScope,
   TravelContext,
+  TripShareUser,
   TripDay,
   WeatherSummary,
 } from "@/lib/types";
@@ -30,6 +34,7 @@ import {
   savePackingList,
   type PackingPromptInput,
 } from "@/lib/packing-assistant";
+import { buildPackingList, fetchTripShares, loadPackingMode, savePackingMode } from "@/lib/packing-sync";
 
 type Props = {
   tripId: string;
@@ -46,20 +51,75 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
   const { lang, t } = useI18n();
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(defaultOpen);
-  const [list, setList] = useState<PackingList | null>(null);
+  // Device-only list: the sample trip, guests without a saved trip, or a pending migration.
+  const [localList, setLocalList] = useState<PackingList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState("");
+
+  // Server lists: my own ("Mi maleta") and the one shared with the people of the trip.
+  const activeTrip = useItineraryStore((state) => state.activeTrip);
+  const activeTripIsDraft = useItineraryStore((state) => state.activeTripIsDraft);
+  const sharedTrips = useItineraryStore((state) => state.sharedTrips);
+  const replacePackingList = useItineraryStore((state) => state.replacePackingList);
+  const addPackingItem = useItineraryStore((state) => state.addPackingItem);
+  const togglePackingItem = useItineraryStore((state) => state.togglePackingItem);
+  const assignPackingItem = useItineraryStore((state) => state.assignPackingItem);
+  const removePackingItem = useItineraryStore((state) => state.removePackingItem);
+  const packing = activeTrip?.id === tripId && !activeTripIsDraft ? activeTrip.packing : undefined;
+  const userId = user?.id ?? null;
+  const synced = Boolean(packing?.remote && userId);
+  const [mode, setMode] = useState<PackingScope>(() => loadPackingMode(tripId));
+  const scope: PackingScope = synced ? mode : "personal";
+  const role = packing?.role ?? "viewer";
+  // My own list is always mine to edit; the shared one belongs to the trip owner and editors.
+  const canEdit = !synced || scope === "personal" || role === "owner" || role === "editor";
+  const list = useMemo(
+    () => (synced && packing ? buildPackingList(tripId, packing.items, scope, userId) : localList),
+    [synced, packing, tripId, scope, userId, localList],
+  );
+
+  const chooseMode = (next: PackingScope) => {
+    setMode(next);
+    savePackingMode(tripId, next);
+  };
+
+  // People who can bring a shared item. Only the owner can read the share list; an invitee
+  // knows the owner and itself.
+  const [shares, setShares] = useState<TripShareUser[]>([]);
+  const showPeople = synced && scope === "shared" && canEdit;
+  useEffect(() => {
+    if (!showPeople || role !== "owner") return;
+    let cancelled = false;
+    void fetchTripShares(tripId).then((result) => {
+      if (!cancelled) setShares(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showPeople, role, tripId]);
+  const tripOwnerId = activeTrip?.id === tripId ? activeTrip.userId : null;
+  const people = useMemo(() => {
+    const entries: { id: string; label: string }[] = userId ? [{ id: userId, label: t("packing_person_me") }] : [];
+    if (role === "owner") {
+      for (const share of shares) entries.push({ id: share.userId, label: share.email });
+    } else if (tripOwnerId && tripOwnerId !== userId) {
+      const ownerEmail = sharedTrips.find((trip) => trip.id === tripId)?.ownerEmail;
+      entries.push({ id: tripOwnerId, label: ownerEmail || t("packing_person_owner") });
+    }
+    return entries;
+  }, [userId, role, shares, tripOwnerId, sharedTrips, tripId, t]);
+  const personLabel = (id: string) => people.find((person) => person.id === id)?.label ?? t("packing_person_other");
 
   // The list needs the trip dates (weather, duration); an undated trip only has placeholders.
   const undated = isTripUndated({ travelContext });
   const hasDates = !undated && days.length > 0 && days[0]?.date && days[days.length - 1]?.date;
   const cities = getUniqueCities(days);
 
-  // Load from localStorage on mount
+  // Load the device copy on mount (a synced trip moves it to the server on its first load).
   useEffect(() => {
     const saved = loadPackingList(tripId);
-    if (saved) setList(saved);
+    if (saved) setLocalList(saved);
   }, [tripId]);
 
   const fetchWeather = useCallback(async (): Promise<WeatherSummary[]> => {
@@ -84,7 +144,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
   }, [cities, days, hasDates]);
 
   const generate = useCallback(async () => {
-    if (!hasDates) return;
+    if (!hasDates || !canEdit) return;
     if (!user || user.is_anonymous) {
       onRequireAuth?.();
       return;
@@ -129,17 +189,25 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
         categories: data.categories,
       };
 
-      setList(newList);
-      savePackingList(newList);
+      if (synced) {
+        await replacePackingList(scope, newList);
+      } else {
+        setLocalList(newList);
+        savePackingList(newList);
+      }
     } catch {
       setError(t("packing_error"));
     } finally {
       setLoading(false);
     }
-  }, [hasDates, user, onRequireAuth, fetchWeather, days, cities, travelContext, tripId, lang, t]);
+  }, [hasDates, canEdit, user, onRequireAuth, fetchWeather, days, cities, travelContext, tripId, lang, t, synced, scope, replacePackingList]);
 
   const toggleItem = (categoryIndex: number, itemId: string) => {
-    if (!list) return;
+    if (!list || !canEdit) return;
+    if (synced) {
+      void togglePackingItem(itemId);
+      return;
+    }
     const updated = {
       ...list,
       categories: list.categories.map((cat, ci) =>
@@ -155,12 +223,17 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
           : cat,
       ),
     };
-    setList(updated);
+    setLocalList(updated);
     savePackingList(updated);
   };
 
   const addManualItem = () => {
-    if (!list || !newItemName.trim()) return;
+    if (!list || !newItemName.trim() || !canEdit) return;
+    if (synced) {
+      void addPackingItem(scope, newItemName);
+      setNewItemName("");
+      return;
+    }
     const firstCategory = list.categories[0];
     if (!firstCategory) return;
 
@@ -184,7 +257,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
           : cat,
       ),
     };
-    setList(updated);
+    setLocalList(updated);
     savePackingList(updated);
     setNewItemName("");
   };
@@ -231,6 +304,31 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
         {/* Collapsible body */}
         {open && (
           <div className="mt-4 space-y-4 pl-[52px]">
+            {/* Mode: my own list or the one shared with the people of the trip */}
+            {synced && (
+              <div role="group" aria-label={t("packing_mode_label")} className="inline-flex rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-0.5">
+                {(["personal", "shared"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={scope === option}
+                    onClick={() => chooseMode(option)}
+                    className={`min-h-9 rounded-lg px-3 text-xs font-black transition-colors ${
+                      scope === option
+                        ? "bg-[var(--color-primary)] text-white"
+                        : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+                    }`}
+                  >
+                    {t(option === "personal" ? "packing_mode_personal" : "packing_mode_shared")}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {synced && !canEdit && (
+              <p className="text-xs font-bold text-[var(--color-text-secondary)]">{t("packing_shared_read_only")}</p>
+            )}
+
             {/* No dates hint */}
             {!hasDates && (
               <p className="text-xs font-bold text-[var(--color-text-secondary)]">
@@ -239,7 +337,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
             )}
 
             {/* Generate / Regenerate button */}
-            {hasDates && !list && !loading && (
+            {hasDates && !list && !loading && canEdit && (
               <button
                 type="button"
                 onClick={generate}
@@ -304,6 +402,10 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
                     >
                       <button
                         type="button"
+                        role="checkbox"
+                        aria-checked={item.status === "packed"}
+                        aria-label={item.name}
+                        disabled={!canEdit}
                         onClick={() => toggleItem(ci, item.id)}
                         className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                           item.status === "packed"
@@ -332,6 +434,37 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
                           {item.reason}
                         </span>
                       )}
+                      {showPeople && (
+                        <select
+                          aria-label={t("packing_assign_for", { item: item.name })}
+                          value={item.assignedTo ?? ""}
+                          onChange={(e) => void assignPackingItem(item.id, e.target.value || null)}
+                          className={`${item.reason ? "" : "ml-auto "}max-w-36 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text)]`}
+                        >
+                          <option value="">{t("packing_assigned_nobody")}</option>
+                          {people.map((person) => (
+                            <option key={person.id} value={person.id}>{person.label}</option>
+                          ))}
+                          {item.assignedTo && !people.some((person) => person.id === item.assignedTo) && (
+                            <option value={item.assignedTo}>{t("packing_person_other")}</option>
+                          )}
+                        </select>
+                      )}
+                      {synced && scope === "shared" && !canEdit && item.assignedTo && (
+                        <span className={`${item.reason ? "" : "ml-auto "}text-[10px] font-bold text-[var(--color-text-secondary)]`}>
+                          {t("packing_assigned_to", { name: personLabel(item.assignedTo) })}
+                        </span>
+                      )}
+                      {synced && canEdit && (
+                        <button
+                          type="button"
+                          aria-label={t("packing_remove_item", { item: item.name })}
+                          onClick={() => void removePackingItem(item.id)}
+                          className="shrink-0 rounded-md p-0.5 text-[var(--color-text-muted)] hover:text-red-500"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </label>
                   ))}
                 </div>
@@ -339,7 +472,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
             ))}
 
             {/* Manual add */}
-            {list && (
+            {list && canEdit && (
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -362,7 +495,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
             )}
 
             {/* Regenerate + generated-at footer */}
-            {list && hasDates && (
+            {list && hasDates && canEdit && (
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-[var(--color-text-muted)]">
                   {t("packing_generated_at", {
