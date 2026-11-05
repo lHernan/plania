@@ -57,6 +57,13 @@ import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context
 import { resolvePreferredCurrency, withTripCurrency } from "@/lib/trip-currency";
 import { tripTimeZone } from "@/lib/day-genius/context";
 import { consecutiveDates, isTripUndated, withoutUndatedFlag } from "@/lib/trip-undated";
+import {
+  TRIP_COVERS_BUCKET,
+  canEditTripCover,
+  tripCoverObjectPath,
+  validateTripCoverFile,
+  type TripCoverError,
+} from "@/lib/trip-cover";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 
@@ -107,6 +114,8 @@ type TripDb = {
   created_at?: string | null;
   is_favorite?: boolean | null;
   travel_context?: unknown;
+  /** Absent until trip_covers_migration.sql runs; select("*") never fails over it. */
+  cover_path?: string | null;
 };
 
 type TripDayDb = {
@@ -162,6 +171,13 @@ type Store = {
   saveTravelContext: (travelContext: TravelContext | null) => Promise<{ error?: string }>;
   /** [Fijar fechas] of an undated trip: consecutive day dates from `startDate`; "offline" without a connection. */
   setTripDates: (startDate: string) => Promise<{ error?: string }>;
+  /**
+   * Uploads a new cover (owner or editor, saved trip, online) to trip-covers/<tripId>/, points
+   * the trip at it and removes the previous object. Invalid files are rejected before any request.
+   */
+  setTripCover: (file: File) => Promise<{ error?: TripCoverError }>;
+  /** Back to the default placeholder: clears the trip's cover and removes its object. */
+  removeTripCover: () => Promise<{ error?: TripCoverError }>;
   switchTrip: (tripId: string) => Promise<void>;
   clearData: () => void;
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
@@ -297,6 +313,7 @@ function buildTripSummaryFromPlan(plan: TripPlan): TripSummary {
     endDate: plan.endDate,
     createdAt: plan.createdAt,
     isFavorite: plan.isFavorite,
+    coverPath: plan.coverPath ?? null,
     dayCount: plan.days.length,
     activityCount: plan.days.reduce((total, day) => total + day.activities.length, 0),
   };
@@ -328,6 +345,7 @@ function buildTripPlan(
     createdAt: trip.created_at ?? undefined,
     isFavorite: trip.is_favorite ?? false,
     travelContext: parseTravelContext(trip.travel_context) ?? undefined,
+    coverPath: trip.cover_path ?? null,
     days: days.map((day) => ({
       id: day.id,
       date: day.date,
@@ -406,6 +424,7 @@ function buildTripSummaryFromDb(
     endDate: trip.end_date ?? undefined,
     createdAt: trip.created_at ?? undefined,
     isFavorite: trip.is_favorite ?? false,
+    coverPath: trip.cover_path ?? null,
     dayCount: Number(trip.trip_days?.[0]?.count ?? 0),
     activityCount: Number(trip.activities?.[0]?.count ?? 0),
   };
@@ -534,6 +553,49 @@ export const useItineraryStore = create<Store>((set, get) => {
       }));
     }
     await persistCacheFromState();
+  };
+
+  /** Who may change the active trip's cover; the server (set_trip_cover + storage policies) decides anyway. */
+  const guardTripCover = (): { trip: TripPlan } | { error: TripCoverError } => {
+    const trip = get().activeTrip;
+    if (!trip) return { error: "forbidden" };
+    // A draft has no row yet, so there is no trip folder to upload into.
+    if (get().activeTripIsDraft) return { error: "draft" };
+    if (!canEditTripCover(trip, getCurrentUserId())) return { error: "forbidden" };
+    return { trip };
+  };
+
+  /** Best effort: an object left behind only costs storage, never breaks the trip. */
+  const removeCoverObject = async (path: string) => {
+    try {
+      await supabase.storage.from(TRIP_COVERS_BUCKET).remove([path]);
+    } catch (error) {
+      console.error("Plania: trip cover cleanup error", error);
+    }
+  };
+
+  /**
+   * Sets trips.cover_path through set_trip_cover (editors cannot update the trips row
+   * directly) and returns the path it replaced.
+   */
+  const pointTripAtCover = async (tripId: string, path: string | null): Promise<{ previous: string | null } | { error: TripCoverError }> => {
+    try {
+      const { data, error } = await supabase.rpc("set_trip_cover", { p_trip_id: tripId, p_cover_path: path });
+      if (!error) return { previous: typeof data === "string" ? data : null };
+      // Function or column missing: the migration has not been applied yet.
+      const missing = ["PGRST202", "42883", "42703"].includes(String(error.code ?? "")) || /set_trip_cover|cover_path/.test(error.message ?? "");
+      if (missing) return { error: "unavailable" };
+      return { error: error.code === "42501" ? "forbidden" : "upload" };
+    } catch {
+      return { error: "upload" };
+    }
+  };
+
+  const applyCoverPath = async (tripId: string, coverPath: string | null) => {
+    await writeState((state) => ({
+      activeTrip: state.activeTrip?.id === tripId ? { ...state.activeTrip, coverPath } : state.activeTrip,
+      trips: state.trips.map((trip) => (trip.id === tripId ? { ...trip, coverPath } : trip)),
+    }));
   };
 
   const removeTripFromCache = async (tripId: string) => {
@@ -1714,6 +1776,47 @@ export const useItineraryStore = create<Store>((set, get) => {
       await writeState((state) => ({
         activeTrip: state.activeTrip?.id === activeTrip.id ? dated(state.activeTrip) : state.activeTrip,
       }));
+      return {};
+    },
+
+    setTripCover: async (file) => {
+      const guard = guardTripCover();
+      if ("error" in guard) return guard;
+      const invalid = validateTripCoverFile(file);
+      if (invalid) return { error: invalid };
+      if (!isOnline()) return { error: "offline" };
+
+      const tripId = guard.trip.id;
+      const path = tripCoverObjectPath(tripId, file.type);
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from(TRIP_COVERS_BUCKET)
+          .upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
+        if (uploadError) return { error: /bucket not found/i.test(uploadError.message ?? "") ? "unavailable" : "upload" };
+      } catch {
+        return { error: "upload" };
+      }
+
+      const result = await pointTripAtCover(tripId, path);
+      if ("error" in result) {
+        await removeCoverObject(path);
+        return result;
+      }
+      if (result.previous && result.previous !== path) await removeCoverObject(result.previous);
+      await applyCoverPath(tripId, path);
+      return {};
+    },
+
+    removeTripCover: async () => {
+      const guard = guardTripCover();
+      if ("error" in guard) return guard;
+      if (!isOnline()) return { error: "offline" };
+
+      const tripId = guard.trip.id;
+      const result = await pointTripAtCover(tripId, null);
+      if ("error" in result) return result;
+      if (result.previous) await removeCoverObject(result.previous);
+      await applyCoverPath(tripId, null);
       return {};
     },
 

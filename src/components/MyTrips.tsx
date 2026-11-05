@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Share2, Star, Trash2, WifiOff } from "lucide-react";
 import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { AuthModal } from "@/components/AuthModal";
 import { useI18n } from "@/components/I18nProvider";
+import { TripCoverImage } from "@/components/TripCover";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { tripPath } from "@/lib/trip-routes";
 import { getCurrentDateString, resolveTripSelectionFromSummaries } from "@/lib/trip-selection";
@@ -129,13 +130,15 @@ export function MyTrips() {
       >
         <div
           aria-hidden="true"
-          className={`flex h-20 items-center justify-center bg-gradient-to-br text-3xl font-black text-white/90 ${
+          className={`relative flex h-20 items-center justify-center overflow-hidden bg-gradient-to-br text-3xl font-black text-white/90 ${
             shared
               ? "from-[var(--color-warning)] to-[var(--color-warning)]/60"
               : "from-[var(--color-primary)] to-[var(--color-primary)]/60"
           }`}
         >
           {trip.name.trim().charAt(0).toUpperCase()}
+          {/* The uploaded cover over the default look; without one the card looks as before. */}
+          <TripCoverImage path={trip.coverPath} />
         </div>
         <div className="flex flex-1 flex-col gap-1 p-4 pr-24">
           <h3 className="truncate text-sm font-black text-[var(--color-text)]">{trip.name}</h3>

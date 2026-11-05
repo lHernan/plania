@@ -12,6 +12,10 @@ export const LANDING_IMAGES: Record<"hero" | "valuePlan" | "valueAll" | "valueLi
   valueLive: null,
 };
 
+/** The gradient shown in the theme's colors where no photo exists yet (landing slots, trip covers). */
+export const IMAGE_PLACEHOLDER_CLASS =
+  "bg-gradient-to-br from-[var(--color-primary)]/25 via-[var(--color-accent-ai)]/15 to-[var(--color-warning)]/20";
+
 /** One replaceable image: the photo when there is one, otherwise a gradient in the theme's colors. */
 export function ImageSlot({ src, alt, className = "", priority = false }: { src: string | null; alt: string; className?: string; priority?: boolean }) {
   return (
@@ -21,7 +25,7 @@ export function ImageSlot({ src, alt, className = "", priority = false }: { src:
       ) : (
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/25 via-[var(--color-accent-ai)]/15 to-[var(--color-warning)]/20"
+          className={`absolute inset-0 ${IMAGE_PLACEHOLDER_CLASS}`}
         />
       )}
     </div>

@@ -97,6 +97,7 @@ import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
 import { isTripUndated } from "@/lib/trip-undated";
+import { canEditTripCover } from "@/lib/trip-cover";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -821,6 +822,18 @@ export function TripView() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   const isOnline = useOfflineStore((s) => s.isOnline);
+
+  // Cover: the owner and shared editors change it (role as resolved by the packing load);
+  // viewers only see it. A draft or an offline trip shows the controls disabled with the reason.
+  const setTripCover = useItineraryStore((s) => s.setTripCover);
+  const removeTripCover = useItineraryStore((s) => s.removeTripCover);
+  const coverEditor = activeTripIsDraft || canEditTripCover(activeTrip, user?.id)
+    ? {
+        onChange: setTripCover,
+        onRemove: removeTripCover,
+        blocked: activeTripIsDraft ? ("draft" as const) : !isOnline ? ("offline" as const) : undefined,
+      }
+    : undefined;
 
   const cancelVoice = () => {
     if (recognitionRef.current) recognitionRef.current.stop();
@@ -2151,6 +2164,7 @@ export function TripView() {
             onEditContext={() => setTravelContextOpen(true)}
             onShare={() => setShowShareModal(true)}
             onSetDates={undated && !isInvitee ? () => setSetDatesOpen(true) : undefined}
+            coverEditor={coverEditor}
             budget={renderBudget()}
             packing={renderPacking()}
             shopping={renderShopping()}

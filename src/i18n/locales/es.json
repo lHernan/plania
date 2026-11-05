@@ -1006,5 +1006,15 @@
   "packing_person_me": "Yo",
   "packing_person_owner": "Dueño del viaje",
   "packing_person_other": "Otra persona del viaje",
-  "packing_remove_item": "Quitar {item}"
+  "packing_remove_item": "Quitar {item}",
+  "trip_cover_change": "Cambiar portada",
+  "trip_cover_remove": "Quitar portada",
+  "trip_cover_draft": "Guarda el viaje para añadir una portada.",
+  "trip_cover_offline": "Conéctate a internet para cambiar la portada.",
+  "trip_cover_error_forbidden": "Solo el propietario del viaje y los editores pueden cambiar la portada.",
+  "trip_cover_error_type": "Usa una imagen JPEG, PNG o WebP.",
+  "trip_cover_error_size": "La imagen supera los 5 MB.",
+  "trip_cover_error_upload": "No se pudo subir la portada. Inténtalo de nuevo.",
+  "trip_cover_error_remove": "No se pudo quitar la portada. Inténtalo de nuevo.",
+  "trip_cover_error_unavailable": "Las portadas todavía no están disponibles en este servidor."
 }
