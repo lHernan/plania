@@ -22,6 +22,7 @@ export function AuthInitializer() {
 
   const activeTrip = useItineraryStore((s) => s.activeTrip);
   const activeTripIsDraft = useItineraryStore((s) => s.activeTripIsDraft);
+  const hasTrips = useItineraryStore((s) => s.trips.length > 0);
   const hasFetched = useItineraryStore((s) => s.hasFetched);
   const loading = useItineraryStore((s) => s.loading);
   const fetchAllTrips = useItineraryStore((s) => s.fetchAllTrips);
@@ -72,21 +73,30 @@ export function AuthInitializer() {
     })();
   }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id, user?.is_anonymous]);
 
+  // The landing opens the selected trip; /trips is the trip list and stays put.
   useEffect(() => {
-    if (activeTrip && (pathname === "/" || pathname === "/trips")) {
+    if (activeTrip && pathname === "/") {
       router.push(tripPath(activeTrip.id));
     }
   }, [activeTrip, pathname, router]);
 
+  const isRegistered = Boolean(user && !user.is_anonymous);
+
   useEffect(() => {
-    const onTripPage = pathname === "/trips" || pathname.startsWith("/trips/");
-    if (initialized && hasFetched && !loading && !activeTrip && onTripPage) {
-      // When offline, stay on /trips — the landing page is useless without
-      // connectivity and the cache may still be hydrating the active trip.
-      if (isOffline()) return;
-      router.push("/");
+    if (!initialized || !hasFetched || loading || activeTrip) return;
+    // When offline, stay put — the landing page is useless without
+    // connectivity and the cache may still be hydrating the active trip.
+    if (isOffline()) return;
+    const onTripPage = pathname.startsWith("/trips/");
+    if (isRegistered) {
+      // With no trips at all, a registered user gets the empty trip list (create, templates)
+      // instead of the landing. While trips exist the selected one is still on its way.
+      if (!hasTrips && (pathname === "/" || onTripPage)) router.push("/trips");
+      else if (hasTrips && onTripPage) router.push("/");
+      return;
     }
-  }, [activeTrip, hasFetched, initialized, loading, pathname, router]);
+    if (pathname === "/trips" || onTripPage) router.push("/");
+  }, [activeTrip, hasFetched, hasTrips, initialized, isRegistered, loading, pathname, router]);
 
   useEffect(() => {
     const handleFocus = async () => {

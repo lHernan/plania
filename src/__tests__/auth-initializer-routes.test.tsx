@@ -4,6 +4,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 
 const nav = vi.hoisted(() => ({ pathname: "/", push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: nav.push }), usePathname: () => nav.pathname }));
+vi.mock("@/lib/share/claim-client", () => ({ claimPendingInvitations: vi.fn(async () => {}) }));
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: () => ({}),
@@ -27,7 +28,7 @@ beforeEach(() => {
   fetchActiveTrip.mockClear();
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
   useItineraryStore.setState({
-    activeTrip: null, activeTripIsDraft: false, hasFetched: false, loading: false,
+    trips: [], activeTrip: null, activeTripIsDraft: false, hasFetched: false, loading: false,
     fetchActiveTrip, fetchAllTrips: vi.fn(async () => {}), clearData: vi.fn(), syncPendingMutations: vi.fn(async () => {}),
   });
   // Anonymous: skips the invitation claim, which needs a session.
@@ -48,16 +49,19 @@ describe("AuthInitializer routes", () => {
     expect(fetchActiveTrip.mock.calls[0]).toEqual([]);
   });
 
-  it("opens the active trip's itinerary from the landing and from /trips", async () => {
-    for (const pathname of ["/", "/trips"]) {
-      nav.pathname = pathname;
-      nav.push.mockClear();
-      const view = render(<AuthInitializer />);
-      act(() => useItineraryStore.setState({ activeTrip: trip("t-9") as never, hasFetched: true }));
-      await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/t-9"));
-      view.unmount();
-      act(() => useItineraryStore.setState({ activeTrip: null, hasFetched: false }));
-    }
+  it("opens the active trip's itinerary from the landing", async () => {
+    nav.pathname = "/";
+    render(<AuthInitializer />);
+    act(() => useItineraryStore.setState({ activeTrip: trip("t-9") as never, hasFetched: true }));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/t-9"));
+  });
+
+  it("keeps /trips as the trip list instead of opening the active trip", async () => {
+    nav.pathname = "/trips";
+    render(<AuthInitializer />);
+    act(() => useItineraryStore.setState({ activeTrip: trip("t-9") as never, hasFetched: true }));
+    await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
+    expect(nav.push).not.toHaveBeenCalled();
   });
 
   it("does not move away from a trip section", async () => {
@@ -73,5 +77,59 @@ describe("AuthInitializer routes", () => {
     render(<AuthInitializer />);
     act(() => useItineraryStore.setState({ activeTrip: null, hasFetched: true, loading: false }));
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/"));
+  });
+
+  it("sends an anonymous visitor on /trips with no trips back to the landing", async () => {
+    nav.pathname = "/trips";
+    render(<AuthInitializer />);
+    act(() => useItineraryStore.setState({ activeTrip: null, hasFetched: true, loading: false }));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/"));
+  });
+
+  describe("registered user", () => {
+    beforeEach(() => {
+      useAuthStore.setState({ user: { id: `r-${Math.random()}`, is_anonymous: false, email: "me@x.io" } as never });
+    });
+
+    it.each(["/", "/trips/t-9/map"])("with no trips goes from %s to the empty trip list", async (pathname) => {
+      nav.pathname = pathname;
+      render(<AuthInitializer />);
+      act(() => useItineraryStore.setState({ trips: [], activeTrip: null, hasFetched: true, loading: false }));
+      await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips"));
+      expect(nav.push).not.toHaveBeenCalledWith("/");
+    });
+
+    it("with no trips stays on the trip list", async () => {
+      nav.pathname = "/trips";
+      render(<AuthInitializer />);
+      act(() => useItineraryStore.setState({ trips: [], activeTrip: null, hasFetched: true, loading: false }));
+      await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
+      expect(nav.push).not.toHaveBeenCalled();
+    });
+
+    it("signing in on the landing with trips opens the selected trip", async () => {
+      nav.pathname = "/";
+      render(<AuthInitializer />);
+      act(() => useItineraryStore.setState({ activeTrip: trip("t-3") as never, hasFetched: true }));
+      await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/t-3"));
+    });
+
+    it("waits for the selected trip while its trip list is already loaded", async () => {
+      nav.pathname = "/";
+      render(<AuthInitializer />);
+      const summary = { id: "t-3", name: "t-3", dayCount: 1, activityCount: 0 };
+      act(() => useItineraryStore.setState({ trips: [summary], activeTrip: null, hasFetched: true, loading: false }));
+      await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
+      expect(nav.push).not.toHaveBeenCalledWith("/trips");
+    });
+
+    it("stays put when offline with no trips", async () => {
+      Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+      nav.pathname = "/trips/t-9";
+      render(<AuthInitializer />);
+      act(() => useItineraryStore.setState({ trips: [], activeTrip: null, hasFetched: true, loading: false }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(nav.push).not.toHaveBeenCalled();
+    });
   });
 });

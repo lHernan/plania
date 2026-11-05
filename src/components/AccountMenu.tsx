@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { Check, HelpCircle, LogIn, LogOut, Monitor, Moon, Sun, User as UserIcon } from "lucide-react";
+import Link from "next/link";
+import { Check, HelpCircle, LogIn, LogOut, Luggage, Monitor, Moon, Sun, User as UserIcon } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 
 export type ThemeMode = "light" | "dark" | "system";
@@ -24,7 +25,8 @@ export function applyTheme(mode: ThemeMode) {
   document.documentElement.classList.toggle("dark", dark);
 }
 
-function saveTheme(mode: ThemeMode) {
+/** Remembers the theme on this device and applies it. */
+export function saveTheme(mode: ThemeMode) {
   try {
     window.localStorage.setItem(THEME_KEY, mode);
   } catch {
@@ -39,8 +41,9 @@ const LANGUAGES = [
 ] as const;
 
 /**
- * The avatar in the header: account, language, theme, the tour and signing in or out.
+ * The avatar in the header: my trips, profile, language, theme, the tour and signing in or out.
  * `email` is null for anonymous visitors, who get "sign in" instead of "sign out".
+ * Without `onStartTour` (screens with no trip to tour) the tour item is left out.
  */
 export function AccountMenu({
   email,
@@ -49,7 +52,7 @@ export function AccountMenu({
   onSignIn,
 }: {
   email: string | null;
-  onStartTour: () => void;
+  onStartTour?: () => void;
   onSignOut: () => void;
   onSignIn: () => void;
 }) {
@@ -148,6 +151,16 @@ export function AccountMenu({
           </p>
           <div role="separator" className="my-1 h-px bg-[var(--color-border)]" />
 
+          <Link href="/trips" role="menuitem" tabIndex={-1} onClick={() => close(false)} className={itemClass}>
+            <Luggage size={14} aria-hidden="true" />
+            {t("account_menu_my_trips")}
+          </Link>
+          <Link href="/me" role="menuitem" tabIndex={-1} onClick={() => close(false)} className={itemClass}>
+            <UserIcon size={14} aria-hidden="true" />
+            {t("account_menu_profile")}
+          </Link>
+          <div role="separator" className="my-1 h-px bg-[var(--color-border)]" />
+
           <div role="group" aria-label={t("account_menu_language")}>
             <p className={groupLabelClass} aria-hidden="true">{t("account_menu_language")}</p>
             {LANGUAGES.map(({ code, label }) => (
@@ -189,10 +202,12 @@ export function AccountMenu({
           </div>
 
           <div role="separator" className="my-1 h-px bg-[var(--color-border)]" />
-          <button type="button" role="menuitem" tabIndex={-1} onClick={run(onStartTour)} className={itemClass}>
-            <HelpCircle size={14} aria-hidden="true" />
-            {t("tour_help")}
-          </button>
+          {onStartTour && (
+            <button type="button" role="menuitem" tabIndex={-1} onClick={run(onStartTour)} className={itemClass}>
+              <HelpCircle size={14} aria-hidden="true" />
+              {t("tour_help")}
+            </button>
+          )}
           {signedIn ? (
             <button
               type="button"
