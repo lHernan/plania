@@ -30,15 +30,19 @@ export function TripCoverImage({ path }: { path?: string | null }) {
   );
 }
 
+/** Frosted surface for header controls over the cover, so they read on any photo. */
+export const OVER_COVER_SURFACE = "bg-[var(--color-surface)]/80 backdrop-blur-md shadow-sm";
+
 /**
- * The cover behind the trip header (every section). The surface-colored veil is solid where the
- * trip name and controls sit and fades out to the right, so text stays legible in both themes.
+ * The cover behind the whole trip header (every section); the header must be `relative isolate`.
+ * A light surface-colored veil only behind the trip name on the left keeps it legible in both
+ * themes while most of the photo stays visible; day chips and buttons have their own background.
  */
 export function TripHeaderCover({ path }: { path: string }) {
   return (
-    <div aria-hidden="true" data-testid="trip-header-cover" className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div aria-hidden="true" data-testid="trip-header-cover" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <TripCoverImage path={path} />
-      <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-surface)] via-[var(--color-surface)]/85 to-[var(--color-surface)]/40" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-surface)]/80 via-[var(--color-surface)]/25 via-40% to-transparent" />
     </div>
   );
 }

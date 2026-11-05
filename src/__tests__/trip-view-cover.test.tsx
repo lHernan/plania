@@ -110,8 +110,43 @@ describe("TripView header cover", () => {
     await waitFor(() => expect(within(header).getByTestId("trip-header-cover").querySelector("img")?.getAttribute("src")).toBe("https://cdn.test/t/header.jpg"));
   });
 
+  it("spans the whole header (top bar, tabs and day strip), not only the top bar", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const header = screen.getByRole("banner");
+    expect(within(header).getByTestId("trip-header-cover").parentElement).toBe(header);
+    expect(header.className).toContain("isolate");
+  });
+
+  it("puts the trip name, the account controls and the section tabs on their own surface over the photo", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const header = screen.getByRole("banner");
+    const surfaces = header.querySelectorAll("[data-over-cover]");
+    expect(surfaces).toHaveLength(2);
+    expect(within(header.querySelector('[data-over-cover="controls"]') as HTMLElement).getByRole("button", { name: "Menú de la cuenta" })).toBeTruthy();
+    surfaces.forEach((surface) => expect(surface.className).toContain("backdrop-blur"));
+  });
+
+  it("shows each section tab as its own pill over the photo instead of a band", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const tabs = within(within(screen.getByRole("banner")).getByRole("navigation", { name: "Secciones del viaje" })).getAllByRole("link");
+    expect(tabs).toHaveLength(4);
+    tabs.forEach((tab) => expect(tab.className).toMatch(/rounded-full[\s\S]*backdrop-blur/));
+  });
+
+  it("keeps the account menu above the day strip over the photo", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const controls = screen.getByRole("banner").querySelector('[data-over-cover="controls"]') as HTMLElement;
+    expect(controls.className).toMatch(/\brelative\b/);
+    expect(controls.className).toMatch(/\bz-20\b/);
+  });
+
   it("keeps the plain header when the trip has no cover", async () => {
     await renderTrip({ coverPath: null });
-    expect(within(screen.getByRole("banner")).queryByTestId("trip-header-cover")).toBeNull();
+    const header = screen.getByRole("banner");
+    expect(within(header).queryByTestId("trip-header-cover")).toBeNull();
+    expect(header.querySelectorAll("[data-over-cover]")).toHaveLength(0);
+    within(within(screen.getByRole("banner")).getByRole("navigation", { name: "Secciones del viaje" }))
+      .getAllByRole("link")
+      .forEach((tab) => expect(tab.className).not.toContain("backdrop-blur"));
   });
 });
