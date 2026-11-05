@@ -31,11 +31,8 @@ CREATE POLICY "trip_share_links_owner_all" ON trip_share_links FOR ALL
   USING (created_by = auth.uid())
   WITH CHECK (created_by = auth.uid());
 
--- Anyone (including anon) can SELECT a link by token to validate it
+-- Links are validated only by the server routes with the service role. No select-by-token
+-- policy: it let anyone list every token (see trip_share_link_access_migration.sql).
 DROP POLICY IF EXISTS "trip_share_links_select_by_token" ON trip_share_links;
-CREATE POLICY "trip_share_links_select_by_token" ON trip_share_links FOR SELECT
-  USING (true);
 
 -- Acceptance happens via service role in the API route.
-filePath">
-D:\Dev\repos\plania\src\lib\trip_share_links_migration.sql

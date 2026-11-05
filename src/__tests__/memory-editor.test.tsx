@@ -92,6 +92,8 @@ describe("MemoryEditor", () => {
     await renderEditor();
     fireEvent.click(screen.getByRole("radio", { name: "Solo algunas personas" }));
     const list = await screen.findByRole("group", { name: "Personas que lo ven" });
+    // The members load asynchronously; wait for them instead of racing the request.
+    await within(list).findByRole("checkbox", { name: /ana@x\.io/ });
     const me = within(list).getByRole("checkbox", { name: "Yo" }) as HTMLInputElement;
     expect(me.checked).toBe(true);
     expect(me.disabled).toBe(true);

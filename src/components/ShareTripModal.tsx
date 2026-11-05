@@ -344,6 +344,9 @@ export function ShareTripModal({ tripId, tripName, onClose }: ShareTripModalProp
             <p className="text-[10px] font-medium text-[var(--color-text-muted)] leading-relaxed">
               {t("share_link_note")}
             </p>
+            <p className="text-[10px] font-medium text-[var(--color-text-muted)] leading-relaxed">
+              {t("share_link_story_note")}
+            </p>
           </div>
 
           {/* Current shares list */}

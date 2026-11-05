@@ -27,7 +27,6 @@ USING (
       AND (
         t.user_id = auth.uid()
         OR EXISTS (SELECT 1 FROM trip_shares ts WHERE ts.trip_id = t.id AND ts.shared_with = auth.uid())
-        OR EXISTS (SELECT 1 FROM trip_share_links tsl WHERE tsl.trip_id = t.id AND tsl.revoked_at IS NULL AND (tsl.expires_at IS NULL OR tsl.expires_at > now()))
       )
   )
 );
@@ -43,7 +42,6 @@ WITH CHECK (
       AND (
         t.user_id = auth.uid()
         OR EXISTS (SELECT 1 FROM trip_shares ts WHERE ts.trip_id = t.id AND ts.shared_with = auth.uid() AND ts.role = 'editor')
-        OR EXISTS (SELECT 1 FROM trip_share_links tsl WHERE tsl.trip_id = t.id AND tsl.role = 'editor' AND tsl.revoked_at IS NULL AND (tsl.expires_at IS NULL OR tsl.expires_at > now()))
       )
   )
 );

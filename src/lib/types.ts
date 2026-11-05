@@ -518,6 +518,22 @@ export type Memory = {
   updatedAt: string;
 };
 
+/** A photo on the public share page: a short-lived signed URL, never the storage path. */
+export type PublicMemoryPhoto = { id: string; url: string; caption: string | null };
+
+/**
+ * A memory on the public share page. Only memories shared with the whole trip are public,
+ * and they never say who wrote them or who else can see them.
+ */
+export type PublicMemory = {
+  id: string;
+  activityId: string | null;
+  note: string | null;
+  rating: number | null;
+  createdAt: string;
+  photos: PublicMemoryPhoto[];
+};
+
 /** Someone on the trip: its owner or a person it is shared with (any role). */
 export type TripMember = {
   userId: string;

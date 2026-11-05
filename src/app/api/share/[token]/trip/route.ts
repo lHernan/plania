@@ -3,11 +3,16 @@
  *
  * Returns the full trip plan (days, activities, reservations) for a valid
  * share link, without requiring authentication. Read-only.
+ *
+ * The token is checked here with the service role client; RLS grants no reads through share
+ * links. When the trip has memories shared with the whole trip, they are included (with
+ * short-lived signed photo URLs) as `memories`, and the cover as `trip.coverUrl`.
  */
 
 import { NextResponse } from "next/server";
 import { getServiceRoleSupabase } from "@/lib/supabase-server";
-import { createClient } from "@supabase/supabase-js";
+import { hasServiceRoleKey } from "@/lib/share/grant";
+import { checkShareLink, readPublicCoverUrl, readPublicMemories, SERVICE_ROLE_REQUIRED_ERROR } from "@/lib/share/public-trip";
 
 export async function GET(
   request: Request,
@@ -16,29 +21,22 @@ export async function GET(
   try {
     const { token } = await context.params;
 
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabase =
-      serviceKey && serviceKey !== anonKey
-        ? getServiceRoleSupabase()
-        : createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, anonKey, { auth: { persistSession: false } });
+    if (!hasServiceRoleKey()) {
+      return NextResponse.json({ error: SERVICE_ROLE_REQUIRED_ERROR }, { status: 500 });
+    }
+    const supabase = getServiceRoleSupabase();
 
-    const { data: link, error: linkError } = await supabase
+    const { data: linkRow, error: linkError } = await supabase
       .from("trip_share_links")
       .select("trip_id, role, revoked_at, expires_at")
       .eq("token", token)
       .maybeSingle();
 
-    if (linkError || !link) {
-      return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
+    const checked = checkShareLink(linkError ? null : linkRow);
+    if (!checked.ok) {
+      return NextResponse.json({ error: checked.error }, { status: checked.status });
     }
-    if (link.revoked_at) {
-      return NextResponse.json({ error: "Este enlace fue revocado" }, { status: 410 });
-    }
-    if (link.expires_at && new Date(link.expires_at) < new Date()) {
-      return NextResponse.json({ error: "Este enlace expiró" }, { status: 410 });
-    }
-
+    const link = checked.link;
     const tripId = link.trip_id;
 
     const [{ data: trip }, { data: days }, { data: activities }, { data: reservations }] = await Promise.all([
@@ -52,12 +50,16 @@ export async function GET(
       return NextResponse.json({ error: "Viaje no encontrado" }, { status: 404 });
     }
 
+    const [memories, coverUrl] = await Promise.all([readPublicMemories(supabase, tripId), readPublicCoverUrl(supabase, tripId)]);
+
+    // Without public memories or a cover the payload stays exactly as it was.
     return NextResponse.json({
-      trip: { id: trip.id, name: trip.name, startDate: trip.start_date, endDate: trip.end_date },
+      trip: { id: trip.id, name: trip.name, startDate: trip.start_date, endDate: trip.end_date, ...(coverUrl ? { coverUrl } : {}) },
       role: link.role,
       days: days ?? [],
       activities: activities ?? [],
       reservations: reservations ?? [],
+      ...(memories.length > 0 ? { memories } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error desconocido";

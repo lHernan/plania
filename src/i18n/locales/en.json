@@ -1074,5 +1074,8 @@
   "memory_caption_suggesting": "Thinking…",
   "memory_caption_note_filled": "Available when the note is empty",
   "memory_caption_offline": "No connection. A caption can't be suggested.",
-  "memory_caption_error": "Couldn't suggest a caption. Please try again."
+  "memory_caption_error": "Couldn't suggest a caption. Please try again.",
+  "share_story_title": "The trip story",
+  "share_story_cover_alt": "Cover of {name}",
+  "share_link_story_note": "The link also shows the trip story with the memories shared with the whole trip (never those shared with only some people)."
 }
