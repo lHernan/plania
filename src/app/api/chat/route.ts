@@ -265,7 +265,8 @@ async function authorizeTrip(request: Request, tripId: string) {
   const supabase = getAuthClient(request);
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const caller = authData.user;
-  if (authError || !caller) throw new Response("No autenticado", { status: 401 });
+  // The chat calls the AI: registered users only (not anonymous guests).
+  if (authError || !caller || caller.is_anonymous) throw new Response("No autenticado", { status: 401 });
 
   const { data: trip, error: tripError } = await supabase
     .from("trips")

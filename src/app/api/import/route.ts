@@ -71,17 +71,17 @@ function buildSystemPrompt(lang: string) {
 
 export async function POST(req: Request) {
   try {
+    // Both modes spend AI credits: registered users only (not anonymous guests).
+    const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+    if (authError || !authData?.user || authData.user.is_anonymous) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { text, fallbackDate, lang } = body;
 
     // Planning mode ("Generate itinerary"): same importer, prompt and schema, plus trip context.
     if (body?.planning !== undefined && body?.planning !== null) {
-      // Planning sends the whole trip context and spends AI credits: signed-in users only.
-      // (The plain text import keeps its existing, unauthenticated behavior.)
-      const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
-      if (authError || !authData?.user) {
-        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-      }
       const planning = parsePlanningInput(body.planning);
       if (!planning) {
         return NextResponse.json({ error: "invalid_request" }, { status: 400 });

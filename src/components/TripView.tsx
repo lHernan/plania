@@ -43,6 +43,7 @@ import {
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
+import { authHeaders } from "@/lib/auth-headers";
 import { AuthModal } from "@/components/AuthModal";
 import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
@@ -690,7 +691,8 @@ export function TripView() {
   // Same quick actions wherever they are docked (page corner or the map section).
   const floatingActionsProps = {
     onAdd: isInvitee ? undefined : () => setShowAdd(true),
-    showAgent: Boolean(activeTrip),
+    // The travel agent is AI, for registered users only.
+    showAgent: Boolean(activeTrip) && Boolean(user && !user.is_anonymous),
   };
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const editingActivity = useMemo(() => {
@@ -744,6 +746,11 @@ export function TripView() {
 
   const handleImportSync = async (textToSync: string) => {
     if (!textToSync.trim() || isImporting) return;
+    // The import calls the AI, which is for registered users only.
+    if (!user || user.is_anonymous) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!isOnline) {
       showToast(t("trip_view_ai_import_offline"), "error");
       cancelVoice();
@@ -755,7 +762,7 @@ export function TripView() {
       
       const res = await fetch("/api/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({
           text: textToSync,
           fallbackDate: activeDay?.date || new Date().toISOString(),
@@ -1468,7 +1475,7 @@ export function TripView() {
     </div>
   );
   const renderPacking = () =>
-    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null;
+    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} onRequireAuth={() => setShowAuthModal(true)} /> : null;
 
   return (
     // On mobile the bottom padding clears the fixed section bar (4rem) and, outside the map,

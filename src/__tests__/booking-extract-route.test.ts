@@ -7,7 +7,7 @@ vi.mock("@/lib/ai/provider", () => ({
   runAiVisionPages: vi.fn(),
 }));
 
-const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string } | null }));
+const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string; is_anonymous?: boolean } | null }));
 vi.mock("@/lib/supabase-server", () => ({
   getAuthClient: () => ({
     auth: { getUser: async () => ({ data: { user: auth.user }, error: auth.user ? null : { message: "no session" } }) },
@@ -40,6 +40,15 @@ describe("POST /api/bookings/extract", () => {
 
   it("rejects requests without a signed-in user and never calls the AI provider", async () => {
     auth.user = null;
+    const res = await POST(request({ ...base, pages: [{ index: 0, text: FLIGHT_DOC }] }));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+    expect(runAiPrompt).not.toHaveBeenCalled();
+    expect(runAiVisionPages).not.toHaveBeenCalled();
+  });
+
+  it("rejects an anonymous guest and never calls the AI provider", async () => {
+    auth.user = { id: "anon", is_anonymous: true };
     const res = await POST(request({ ...base, pages: [{ index: 0, text: FLIGHT_DOC }] }));
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "unauthorized" });

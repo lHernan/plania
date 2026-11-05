@@ -11,6 +11,8 @@ import {
   Check,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { authHeaders } from "@/lib/auth-headers";
+import { useAuthStore } from "@/store/use-auth-store";
 import type {
   PackingCategory,
   PackingList,
@@ -32,10 +34,13 @@ type Props = {
   tripName: string;
   days: TripDay[];
   travelContext?: TravelContext;
+  /** Generating calls the AI, which is for registered users only: guests are asked to sign in. */
+  onRequireAuth?: () => void;
 };
 
-export function PackingListCard({ tripId, tripName, days, travelContext }: Props) {
+export function PackingListCard({ tripId, tripName, days, travelContext, onRequireAuth }: Props) {
   const { lang, t } = useI18n();
+  const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
   const [list, setList] = useState<PackingList | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,6 +80,10 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
 
   const generate = useCallback(async () => {
     if (!hasDates) return;
+    if (!user || user.is_anonymous) {
+      onRequireAuth?.();
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -101,7 +110,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
 
       const res = await fetch("/api/packing-list", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify(input),
       });
 
@@ -122,7 +131,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
     } finally {
       setLoading(false);
     }
-  }, [hasDates, fetchWeather, days, cities, travelContext, tripId, lang, t]);
+  }, [hasDates, user, onRequireAuth, fetchWeather, days, cities, travelContext, tripId, lang, t]);
 
   const toggleItem = (categoryIndex: number, itemId: string) => {
     if (!list) return;
