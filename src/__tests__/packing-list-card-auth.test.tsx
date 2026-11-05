@@ -55,3 +55,17 @@ describe("PackingListCard generation needs an account", () => {
     expect(onRequireAuth).not.toHaveBeenCalled();
   });
 });
+
+describe("PackingListCard opened from Tachi", () => {
+  it("starts expanded with the generate button when Tachi sends the user here", () => {
+    useAuthStore.setState({ user: { id: "u1", is_anonymous: false } as never });
+    renderWithI18n(<PackingListCard tripId="t1" tripName="Madrid" days={days} defaultOpen />);
+    expect(screen.getByRole("button", { name: "Generar lista de equipaje" })).toBeTruthy();
+  });
+
+  it("stays collapsed otherwise", () => {
+    useAuthStore.setState({ user: { id: "u1", is_anonymous: false } as never });
+    renderWithI18n(<PackingListCard tripId="t1" tripName="Madrid" days={days} />);
+    expect(screen.queryByRole("button", { name: "Generar lista de equipaje" })).toBeNull();
+  });
+});

@@ -11,7 +11,7 @@ import { isPlaceholderCity } from "@/lib/day-genius/context";
 import type { TripPlan } from "@/lib/types";
 
 const TABS = ["summary", "packing", "shopping", "tools"] as const;
-type OverviewTab = (typeof TABS)[number];
+export type OverviewTab = (typeof TABS)[number];
 
 type TripOverviewProps = {
   trip: TripPlan;
@@ -21,16 +21,23 @@ type TripOverviewProps = {
   onShare: () => void;
   // Blocks TripView already renders; this screen only places them in its tabs.
   budget: ReactNode;
-  aiQuickActions: ReactNode;
   packing: ReactNode;
   shopping: ReactNode;
   tools: ReactNode;
+  /** Controlled tab, so Tachi can open the packing list; uncontrolled when omitted. */
+  tab?: OverviewTab;
+  onTabChange?: (tab: OverviewTab) => void;
 };
 
 /** The trip section: summary and preparation, packing, shopping and travel tools as tabs. */
-export function TripOverview({ trip, canShare, onEditContext, onShare, budget, aiQuickActions, packing, shopping, tools }: TripOverviewProps) {
+export function TripOverview({ trip, canShare, onEditContext, onShare, budget, packing, shopping, tools, tab: controlledTab, onTabChange }: TripOverviewProps) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<OverviewTab>("summary");
+  const [ownTab, setOwnTab] = useState<OverviewTab>("summary");
+  const tab = controlledTab ?? ownTab;
+  const setTab = (next: OverviewTab) => {
+    setOwnTab(next);
+    onTabChange?.(next);
+  };
   const baseId = useId();
   const tabId = (key: OverviewTab) => `${baseId}-tab-${key}`;
   const panelId = (key: OverviewTab) => `${baseId}-panel-${key}`;
@@ -91,7 +98,6 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, budget, a
             <TripSummary trip={trip} canShare={canShare} onEditContext={onEditContext} onShare={onShare} />
             <PreparationChecklist trip={trip} />
             {budget}
-            {aiQuickActions}
           </>
         )}
         {tab === "packing" && packing}
