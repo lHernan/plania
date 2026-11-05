@@ -1006,5 +1006,15 @@
   "packing_person_me": "Me",
   "packing_person_owner": "Trip owner",
   "packing_person_other": "Another trip member",
-  "packing_remove_item": "Remove {item}"
+  "packing_remove_item": "Remove {item}",
+  "trip_cover_change": "Change cover",
+  "trip_cover_remove": "Remove cover",
+  "trip_cover_draft": "Save the trip to add a cover.",
+  "trip_cover_offline": "Connect to the internet to change the cover.",
+  "trip_cover_error_forbidden": "Only the trip owner and editors can change the cover.",
+  "trip_cover_error_type": "Use a JPEG, PNG or WebP image.",
+  "trip_cover_error_size": "The image is larger than 5 MB.",
+  "trip_cover_error_upload": "The cover could not be uploaded. Try again.",
+  "trip_cover_error_remove": "The cover could not be removed. Try again.",
+  "trip_cover_error_unavailable": "Covers are not available on this server yet."
 }

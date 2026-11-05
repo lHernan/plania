@@ -1,18 +1,30 @@
 "use client";
 
-import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { enUS, es } from "date-fns/locale";
-import { CalendarDays, CheckCircle2, Circle, Compass, MapPin, Share2, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, Compass, ImageOff, ImagePlus, MapPin, Share2, Users } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { TripCover } from "@/components/TripCover";
 import { tripSectionHref } from "@/components/TripSectionNav";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { isTripUndated } from "@/lib/trip-undated";
+import { TRIP_COVER_ACCEPT } from "@/lib/trip-cover";
 import type { TripPlan } from "@/lib/types";
 
 const TABS = ["summary", "packing", "shopping", "tools"] as const;
 export type OverviewTab = (typeof TABS)[number];
+
+type CoverResult = Promise<{ error?: string }>;
+
+/** Cover controls for the owner and editors. */
+export type TripCoverEditor = {
+  onChange: (file: File) => CoverResult;
+  onRemove: () => CoverResult;
+  /** Shown disabled with the reason: a draft has no saved trip yet; offline cannot upload. */
+  blocked?: "draft" | "offline";
+};
 
 type TripOverviewProps = {
   trip: TripPlan;
@@ -22,6 +34,8 @@ type TripOverviewProps = {
   onShare: () => void;
   /** Opens [Fijar fechas] for an undated trip; omitted for those who cannot edit the trip. */
   onSetDates?: () => void;
+  /** Change/remove the cover; omitted for viewers. */
+  coverEditor?: TripCoverEditor;
   // Blocks TripView already renders; this screen only places them in its tabs.
   budget: ReactNode;
   packing: ReactNode;
@@ -35,7 +49,7 @@ type TripOverviewProps = {
 };
 
 /** The trip section: summary and preparation, packing, shopping and travel tools as tabs. */
-export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDates, budget, packing, shopping, tools, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
+export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDates, coverEditor, budget, packing, shopping, tools, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
   const { t } = useI18n();
   const [ownTab, setOwnTab] = useState<OverviewTab>("summary");
   const tab = controlledTab ?? ownTab;
@@ -100,7 +114,7 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDate
       <div role="tabpanel" id={panelId(tab)} aria-labelledby={tabId(tab)} className="space-y-6">
         {tab === "summary" && (
           <>
-            <TripSummary trip={trip} canShare={canShare} onEditContext={onEditContext} onShare={onShare} onSetDates={onSetDates} />
+            <TripSummary trip={trip} canShare={canShare} onEditContext={onEditContext} onShare={onShare} onSetDates={onSetDates} coverEditor={coverEditor} />
             <PreparationChecklist trip={trip} />
             {budget}
             {tips}
@@ -114,7 +128,7 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDate
   );
 }
 
-function TripSummary({ trip, canShare, onEditContext, onShare, onSetDates }: Pick<TripOverviewProps, "trip" | "canShare" | "onEditContext" | "onShare" | "onSetDates">) {
+function TripSummary({ trip, canShare, onEditContext, onShare, onSetDates, coverEditor }: Pick<TripOverviewProps, "trip" | "canShare" | "onEditContext" | "onShare" | "onSetDates" | "coverEditor">) {
   const { t, lang } = useI18n();
   const locale = lang === "es" ? es : enUS;
   const formatDate = (date: string) => format(parseISO(date), "d MMM yyyy", { locale });
@@ -127,57 +141,137 @@ function TripSummary({ trip, canShare, onEditContext, onShare, onSetDates }: Pic
   const travelers = trip.travelContext?.travelerCount;
 
   return (
-    <section className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-      <h2 className="text-xl font-black text-[var(--color-text)]">{trip.name}</h2>
-      <ul className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
-        <li className="flex items-center gap-2">
-          <CalendarDays size={16} className="shrink-0 text-[var(--color-text-muted)]" />
-          <span>{dates}</span>
-          {undated && onSetDates && (
-            <button
-              type="button"
-              onClick={onSetDates}
-              className="min-h-11 ml-auto inline-flex items-center rounded-xl bg-[var(--color-primary-subtle)] px-3 text-xs font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors"
-            >
-              {t("trip_set_dates")}
-            </button>
+    <section className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+      {/* The uploaded cover, or the default placeholder until the curated photo set exists. */}
+      <TripCover path={trip.coverPath} className="h-32 md:h-40" />
+      <div className="p-5 space-y-4">
+        {coverEditor && <CoverControls hasCover={Boolean(trip.coverPath)} editor={coverEditor} />}
+        <h2 className="text-xl font-black text-[var(--color-text)]">{trip.name}</h2>
+        <ul className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+          <li className="flex items-center gap-2">
+            <CalendarDays size={16} className="shrink-0 text-[var(--color-text-muted)]" />
+            <span>{dates}</span>
+            {undated && onSetDates && (
+              <button
+                type="button"
+                onClick={onSetDates}
+                className="min-h-11 ml-auto inline-flex items-center rounded-xl bg-[var(--color-primary-subtle)] px-3 text-xs font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors"
+              >
+                {t("trip_set_dates")}
+              </button>
+            )}
+          </li>
+          {cities.length > 0 && (
+            <li className="flex items-center gap-2">
+              <MapPin size={16} className="shrink-0 text-[var(--color-text-muted)]" />
+              <span>{cities.join(" · ")}</span>
+            </li>
           )}
-        </li>
-        {cities.length > 0 && (
-          <li className="flex items-center gap-2">
-            <MapPin size={16} className="shrink-0 text-[var(--color-text-muted)]" />
-            <span>{cities.join(" · ")}</span>
-          </li>
-        )}
-        {travelers ? (
-          <li className="flex items-center gap-2">
-            <Users size={16} className="shrink-0 text-[var(--color-text-muted)]" />
-            <span>{t("trip_overview_travelers", { count: travelers })}</span>
-          </li>
-        ) : null}
-      </ul>
-      {!travelers && <p className="text-xs text-[var(--color-text-muted)]">{t("trip_overview_context_empty")}</p>}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onEditContext}
-          className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-surface-subtle)] px-4 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
-        >
-          <Compass size={16} />
-          {t("trip_overview_edit_context")}
-        </button>
-        {canShare && (
+          {travelers ? (
+            <li className="flex items-center gap-2">
+              <Users size={16} className="shrink-0 text-[var(--color-text-muted)]" />
+              <span>{t("trip_overview_travelers", { count: travelers })}</span>
+            </li>
+          ) : null}
+        </ul>
+        {!travelers && <p className="text-xs text-[var(--color-text-muted)]">{t("trip_overview_context_empty")}</p>}
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={onShare}
-            className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary-subtle)] px-4 text-xs font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors"
+            onClick={onEditContext}
+            className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-surface-subtle)] px-4 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
           >
-            <Share2 size={16} />
-            {t("trip_view_share")}
+            <Compass size={16} />
+            {t("trip_overview_edit_context")}
+          </button>
+          {canShare && (
+            <button
+              type="button"
+              onClick={onShare}
+              className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary-subtle)] px-4 text-xs font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors"
+            >
+              <Share2 size={16} />
+              {t("trip_view_share")}
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const COVER_ERROR_KEYS = {
+  draft: "trip_cover_draft",
+  offline: "trip_cover_offline",
+  forbidden: "trip_cover_error_forbidden",
+  type: "trip_cover_error_type",
+  size: "trip_cover_error_size",
+  upload: "trip_cover_error_upload",
+  unavailable: "trip_cover_error_unavailable",
+} as const;
+
+/** [Cambiar portada] opens an image picker; [Quitar portada] goes back to the placeholder. */
+function CoverControls({ hasCover, editor }: { hasCover: boolean; editor: TripCoverEditor }) {
+  const { t } = useI18n();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const disabled = busy || Boolean(editor.blocked);
+
+  const run = async (action: "change" | "remove", task: () => CoverResult) => {
+    setBusy(true);
+    setError(null);
+    let failure: string | undefined;
+    try {
+      failure = (await task()).error;
+    } catch {
+      failure = "upload";
+    }
+    setBusy(false);
+    if (!failure) return;
+    if (action === "remove" && failure === "upload") setError(t("trip_cover_error_remove"));
+    else setError(t(COVER_ERROR_KEYS[failure as keyof typeof COVER_ERROR_KEYS] ?? "trip_cover_error_upload"));
+  };
+
+  const buttonClass =
+    "min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-surface-subtle)] px-4 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors disabled:opacity-60 disabled:pointer-events-none";
+
+  return (
+    <div className="space-y-2" aria-busy={busy}>
+      <div className="flex flex-wrap gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept={TRIP_COVER_ACCEPT}
+          aria-label={t("trip_cover_change")}
+          tabIndex={-1}
+          className="sr-only"
+          disabled={disabled}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            // Cleared so picking the same file again still fires a change.
+            event.target.value = "";
+            if (file) void run("change", () => editor.onChange(file));
+          }}
+        />
+        <button type="button" disabled={disabled} onClick={() => inputRef.current?.click()} className={buttonClass}>
+          <ImagePlus size={16} aria-hidden="true" />
+          {t("trip_cover_change")}
+        </button>
+        {hasCover && (
+          <button type="button" disabled={disabled} onClick={() => void run("remove", editor.onRemove)} className={buttonClass}>
+            <ImageOff size={16} aria-hidden="true" />
+            {t("trip_cover_remove")}
           </button>
         )}
       </div>
-    </section>
+      {editor.blocked && <p className="text-xs text-[var(--color-text-muted)]">{t(COVER_ERROR_KEYS[editor.blocked])}</p>}
+      {error && (
+        <p role="alert" className="text-xs font-semibold text-[var(--color-danger)]">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

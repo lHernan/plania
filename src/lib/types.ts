@@ -172,6 +172,8 @@ export type TripPlan = {
   createdAt?: string;
   isFavorite?: boolean;
   travelContext?: TravelContext;
+  /** Object path of the uploaded cover in the private trip-covers bucket; null/absent = default placeholder. */
+  coverPath?: string | null;
   days: TripDay[];
   criticalReservations: CriticalReservation[];
   shoppingItems: ShoppingItem[];
@@ -246,6 +248,8 @@ export type TripSummary = {
   endDate?: string;
   createdAt?: string;
   isFavorite?: boolean;
+  /** Same as TripPlan.coverPath. */
+  coverPath?: string | null;
   dayCount: number;
   activityCount: number;
 };
