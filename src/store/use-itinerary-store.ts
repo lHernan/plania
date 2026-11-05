@@ -2061,15 +2061,17 @@ export const useItineraryStore = create<Store>((set, get) => {
       const removed = current.filter((userId) => !next.includes(userId));
       // The order never shows it to someone not chosen: new people are added before the memory
       // is restricted, and old ones are dropped only after it is restricted or widened.
+      // Rows already added by a failed earlier attempt are skipped, and the audience is always
+      // sent: another device of the author may have changed it since this one loaded.
       try {
         if (added.length > 0) {
-          const { error } = await supabase.from(MEMORY_AUDIENCE_TABLE).insert(added.map((user_id) => ({ memory_id: memoryId, user_id })));
+          const { error } = await supabase
+            .from(MEMORY_AUDIENCE_TABLE)
+            .upsert(added.map((user_id) => ({ memory_id: memoryId, user_id })), { onConflict: "memory_id,user_id", ignoreDuplicates: true });
           if (error) return { error: memoryWriteError(error) };
         }
-        if (audience !== guard.memory.audience) {
-          const { error } = await supabase.from(MEMORIES_TABLE).update({ audience }).eq("id", memoryId);
-          if (error) return { error: memoryWriteError(error) };
-        }
+        const { error: audienceError } = await supabase.from(MEMORIES_TABLE).update({ audience }).eq("id", memoryId);
+        if (audienceError) return { error: memoryWriteError(audienceError) };
         if (removed.length > 0) {
           const { error } = await supabase.from(MEMORY_AUDIENCE_TABLE).delete().eq("memory_id", memoryId).in("user_id", removed);
           if (error) return { error: memoryWriteError(error) };

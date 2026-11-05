@@ -76,7 +76,7 @@ describe("trip_memories migration: tables", () => {
     expect(update).toContain("NEW.updated_at := NOW();");
     expect(sql).toContain("CREATE TRIGGER memories_before_update BEFORE UPDATE ON memories");
     const photos = fn("memory_photos_before_write");
-    expect(photos).toContain("SELECT trip_id INTO v_trip FROM memories WHERE id = NEW.memory_id;");
+    expect(photos).toContain("SELECT trip_id INTO v_trip FROM memories WHERE id = NEW.memory_id AND author_id = auth.uid();");
     expect(photos).toContain("NEW.trip_id IS DISTINCT FROM v_trip");
     expect(sql).toContain("CREATE TRIGGER memory_photos_before_write BEFORE INSERT OR UPDATE ON memory_photos");
   });
@@ -168,6 +168,19 @@ describe("trip_memories migration: removed members", () => {
     expect(sql).toContain("CREATE TRIGGER memory_audience_remove_member AFTER DELETE ON trip_shares");
     expect(fn("memory_audience_remove_member")).toContain("DELETE FROM memory_audience WHERE user_id = OLD.shared_with AND memory_id IN (SELECT id FROM memories WHERE trip_id = OLD.trip_id)");
     expect(fn("memory_audience_remove_member")).toContain("SECURITY DEFINER SET search_path = public");
+  });
+});
+
+describe("trip_memories migration: hidden memories stay hidden", () => {
+  it("answers the audience-member helper only for the memory's author", () => {
+    expect(fn("memory_audience_member_ok")).toContain("m.author_id = auth.uid()");
+  });
+
+  it("lets row security reject photo writes of non-authors before the trip check can tell the memory exists", () => {
+    const body = fn("memory_photos_before_write");
+    const authorCheck = body.indexOf("author_id = auth.uid()");
+    expect(authorCheck).toBeGreaterThan(-1);
+    expect(authorCheck).toBeLessThan(body.indexOf("trip_id must be the trip of the memory"));
   });
 });
 

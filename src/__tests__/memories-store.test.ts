@@ -19,7 +19,7 @@ vi.mock("@/lib/supabase", () => {
     db.calls.push(call);
     const q: Record<string, unknown> = {};
     for (const op of ["select", "eq", "in", "order", "is"]) q[op] = (...args: unknown[]) => (call.ops.push([op, ...args]), q);
-    for (const op of ["insert", "update", "delete"]) {
+    for (const op of ["insert", "upsert", "update", "delete"]) {
       q[op] = (...args: unknown[]) => ((call.kind = op), call.ops.push([op, ...args]), q);
     }
     q.then = (resolve: (r: Result) => void) => {
@@ -259,10 +259,18 @@ describe("changing a memory", () => {
   it("narrows the audience: adds the new people first, then restricts the memory", async () => {
     useItineraryStore.setState({ activeTrip: plan({ memories: [memory()] }) } as never);
     expect(await useItineraryStore.getState().setMemoryAudience(MEMORY, "selected", ["u2"])).toEqual({});
-    expect(writes().map((c) => [c.table, c.kind])).toEqual([["memory_audience", "insert"], ["memories", "update"]]);
+    expect(writes().map((c) => [c.table, c.kind])).toEqual([["memory_audience", "upsert"], ["memories", "update"]]);
+    expect(op(writes()[0], "upsert")?.[1]).toMatchObject({ onConflict: "memory_id,user_id", ignoreDuplicates: true });
     expect(op(writes()[1], "update")).toEqual([{ audience: "selected" }]);
     expect(useItineraryStore.getState().activeTrip?.memories?.[0]).toMatchObject({ audience: "selected", audienceUserIds: ["u2"] });
     expect(window.localStorage.getItem(`plania_memory_audience_${TRIP}`)).toBe("selected");
+  });
+
+  it("always sends the audience, even when this device thinks it is unchanged", async () => {
+    useItineraryStore.setState({ activeTrip: plan({ memories: [memory({ audience: "selected", audienceUserIds: ["u2"] })] }) } as never);
+    expect(await useItineraryStore.getState().setMemoryAudience(MEMORY, "selected", ["u2", "u3"])).toEqual({});
+    expect(writes().map((c) => [c.table, c.kind])).toEqual([["memory_audience", "upsert"], ["memories", "update"]]);
+    expect(op(writes()[1], "update")).toEqual([{ audience: "selected" }]);
   });
 
   it("widens the audience to the whole trip and then drops the old rows", async () => {

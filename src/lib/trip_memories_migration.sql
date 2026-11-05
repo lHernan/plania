@@ -136,8 +136,14 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'memory_photos: memory_id, trip_id and path cannot change';
   END IF;
-  SELECT trip_id INTO v_trip FROM memories WHERE id = NEW.memory_id;
-  IF v_trip IS NULL OR NEW.trip_id IS DISTINCT FROM v_trip THEN
+  -- Only the memory's author may write its photos (row security rejects everyone else). For
+  -- anyone else, step aside and let that generic rejection answer, so this trigger's own error
+  -- never tells them that a memory hidden from them exists.
+  SELECT trip_id INTO v_trip FROM memories WHERE id = NEW.memory_id AND author_id = auth.uid();
+  IF v_trip IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.trip_id IS DISTINCT FROM v_trip THEN
     RAISE EXCEPTION 'memory_photos: trip_id must be the trip of the memory' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
@@ -195,7 +201,9 @@ $$;
 REVOKE ALL ON FUNCTION is_memory_author(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION is_memory_author(UUID) TO authenticated;
 
--- May p_user_id be in the audience of this memory? Only a member of the memory's trip.
+-- May p_user_id be in the audience of this memory? Only a member of the memory's trip. It only
+-- answers the memory's author (the only one who may change its audience), so nobody else can
+-- use it to learn that a memory hidden from them exists.
 CREATE OR REPLACE FUNCTION memory_audience_member_ok(p_memory_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -206,6 +214,7 @@ AS $$
   SELECT EXISTS (
     SELECT 1 FROM memories m
     WHERE m.id = p_memory_id
+      AND m.author_id = auth.uid()
       AND is_trip_member(m.trip_id, p_user_id)
   );
 $$;
