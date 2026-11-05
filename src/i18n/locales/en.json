@@ -367,6 +367,12 @@
   "lang_es": "Español",
   "lang_en": "English",
 
+  "section_nav_label": "Trip sections",
+  "section_itinerary": "Itinerary",
+  "section_map": "Map",
+  "section_wallet": "Wallet",
+  "section_overview": "Trip",
+
   "map": "Map",
   "map_no_locations": "No locations to show",
   "map_loading": "Loading map...",

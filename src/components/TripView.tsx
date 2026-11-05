@@ -90,10 +90,12 @@ import { EmergencyInfoCard } from "@/components/EmergencyInfoCard";
 import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
-import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
+import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
+import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter } from "next/navigation";
 
 const DayMapView = dynamic(() => import("@/components/DayMapView"), {
   ssr: false,
@@ -576,10 +578,10 @@ export function TripView() {
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [showTravelTools, setShowTravelTools] = useState(false);
   const [commentActivity, setCommentActivity] = useState<{ id: string; title: string } | null>(null);
-  const [showMap, setShowMap] = useState(false);
-  // Only one map instance is mounted: side panel on desktop, full-screen overlay on mobile.
-  const isDesktop = useMediaQuery(DESKTOP_QUERY);
-  const isMobileMapOpen = showMap && !isDesktop;
+  // The section comes from the path; the layout keeps this one TripView mounted across them.
+  const router = useRouter();
+  const pathname = usePathname();
+  const section: TripSection = parseTripPath(pathname ?? "")?.section ?? "itinerary";
   // Publishes the sticky header's real height (it wraps with the day strip) so sticky
   // panels below it, like the desktop map, size themselves instead of guessing offsets.
   const headerObserverRef = useRef<ResizeObserver | null>(null);
@@ -697,7 +699,7 @@ export function TripView() {
   };
 
   const [showAdd, setShowAdd] = useState(false);
-  // Same quick actions wherever they are docked (page corner or mobile map overlay).
+  // Same quick actions wherever they are docked (page corner or the map section).
   const floatingActionsProps = {
     onAdd: isInvitee ? undefined : () => setShowAdd(true),
     showAgent: Boolean(activeTrip),
@@ -892,13 +894,24 @@ export function TripView() {
 
   // One-shot initial fetch: fires exactly once when the component mounts with a known user.
   // We use a ref (not hasFetched) so that subsequent switchTrip calls don't re-trigger this.
+  // On a trip route the URL names the trip: never fetch another one (a fetch without an id
+  // would race AuthInitializer's fetch of the URL trip), and skip it when the trip is
+  // already loaded or loading. The layout remounts TripView on every trip switch, where
+  // TripRouteSync opens the new trip, so a loaded trip is left alone.
+  const mountTripId = parseTripPath(pathname ?? "")?.tripId;
   const hasFetchedRef = useRef(false);
   useEffect(() => {
     if (isMounted && user?.id && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
-      fetchActiveTrip();
+      if (!mountTripId) {
+        fetchActiveTrip();
+        return;
+      }
+      const { activeTrip: loadedTrip, loading: tripLoading } = useItineraryStore.getState();
+      if (tripLoading || loadedTrip) return;
+      fetchActiveTrip(mountTripId);
     }
-  }, [isMounted, user?.id, fetchActiveTrip]);
+  }, [isMounted, user?.id, fetchActiveTrip, mountTripId]);
 
   useEffect(() => {
     if (timelineRef.current) {
@@ -1157,16 +1170,18 @@ export function TripView() {
     void loadShoppingSuggestions();
   }, [activeDay, activeTrip, activeTrip?.name, ignoredSuggestionKeys, mergedCandidatePlaces, shoppingItems]);
 
-  const handleMapToggle = () => {
-    if (showMap) {
-      setShowMap(false);
-      return;
-    }
+  /** Moves to another section of this trip, keeping the selected day. */
+  const goToSection = (target: TripSection) => {
+    if (!activeTrip) return;
+    router.push(tripSectionHref(activeTrip.id, target, activeDay?.date));
+  };
+
+  const handleMapOpen = () => {
     if (activeDay && isPlaceholderCity(activeDay.city) && !mapAnchor) {
       setShowMapCityPrompt(true);
       return;
     }
-    setShowMap(true);
+    goToSection("map");
   };
 
   const handleMapUseDeviceLocation = async () => {
@@ -1201,7 +1216,7 @@ export function TripView() {
       }
 
       setShowMapCityPrompt(false);
-      setShowMap(true);
+      goToSection("map");
     } catch (error) {
       showToast(
         error instanceof Error ? error.message : t("map_location_failed"),
@@ -1281,8 +1296,169 @@ export function TripView() {
     );
   }
 
+  // Sidebar blocks: the itinerary keeps them in its aside, and the wallet and overview
+  // sections show them on their own until those sections get their own screens.
+  const renderAiQuickActions = () => (
+    <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
+      <div className="space-y-3">
+        <button
+          onClick={() => openDayGenius(activeDayId)}
+          disabled={isInvitee}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
+        >
+          <Sparkles size={16} />
+          {t("day_genius")} — {t("ai_route_optimization")}
+        </button>
+        <button
+          onClick={() => setTravelContextOpen(true)}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+        >
+          <Compass size={16} />
+          {t("trip_context")}
+        </button>
+        {canImportBookings && (
+          <button
+            onClick={openBookingImport}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary)]/15 transition-colors"
+          >
+            <FileUp size={16} />
+            {t("booking_import_action")}
+          </button>
+        )}
+        <div className="relative">
+          <textarea
+            value={importText}
+            onChange={(e) => handleImportTextChange(e.target.value)}
+            placeholder={t("paste_notes")}
+            className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
+          />
+          <div className="absolute bottom-3 right-3 flex items-center gap-2">
+            {voiceState === "preview" && (
+              <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
+                <Loader2 size={14} className="animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{t("syncing_in", { seconds: previewCountdown })}</span>
+                <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
+                  <X size={12} />
+                </button>
+                <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title={t("edit_manually")}>
+                  <Edit2 size={12} />
+                </button>
+              </div>
+            )}
+            {isSpeechSupported && voiceState === "idle" && (
+              <button onClick={startListening} className="p-2 rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all">
+                <Mic size={18} />
+              </button>
+            )}
+            {voiceState === "listening" && (
+              <button onClick={cancelVoice} className="p-2 rounded-full bg-[var(--color-danger)]/10 text-[var(--color-danger)] animate-pulse transition-all">
+                <Mic size={18} />
+              </button>
+            )}
+            {voiceState === "syncing" && (
+              <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
+            )}
+            {voiceState === "idle" && !isSpeechSupported && (
+              <Bot className="text-[var(--color-text-muted)]" size={20} />
+            )}
+          </div>
+        </div>
+        <button
+          className={`w-full rounded-xl px-4 py-3 text-xs font-bold transition-all tracking-wider uppercase disabled:opacity-60 ${
+            isImporting || voiceState === 'syncing'
+              ? "bg-[var(--color-text-muted)] text-[var(--color-surface)] cursor-wait"
+              : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed"
+          }`}
+          disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
+          onClick={() => handleImportSync(importText)}
+        >
+          {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
+        </button>
+      </div>
+
+      <ScheduleSuggestions
+        suggestions={suggestions}
+        onApplyFix={isInvitee ? undefined : (fix) => {
+          const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
+          if (activity) moveActivityTime(activity, fix.time);
+        }}
+      />
+    </div>
+  );
+  const renderReservations = () => (
+    <CriticalReservationsPanel
+      canEdit={!isInvitee}
+      onBooked={(title) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: title, kind: "reservation" })}
+    />
+  );
+  const renderShopping = () => (
+    <ShoppingListPanel
+      canEdit={!isInvitee}
+      today={todayStr}
+      selectedItemId={selectedShoppingItemId}
+      onSelectItem={setSelectedShoppingItemId}
+      onToast={showToast}
+      onBought={(itemName) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: itemName, kind: "shopping" })}
+      onNearbyPlaces={setNearbyPlaces}
+    />
+  );
+  const renderBudget = () => (
+    <>
+      {activeTrip && budgetSummary.total > 0 && (
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
+            {tripMapUrl ? (
+              <a
+                href={tripMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] hover:underline"
+              >
+                {t("trip_map_view")}
+              </a>
+            ) : null}
+          </div>
+          <p className="text-2xl font-black text-[var(--color-text)]">
+            {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {budgetSummary.perDay.map((d) => (
+              <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
+                {d.date}: {d.total.toFixed(2)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+  const renderTravelTools = () => (
+    <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
+      <button
+        onClick={() => setShowTravelTools(!showTravelTools)}
+        className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+      >
+        <span>{t("trip_view_travel_tools")}</span>
+        {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {showTravelTools && (
+        <div className="px-5 pb-5 space-y-4">
+          {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
+          {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
+          {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
+          {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
+          {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${showMap && isDesktop ? "pb-0" : "pb-32"} ios-compact-shell`}>
+    // On mobile the bottom padding clears the fixed section bar (4rem) and, outside the map,
+    // the quick actions stacked above it.
+    <main className={`min-h-screen bg-[var(--color-surface-subtle)] dark:bg-[var(--color-bg)] ${section === "map" ? "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0" : "pb-[calc(env(safe-area-inset-bottom,0px)+10rem)] md:pb-32"} ios-compact-shell`}>
       {confirmDialog}
       <ProductTour
         open={tour.open}
@@ -1423,6 +1599,9 @@ export function TripView() {
           </div>
         </div>
 
+        {/* Trip sections as tabs on desktop; mobile uses the bottom bar */}
+        {activeTrip && <TripSectionNav tripId={activeTrip.id} variant="tabs" />}
+
         {/* Date strip */}
         <div data-tour="day-strip" className="flex gap-2 overflow-x-auto pb-2 pt-1 px-4 scrollbar-hide snap-x max-w-7xl mx-auto ios-compact-gap">
           {completedPastDays.length > 0 && (
@@ -1489,7 +1668,7 @@ export function TripView() {
       </div>
 
       {/* Day Summary Bar */}
-      {activeDay && (
+      {section === "itinerary" && activeDay && (
         <div className="max-w-7xl mx-auto px-5 pt-3">
           <div data-tour="day-tools" className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2.5">
             <div className="flex items-center gap-2 min-w-0">
@@ -1533,24 +1712,22 @@ export function TripView() {
                     <Sparkles size={12} />
                     {t("day_genius")}
                   </button>
-                  <button
-                    onClick={handleMapToggle}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                      showMap
-                        ? "bg-[var(--color-primary)] text-white"
-                        : "bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)]"
-                    }`}
-                  >
-                    <MapIcon size={12} /> {t("map")}
-                  </button>
                 </>
               )}
+              {/* The map is its own section, open to every role (read-only for viewers) */}
+              <button
+                onClick={handleMapOpen}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+              >
+                <MapIcon size={12} /> {t("map")}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 ${showMap ? "lg:grid-cols-[1fr_1fr]" : "lg:grid-cols-[1fr_340px]"} gap-10 ios-compact-gap`}>
+      {section === "itinerary" && (
+      <div className="max-w-7xl mx-auto px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 ios-compact-gap">
         {/* ­ƒò░´©Å MAIN TIMELINE FLOW */}
         <div data-tour="timeline" className="space-y-8">
           {/* DAY INTRO */}
@@ -1791,228 +1968,70 @@ export function TripView() {
           </DndContext>
         </div>
 
-        {/* SIDEBAR / MAP */}
-        {showMap && activeDay && isDesktop ? (
-          // The grid item stretches with the row and owns the bottom spacing, so the sticky
-          // panel can stay pinned through the whole scroll range (a sticky element never
-          // leaves its grid area; page padding outside the grid would push it under the header).
-          <div className="hidden lg:block">
-          <div className="sticky top-[calc(var(--app-header-h,8.75rem)+1rem)] h-[calc(100dvh-var(--app-header-h,8.75rem)-2rem)]">
-            <DayMapView
-              dayId={activeDay.id}
-              activities={activeDay.activities}
-              city={activeDay.city}
-              anchor={mapAnchor ?? undefined}
-              activeActivityId={activeMapActivityId}
-              canEdit={!isInvitee}
-              preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
-              onActivitySelect={(id) => {
-                setActiveMapActivityId(id);
-                if (id) document.getElementById(`activity-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-              }}
-              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
-              onOpenDetails={(id) => setEditingActivityId(id)}
-              onClose={() => setShowMap(false)}
-            />
-          </div>
-          <div aria-hidden="true" className="h-32" />
-          </div>
-        ) : (
+        {/* SIDEBAR */}
         <aside className="space-y-6">
-          {/* AI QUICK ACTIONS */}
-          <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => openDayGenius(activeDayId)}
-                disabled={isInvitee}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
-              >
-                <Sparkles size={16} />
-                {t("day_genius")} — {t("ai_route_optimization")}
-              </button>
-              <button
-                onClick={() => setTravelContextOpen(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
-              >
-                <Compass size={16} />
-                {t("trip_context")}
-              </button>
-              {canImportBookings && (
-                <button
-                  onClick={openBookingImport}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary)]/15 transition-colors"
-                >
-                  <FileUp size={16} />
-                  {t("booking_import_action")}
-                </button>
-              )}
-              <div className="relative">
-                <textarea
-                  value={importText}
-                  onChange={(e) => handleImportTextChange(e.target.value)}
-                  placeholder={t("paste_notes")}
-                  className={`w-full h-28 bg-[var(--color-surface-subtle)] border ${voiceState === 'listening' ? 'border-[var(--color-danger)] ring-4 ring-[var(--color-danger)]/10' : 'border-[var(--color-border)]'} rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all resize-none outline-none`}
-                />
-                <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                  {voiceState === "preview" && (
-                    <div className="flex items-center gap-2 bg-[var(--color-text)] text-[var(--color-surface)] px-3 py-1.5 rounded-full shadow-lg">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{t("syncing_in", { seconds: previewCountdown })}</span>
-                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors">
-                        <X size={12} />
-                      </button>
-                      <button onClick={cancelVoice} className="hover:opacity-70 p-0.5 rounded-full transition-colors ml-1" title={t("edit_manually")}>
-                        <Edit2 size={12} />
-                      </button>
-                    </div>
-                  )}
-                  {isSpeechSupported && voiceState === "idle" && (
-                    <button onClick={startListening} className="p-2 rounded-full bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all">
-                      <Mic size={18} />
-                    </button>
-                  )}
-                  {voiceState === "listening" && (
-                    <button onClick={cancelVoice} className="p-2 rounded-full bg-[var(--color-danger)]/10 text-[var(--color-danger)] animate-pulse transition-all">
-                      <Mic size={18} />
-                    </button>
-                  )}
-                  {voiceState === "syncing" && (
-                    <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
-                  )}
-                  {voiceState === "idle" && !isSpeechSupported && (
-                    <Bot className="text-[var(--color-text-muted)]" size={20} />
-                  )}
-                </div>
-              </div>
-              <button
-                className={`w-full rounded-xl px-4 py-3 text-xs font-bold transition-all tracking-wider uppercase disabled:opacity-60 ${
-                  isImporting || voiceState === 'syncing'
-                    ? "bg-[var(--color-text-muted)] text-[var(--color-surface)] cursor-wait"
-                    : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed"
-                }`}
-                disabled={isImporting || voiceState === 'syncing' || !importText.trim()}
-                onClick={() => handleImportSync(importText)}
-              >
-                {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
-              </button>
-            </div>
-
-            <ScheduleSuggestions
-              suggestions={suggestions}
-              onApplyFix={isInvitee ? undefined : (fix) => {
-                const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
-                if (activity) moveActivityTime(activity, fix.time);
-              }}
-            />
-          </div>
-
-          {/* CRITICAL RESERVATIONS */}
-          <CriticalReservationsPanel
-            canEdit={!isInvitee}
-            onBooked={(title) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: title, kind: "reservation" })}
-          />
-
-          {/* SHOPPING LIST */}
-          <ShoppingListPanel
-            canEdit={!isInvitee}
-            today={todayStr}
-            selectedItemId={selectedShoppingItemId}
-            onSelectItem={setSelectedShoppingItemId}
-            onToast={showToast}
-            onBought={(itemName) => setCelebrationEvent({ id: Date.now(), tier: 1, activityTitle: itemName, kind: "shopping" })}
-            onNearbyPlaces={setNearbyPlaces}
-          />
-
-          {/* BUDGET SUMMARY */}
-          {activeTrip && budgetSummary.total > 0 && (
-            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
-                {tripMapUrl ? (
-                  <a
-                    href={tripMapUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] hover:underline"
-                  >
-                    {t("trip_map_view")}
-                  </a>
-                ) : null}
-              </div>
-              <p className="text-2xl font-black text-[var(--color-text)]">
-                {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {budgetSummary.perDay.map((d) => (
-                  <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
-                    {d.date}: {d.total.toFixed(2)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TRAVEL TOOLS — collapsible */}
-          <div data-tour="travel-tools" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
-            <button
-              onClick={() => setShowTravelTools(!showTravelTools)}
-              className="w-full flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-            >
-              <span>{t("trip_view_travel_tools")}</span>
-              {showTravelTools ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {showTravelTools && (
-              <div className="px-5 pb-5 space-y-4">
-                {activeTrip ? <ArrivalAssistant key={activeTrip.id} context={activeTrip.travelContext} days={activeTrip.days} activeDayId={activeDayId} canEdit={!isInvitee} /> : null}
-                {activeDay ? <CityPaymentGuideCard city={activeDay.city} /> : null}
-                {activeDay ? <CurrencyConverter city={activeDay.city} /> : null}
-                {activeDay ? <EmergencyInfoCard city={activeDay.city} /> : null}
-                {activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null}
-              </div>
-            )}
-          </div>
+          {renderAiQuickActions()}
+          {renderReservations()}
+          {renderShopping()}
+          {renderBudget()}
+          {renderTravelTools()}
         </aside>
-        )}
       </div>
+      )}
 
-      {/* Mobile map overlay */}
-      <AnimatePresence>
-        {isMobileMapOpen && activeDay && (
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-50 bg-[var(--color-bg)] lg:hidden"
-          >
-            {/* Mobile keeps the map open and shows the selection as a bottom card */}
-            <DayMapView
-              dayId={activeDay.id}
-              activities={activeDay.activities}
-              city={activeDay.city}
-              anchor={mapAnchor ?? undefined}
-              activeActivityId={activeMapActivityId}
-              canEdit={!isInvitee}
-              preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
-              onActivitySelect={setActiveMapActivityId}
-              onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
-              onOpenDetails={(id) => setEditingActivityId(id)}
-              onClose={() => setShowMap(false)}
-              floatingActions={<FloatingActions {...floatingActionsProps} />}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* MAP SECTION: the active day's map fills the content area, for every role */}
+      {section === "map" && (
+        <div className="max-w-7xl mx-auto px-3 py-3 md:px-5">
+          {/* isolate keeps Leaflet's z-indexes inside the map, under the section bar and sheets */}
+          <div className="isolate h-[calc(100dvh-var(--app-header-h,8.75rem)-env(safe-area-inset-bottom,0px)-5.5rem)] md:h-[calc(100dvh-var(--app-header-h,8.75rem)-1.5rem)]">
+            {activeDay ? (
+              <DayMapView
+                dayId={activeDay.id}
+                activities={activeDay.activities}
+                city={activeDay.city}
+                anchor={mapAnchor ?? undefined}
+                activeActivityId={activeMapActivityId}
+                canEdit={!isInvitee}
+                preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
+                onActivitySelect={setActiveMapActivityId}
+                onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+                onOpenDetails={(id) => setEditingActivityId(id)}
+                onClose={() => goToSection("itinerary")}
+                floatingActions={<FloatingActions showAgent={floatingActionsProps.showAgent} />}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
 
-      {/* Ô×ò THE PRIMARY FAB */}
-      {/* Over the mobile map overlay the same actions live in the map's bottom dock instead */}
-      {!(isMobileMapOpen && activeDay) && (
+      {/* WALLET SECTION */}
+      {section === "wallet" && (
+        <div className="max-w-3xl mx-auto px-5 pt-8 space-y-6">
+          {renderReservations()}
+        </div>
+      )}
+
+      {/* OVERVIEW SECTION */}
+      {section === "overview" && (
+        <div className="max-w-3xl mx-auto px-5 pt-8 space-y-6">
+          {renderAiQuickActions()}
+          {renderShopping()}
+          {renderBudget()}
+          {renderTravelTools()}
+        </div>
+      )}
+
+      {/* THE PRIMARY FAB: "+" only on the itinerary; on the map the agent docks inside the map.
+          On mobile it sits above the section bar. */}
+      {section !== "map" && (
         <FloatingActions
-          {...floatingActionsProps}
-          className="fixed right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+2rem)] z-50"
+          onAdd={section === "itinerary" ? floatingActionsProps.onAdd : undefined}
+          showAgent={floatingActionsProps.showAgent}
+          className="fixed right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] md:bottom-[calc(env(safe-area-inset-bottom,0px)+2rem)] z-50"
         />
       )}
+
+      {activeTrip && <TripSectionNav tripId={activeTrip.id} variant="bar" />}
 
       {activeTrip && (
         <>
@@ -2253,7 +2272,7 @@ export function TripView() {
                       setEditingDay(null);
                       if (openMapAfterDayEditRef.current) {
                         openMapAfterDayEditRef.current = false;
-                        setShowMap(true);
+                        goToSection("map");
                       }
                     }}
                     className="flex-1 bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-xl shadow-[var(--color-primary)]/20"
