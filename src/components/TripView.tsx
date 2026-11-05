@@ -3,7 +3,7 @@
 // TripView — full itinerary UI rendered at /trips
 // AuthInitializer handles routing here once activeTrip is ready.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { enUS, es } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
@@ -93,6 +93,9 @@ import { PackingListCard } from "@/components/PackingListCard";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
+import { MemoryList } from "@/components/memories/MemoryList";
+import { TripMemoriesStory } from "@/components/memories/TripMemoriesStory";
+import { memoriesForActivity } from "@/lib/memories-view";
 import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
@@ -1222,6 +1225,12 @@ export function TripView() {
   );
   // A template draft keeps the template's own dates, so its mode would say nothing true.
   const itineraryMode = activeTrip && tripNow && !activeTripIsDraft ? tripMode(activeTrip, tripNow.date) : null;
+  const tripMemories = activeTrip?.memories ?? [];
+  // Recuerdo mode: every completed activity shows its memories. Today: the activity just ticked
+  // offers [Añadir recuerdo] (non-blocking), and completed ones keep the memories they have.
+  const showActivityMemories = (activity: Activity) =>
+    itineraryMode === "memory" ||
+    (itineraryMode === "today" && (activity.id === justCompletedId || tripMemories.some((memory) => memory.activityId === activity.id)));
   const nowAndNext = useMemo(
     () => (activeDay && tripNow && !undated && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
     [activeDay, tripNow, undated],
@@ -2075,8 +2084,8 @@ export function TripView() {
                           {sortedActivities
                             .filter((a) => a.state === "completed")
                             .map((activity) => (
+                              <Fragment key={activity.id}>
                                <SortableActivityCard
-                                 key={activity.id}
                                  activity={activity}
                                  justCompleted={activity.id === justCompletedId}
                                  onComplete={(id) => handleComplete(activeDayId, id)}
@@ -2086,6 +2095,19 @@ export function TripView() {
                                  onOpenFile={(file) => openPass(file, activity.title)}
                                  onOpenBooking={() => goToSection("wallet")}
                                />
+                               {activeTrip && showActivityMemories(activity) && (
+                                 <div className="pl-4 md:pl-6">
+                                   <MemoryList
+                                     tripId={activeTrip.id}
+                                     activityId={activity.id}
+                                     memories={memoriesForActivity(tripMemories, activity.id)}
+                                     currentUserId={user?.id ?? null}
+                                     label={t("memories_activity_list", { title: activity.title })}
+                                     addLabel={t("memory_add")}
+                                   />
+                                 </div>
+                               )}
+                              </Fragment>
                            ))}
                          </div>
                        </div>
@@ -2182,6 +2204,11 @@ export function TripView() {
             packing={renderPacking()}
             shopping={renderShopping()}
             tools={renderTravelTools()}
+            memories={
+              itineraryMode === "memory" ? (
+                <TripMemoriesStory trip={activeTrip} currentUserId={user?.id ?? null} mapHref={tripSectionHref(activeTrip.id, "map")} />
+              ) : undefined
+            }
             tips={isRegistered ? undefined : renderScheduleTips()}
             tab={overviewTab}
             onTabChange={setOverviewTab}

@@ -192,9 +192,16 @@ describe("TripView sections", () => {
   });
 
   it("shows the overview as four tabs", async () => {
-    await renderAt("/trips/t/overview");
-    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Resumen", "Maleta", "Compras", "Herramientas"]);
+    // Before the trip ends: an ended trip adds the Recuerdos tab (trip-view-memories.test.tsx).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-20T10:00:00"));
+    try {
+      await renderAt("/trips/t/overview");
+      const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+      expect(tabs.map((tab) => tab.textContent)).toEqual(["Resumen", "Maleta", "Compras", "Herramientas"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   describe("every former sidebar feature stays reachable", () => {
