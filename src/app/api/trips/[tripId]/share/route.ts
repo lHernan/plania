@@ -80,7 +80,7 @@ export async function POST(
 
     if (!targetUser) {
       return NextResponse.json(
-        { error: "No existe ningún usuario registrado con ese email. Pídele que se registre primero en Plania." },
+        { error: "No existe ningún usuario registrado con ese email. Pídele que se registre primero en Tachao." },
         { status: 404 }
       );
     }

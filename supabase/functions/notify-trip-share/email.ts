@@ -63,7 +63,7 @@ export function buildEmailHtml({
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Viaje compartido en Plania</title>
+  <title>Viaje compartido en Tachao</title>
 </head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 16px;">
@@ -74,7 +74,7 @@ export function buildEmailHtml({
           <tr>
             <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:40px 32px;text-align:center;">
               <div style="font-size:32px;margin-bottom:8px;">✈️</div>
-              <h1 style="color:#ffffff;font-size:22px;font-weight:900;margin:0;letter-spacing:-0.5px;">Plania</h1>
+              <h1 style="color:#ffffff;font-size:22px;font-weight:900;margin:0;letter-spacing:-0.5px;">Tachao</h1>
               <p style="color:rgba(255,255,255,0.75);font-size:12px;margin:4px 0 0;font-weight:600;text-transform:uppercase;letter-spacing:2px;">Tu asistente de viajes</p>
             </td>
           </tr>
@@ -95,7 +95,7 @@ export function buildEmailHtml({
               </div>
 
               <p style="font-size:13px;color:#94a3b8;margin:0 0 24px;line-height:1.6;">
-                Puedes visualizar todos los días, actividades y reservaciones del viaje. Inicia sesión en Plania para verlo.
+                Puedes visualizar todos los días, actividades y reservaciones del viaje. Inicia sesión en Tachao para verlo.
               </p>
 
               <!-- CTA -->
@@ -117,7 +117,7 @@ export function buildEmailHtml({
             <td style="background:#f8fafc;padding:20px 32px;text-align:center;border-top:1px solid #e2e8f0;">
               <p style="font-size:11px;color:#94a3b8;margin:0;line-height:1.6;">
                 Si no conoces a <strong>${owner}</strong>, puedes ignorar este mensaje.<br/>
-                Plania &mdash; Tu asistente de viajes inteligente.
+                Tachao &mdash; Tu asistente de viajes inteligente.
               </p>
             </td>
           </tr>

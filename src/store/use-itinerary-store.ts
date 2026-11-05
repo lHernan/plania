@@ -581,7 +581,9 @@ export const useItineraryStore = create<Store>((set, get) => {
       return;
     }
 
-    const resolvedTripId = tripId ?? cache.latestTripId ?? cache.trips[0]?.id ?? null;
+    // A requested trip (a URL) that is not cached falls back to the latest cached one, like online.
+    const requestedTripId = tripId && cache.tripPlans[tripId] ? tripId : undefined;
+    const resolvedTripId = requestedTripId ?? cache.latestTripId ?? cache.trips[0]?.id ?? null;
     const cachedTrip = resolvedTripId && cache.tripPlans[resolvedTripId]
       ? normalizeTripPlan(cache.tripPlans[resolvedTripId])
       : null;
@@ -629,6 +631,8 @@ export const useItineraryStore = create<Store>((set, get) => {
     }
 
       if (!trips || trips.length === 0) {
+      // A trip asked for by id (a URL) that is gone or not shared opens the one the selection would pick.
+      if (tripId) return fetchFreshTrip();
       set({ activeTrip: null, activeDayId: "", loading: false, hasFetched: true });
       return;
     }

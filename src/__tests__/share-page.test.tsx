@@ -43,7 +43,7 @@ describe("share link page", () => {
   it("takes a signed-in person straight to the trip in the app", async () => {
     useAuthStore.setState({ user: { id: "u-inv", is_anonymous: false } as never });
     renderWithI18n(<SharePage />);
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips"));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/t1"));
     expect(fetchMock).toHaveBeenCalledWith("/api/share/tok/accept", expect.objectContaining({ method: "POST" }));
     expect(switchTrip).toHaveBeenCalledWith("t1");
     expect(screen.queryByText("La Palma")).toBeNull();

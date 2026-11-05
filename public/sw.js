@@ -69,7 +69,8 @@ async function handleNavigationRequest(request) {
     if (networkResponse.ok) await cache.put(request, networkResponse.clone());
     return networkResponse;
   } catch {
-    const cached = await cache.match(request);
+    // A trip page is the same page for any ?day=, so a cached copy under another day serves it.
+    const cached = (await cache.match(request)) || (await cache.match(request, { ignoreSearch: true }));
     if (cached) return cached;
     // Fallback to cached root
     const rootCached = await cache.match("/");

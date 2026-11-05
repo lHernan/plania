@@ -41,6 +41,7 @@ vi.mock("@/lib/offline-state", async (importOriginal) => ({
   saveOfflineTripCache: vi.fn(async () => {}),
 }));
 
+const { loadOfflineTripCache } = await import("@/lib/offline-state");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 const { useAuthStore } = await import("@/store/use-auth-store");
 
@@ -71,6 +72,36 @@ describe("loading the active trip", () => {
     expect(db.tripQueries).toHaveLength(1);
   });
 
+  it("opens the requested trip when it is available", async () => {
+    useAuthStore.setState({ user: { id: "u-inv" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-own");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-own" });
+  });
+
+  it("falls back to the trip it would select when the requested one is not available", async () => {
+    useAuthStore.setState({ user: { id: "u-inv" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-gone");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-shared" });
+    expect(useItineraryStore.getState().hasFetched).toBe(true);
+  });
+
+  it("offline, opens the requested trip from the cache", async () => {
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    vi.mocked(loadOfflineTripCache).mockResolvedValueOnce(cachedTrips());
+    useAuthStore.setState({ user: { id: "u-inv" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-b");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-b" });
+  });
+
+  it("offline, opens the latest cached trip when the requested one is not cached", async () => {
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    vi.mocked(loadOfflineTripCache).mockResolvedValueOnce(cachedTrips());
+    useAuthStore.setState({ user: { id: "u-inv" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-not-cached");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-a" });
+    expect(useItineraryStore.getState().hasFetched).toBe(true);
+  });
+
   it("stays empty when nothing is owned or shared", async () => {
     db.shares = [];
     useAuthStore.setState({ user: { id: "u-nobody" } as never });
@@ -78,3 +109,13 @@ describe("loading the active trip", () => {
     expect(useItineraryStore.getState().activeTrip).toBeNull();
   });
 });
+
+function cachedTrips() {
+  const plan = (id: string) => ({ id, name: id, days: [], criticalReservations: [], shoppingItems: [], ignoredShoppingSuggestionKeys: [] });
+  return {
+    trips: [{ id: "t-a", name: "t-a", dayCount: 0, activityCount: 0 }, { id: "t-b", name: "t-b", dayCount: 0, activityCount: 0 }],
+    tripPlans: { "t-a": plan("t-a"), "t-b": plan("t-b") },
+    latestTripId: "t-a",
+    cachedAt: 0,
+  };
+}
