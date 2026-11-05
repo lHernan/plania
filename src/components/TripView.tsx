@@ -2027,11 +2027,12 @@ export function TripView() {
                 activities={activeDay.activities}
                 city={activeDay.city}
                 anchor={mapAnchor ?? undefined}
+                tripDays={activeTrip?.days}
                 activeActivityId={activeMapActivityId}
                 canEdit={!isInvitee}
                 preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
                 onActivitySelect={setActiveMapActivityId}
-                onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+                onToggleComplete={(id, done, dayId = activeDay.id) => (done ? handleComplete(dayId, id) : handleUncomplete(dayId, id))}
                 onOpenDetails={(id) => setEditingActivityId(id)}
                 onClose={() => goToSection("itinerary")}
                 floatingActions={<FloatingActions {...floatingActionsProps} />}

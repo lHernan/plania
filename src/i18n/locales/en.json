@@ -972,5 +972,9 @@
   "auth_reason_draft_body": "Create an account or sign in to save this trip. You will not lose anything.",
   "auth_reason_tachi_title": "Ask Tachi",
   "auth_reason_tachi_body": "Tachi is for registered users. Sign in and we will pick up where you left off.",
-  "tachi_more_actions": "More actions"
+  "tachi_more_actions": "More actions",
+  "map_scope_label": "Map scope",
+  "map_scope_day": "Day",
+  "map_scope_trip": "Whole trip",
+  "map_day_legend": "Colors by day"
 }
