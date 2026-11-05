@@ -203,10 +203,16 @@ describe("TripView sections", () => {
       expect(screen.getByTestId("reservations")).toBeTruthy();
     });
 
-    it("AI quick actions with Day Genius, in the overview summary", async () => {
-      await renderAt("/trips/t/overview");
-      const ai = document.querySelector('[data-tour="ai-shortcuts"]') as HTMLElement;
-      expect(within(ai).getByRole("button", { name: /Genio del Dia/ })).toBeTruthy();
+    async function openTachi() {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "¡Pregúntale a Tachi!" }));
+      });
+      return screen.getByRole("complementary", { name: "Tachi" });
+    }
+
+    it("the day planner, as Tachi's \"Rearrange the day\" on the itinerary", async () => {
+      await renderAt("/trips/t");
+      expect(within(await openTachi()).getByRole("button", { name: "Reorganizar el día" })).toBeTruthy();
     });
 
     it("the trip context editor, in the overview summary", async () => {
@@ -215,15 +221,18 @@ describe("TripView sections", () => {
       expect(screen.getByRole("dialog")).toBeTruthy();
     });
 
-    it("booking import, in the overview summary", async () => {
-      await renderAt("/trips/t/overview");
-      const ai = document.querySelector('[data-tour="ai-shortcuts"]') as HTMLElement;
-      expect(within(ai).getByRole("button", { name: "Importar reservas" })).toBeTruthy();
+    it("booking import, as a Tachi action on the itinerary", async () => {
+      await renderAt("/trips/t");
+      const sheet = await openTachi();
+      fireEvent.click(within(sheet).getByRole("button", { name: "Más acciones" }));
+      expect(within(sheet).getByRole("button", { name: "Importar reservas" })).toBeTruthy();
     });
 
-    it("notes import to the timeline, in the overview summary", async () => {
-      await renderAt("/trips/t/overview");
-      expect(screen.getByRole("button", { name: "Sincronizar a la Linea de Tiempo" })).toBeTruthy();
+    it("notes import to the timeline, inside Tachi on the itinerary", async () => {
+      await renderAt("/trips/t");
+      const sheet = await openTachi();
+      fireEvent.click(within(sheet).getByRole("button", { name: "Importar notas" }));
+      expect(within(sheet).getByRole("button", { name: "Sincronizar a la Linea de Tiempo" })).toBeTruthy();
     });
 
     it("the budget, in the overview summary", async () => {
@@ -283,18 +292,18 @@ describe("TripView sections", () => {
     expect(useItineraryStore.getState().activeDayId).toBe("d2");
   });
 
-  it("offers the add button on the itinerary and inside the map dock, and the agent everywhere", async () => {
+  it("offers the add button on the itinerary and inside the map dock, and Tachi everywhere", async () => {
     await renderAt("/trips/t");
     expect(screen.getByRole("button", { name: "Agregar actividad" })).toBeTruthy();
     cleanup();
     await renderAt("/trips/t/overview");
     expect(screen.queryByRole("button", { name: "Agregar actividad" })).toBeNull();
-    expect(screen.getAllByRole("button", { name: /agente/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "¡Pregúntale a Tachi!" }).length).toBeGreaterThan(0);
     cleanup();
     await renderAt("/trips/t/map");
     // On the map, both live in its bottom dock, as on the old mobile map.
     expect(within(screen.getByTestId("day-map")).getByRole("button", { name: "Agregar actividad" })).toBeTruthy();
-    expect(within(screen.getByTestId("day-map")).getByRole("button", { name: /agente/i })).toBeTruthy();
+    expect(within(screen.getByTestId("day-map")).getByRole("button", { name: "¡Pregúntale a Tachi!" })).toBeTruthy();
   });
 
   describe("activity card chips on the itinerary", () => {

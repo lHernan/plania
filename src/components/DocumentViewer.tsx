@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronLeft, ChevronRight, Crop, Download, ExternalLink, Loader2, QrCode, Share, Sparkles, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crop, Download, ExternalLink, Loader2, QrCode, Share, Trash2, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { usePinchZoom } from "@/hooks/use-pinch-zoom";
@@ -16,6 +16,9 @@ import {
 } from "@/lib/offline-documents";
 import type { ActivityFile, FocusArea } from "@/lib/types";
 import { useItineraryStore } from "@/store/use-itinerary-store";
+import { useAuthStore } from "@/store/use-auth-store";
+import { TachiAvatar } from "@/components/TachiAvatar";
+import { authHeaders } from "@/lib/auth-headers";
 
 /** A code on a page: found on the device, by the AI, or marked by the traveler. */
 type PageCode = { page: number; kind: "qr" | "barcode"; value: string; box: CodeBox; source: "device" | "ai" | "manual" };
@@ -51,6 +54,8 @@ export function DocumentViewer({
   const [found, setFound] = useState<PageCode[]>([]);
   const [detecting, setDetecting] = useState(true);
   const [aiScanning, setAiScanning] = useState(false);
+  // The AI scan is for registered users only; guests can still mark the code by hand.
+  const canUseAi = useAuthStore((state) => Boolean(state.user && !state.user.is_anonymous));
   const [aiFoundNothing, setAiFoundNothing] = useState(false);
   const [manual, setManual] = useState<FocusArea | null>(file.focusArea ?? null);
   const [marking, setMarking] = useState(false);
@@ -181,7 +186,7 @@ export function DocumentViewer({
       const canvas = await first.render(AI_IMAGE_SIDE_PX / Math.max(first.width, first.height));
       const response = await fetch("/api/detect-codes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({ imageUri: canvas.toDataURL("image/jpeg", 0.85) }),
       });
       const data = (await response.json()) as { regions?: { type: string; x: number; y: number; width: number; height: number }[] };
@@ -401,9 +406,9 @@ export function DocumentViewer({
                   <Crop size={14} /> {t("doc_mark_code")}
                 </button>
               )}
-              {pages && !detecting && found.length === 0 && browser.online && (
+              {pages && !detecting && found.length === 0 && browser.online && canUseAi && (
                 <button type="button" onClick={() => void runAiScan()} disabled={aiScanning} className={actionButton}>
-                  {aiScanning ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} {t("doc_ai_scan")}
+                  <TachiAvatar size={16} state={aiScanning ? "thinking" : "idle"} /> {t("doc_ai_scan")}
                 </button>
               )}
               <button type="button" onClick={() => openDocumentInNewTab(url ?? file.fileUrl)} className={actionButton}>

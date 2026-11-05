@@ -11,10 +11,13 @@ type ChatStore = {
   loadingHistory: boolean;
   sending: boolean;
   error: string | null;
+  /** Text waiting in the input; Tachi's suggested questions fill it for the user to send. */
+  draft: string;
   open: () => void;
   close: () => void;
   loadMessages: (tripId: string) => Promise<void>;
   sendMessage: (tripId: string, content: string, lang?: string) => Promise<void>;
+  setDraft: (draft: string) => void;
   clear: () => void;
 };
 
@@ -32,6 +35,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   loadingHistory: false,
   sending: false,
   error: null,
+  draft: "",
 
   open: () => set({ isOpen: true, error: null }),
   close: () => set({ isOpen: false }),
@@ -92,6 +96,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({ sending: false });
     }
   },
+
+  setDraft: (draft) => set({ draft }),
 
   clear: () => set({ messages: [], loadedTripId: null, error: null }),
 }));

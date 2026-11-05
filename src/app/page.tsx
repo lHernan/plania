@@ -1,21 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Plane, ArrowRight, CheckCircle2, Copy, LayoutTemplate, Plus, Loader2 } from "lucide-react";
+import { CheckCircle2, LayoutTemplate, Plus, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
-import { AuthModal } from "@/components/AuthModal";
+import { AuthModal, type AuthReason } from "@/components/AuthModal";
 import { useI18n } from "@/components/I18nProvider";
+import { ImageSlot, LANDING_IMAGES } from "@/components/landing/ImageSlot";
+import { PlanField } from "@/components/landing/PlanField";
+import { TachiIntro, ValueBlocks } from "@/components/landing/ValueBlocks";
 import { format } from "date-fns";
 import { TRIP_TEMPLATES, TripTemplate } from "@/lib/trip-templates";
+import { buildDraftTrip, newDraftId, plannedDates, defaultPlannerForm } from "@/lib/planner/form";
 
 export default function Home() {
   const { t } = useI18n();
+  const router = useRouter();
   const { user, signOut } = useAuthStore();
-  const { createTrip, loadTemplate, saveDraft, loading, activeTrip, hasFetched, activeTripIsDraft } = useItineraryStore();
+  const { createTrip, loadTemplate, loading, hasFetched } = useItineraryStore();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authReason, setAuthReason] = useState<AuthReason | undefined>(undefined);
   const [showQuickStart, setShowQuickStart] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [quickTripName, setQuickTripName] = useState("");
@@ -38,13 +45,27 @@ export default function Home() {
     showToast(t("landing_template_loaded"));
   };
 
+  const openAuth = (reason?: AuthReason) => {
+    setAuthReason(reason);
+    setShowAuthModal(true);
+  };
+
+  // A registered user creates a real trip; without an account it is a draft, like a template,
+  // and saving it asks for the account.
   const handleQuickCreate = () => {
-    if (quickTripName.trim()) {
-      createTrip(quickTripName, quickTripStart || undefined, quickTripEnd || undefined);
-      setShowQuickStart(false);
-    } else {
+    const name = quickTripName.trim();
+    if (!name) {
       alert(t("landing_enter_trip_name"));
+      return;
     }
+    if (user && !user.is_anonymous) {
+      void createTrip(name, quickTripStart || undefined, quickTripEnd || undefined);
+    } else {
+      const startDate = quickTripStart || today;
+      const dates = plannedDates({ ...defaultPlannerForm(), mode: "dates", startDate, endDate: quickTripEnd || startDate });
+      loadTemplate(buildDraftTrip({ id: newDraftId(), name, destinations: [], dates, userId: user?.id }));
+    }
+    setShowQuickStart(false);
   };
 
   if (!isMounted || (loading && !hasFetched)) {
@@ -77,38 +98,45 @@ export default function Home() {
       <div className="absolute bottom-[-10%] right-[-10%] size-64 md:size-96 bg-[var(--color-warning)]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-5xl mx-auto relative z-10 space-y-10">
-        {/* Hero */}
-        <motion.div
+        {/* Hero: claim and planning field first, so on a phone the destination is visible without scrolling. */}
+        <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-4 pt-6"
+          className="grid items-center gap-6 pt-6 md:grid-cols-2 md:gap-10"
         >
-          <div className="size-16 md:size-20 bg-[var(--color-surface)] rounded-[2rem] shadow-2xl flex items-center justify-center mx-auto ring-8 ring-[var(--color-border)]/50 border border-white/20">
-            <Sparkles className="text-[var(--color-primary)] animate-pulse" size={32} />
+          <div className="space-y-4">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">{t("landing_title")}</p>
+            <h1 className="text-3xl md:text-5xl font-black text-[var(--color-text)] tracking-tight font-[family-name:var(--font-display)]">{t("landing_claim")}</h1>
+            <p className="text-[var(--color-text-secondary)] text-sm md:text-base font-medium leading-relaxed">
+              {t("landing_hero_subtitle")}
+            </p>
+            <PlanField />
           </div>
-          <h1 className="text-3xl md:text-5xl font-black text-[var(--color-text)] tracking-tight font-[family-name:var(--font-display)]">{t("landing_title")}</h1>
-          <p className="text-[var(--color-text-secondary)] text-sm md:text-base font-medium px-4 leading-relaxed max-w-2xl mx-auto">
-            {t("landing_tagline")}
-          </p>
-        </motion.div>
+          <ImageSlot src={LANDING_IMAGES.hero} alt={t("landing_hero_image_alt")} priority className="hidden h-[420px] rounded-[2rem] md:block" />
+        </motion.section>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
             onClick={() => setShowQuickStart(true)}
-            className="px-6 py-3 bg-[var(--color-primary)] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl flex items-center gap-2 hover:bg-[var(--color-primary-hover)] hover:scale-[1.02] active:scale-[0.98] transition-all min-h-[44px]"
+            className="px-6 py-3 bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]/30 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-[var(--color-primary-subtle)] transition-all min-h-[44px]"
           >
             <Plus size={16} /> {t("landing_create_from_scratch")}
           </button>
-          {user?.is_anonymous && (
+          {(!user || user.is_anonymous) && (
             <button
-              onClick={() => setShowAuthModal(true)}
+              onClick={() => openAuth()}
               className="px-6 py-3 rounded-2xl border border-[var(--color-border)] text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-subtle)] transition-all min-h-[44px]"
             >
               {t("landing_sign_in_sync")}
             </button>
           )}
         </div>
+
+        <ValueBlocks />
+
+        {/* Registered users go straight to planning with Tachi; guests are asked to sign in first. */}
+        <TachiIntro onAsk={() => (user && !user.is_anonymous ? router.push("/plan") : openAuth("tachi"))} />
 
         {/* Example trips */}
         <section className="space-y-4">
@@ -171,6 +199,9 @@ export default function Home() {
             onClick={() => setShowQuickStart(false)}
           >
             <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("landing_quick_start")}
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -189,6 +220,7 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="date"
+                    aria-label={t("landing_start_date")}
                     min={today}
                     className="w-full bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl py-4 px-4 text-base font-bold focus:ring-2 focus:ring-[var(--color-primary)]/30 outline-none transition-all min-h-[48px]"
                     value={quickTripStart}
@@ -196,6 +228,7 @@ export default function Home() {
                   />
                   <input
                     type="date"
+                    aria-label={t("landing_end_date")}
                     min={quickTripStart || today}
                     className="w-full bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded-2xl py-4 px-4 text-base font-bold focus:ring-2 focus:ring-[var(--color-primary)]/30 outline-none transition-all min-h-[48px]"
                     value={quickTripEnd}
@@ -225,6 +258,7 @@ export default function Home() {
 
       <AuthModal
         isOpen={showAuthModal}
+        reason={authReason}
         onClose={() => setShowAuthModal(false)}
         onShowToast={(msg) => showToast(msg)}
       />

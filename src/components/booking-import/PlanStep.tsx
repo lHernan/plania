@@ -1,13 +1,13 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { LoaderCircle, Sparkles, TriangleAlert } from "lucide-react";
+import { LoaderCircle, TriangleAlert } from "lucide-react";
+import { TachiAvatar } from "@/components/TachiAvatar";
 import { useI18n } from "@/components/I18nProvider";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import {
   assessFeasibility,
   buildPlanningContext,
-  proposalsFromImporter,
   validateProposals,
   type DayDensity,
   type FeasibilityAlternative,
@@ -16,6 +16,7 @@ import {
   type ProposalConflictReason,
 } from "@/lib/bookings/plan";
 import { proposalsToActivities } from "@/lib/bookings/import-session";
+import { requestPlanning } from "@/lib/planner/plan-request";
 
 const DENSITIES: DayDensity[] = ["light", "balanced", "full"];
 
@@ -30,15 +31,6 @@ type Generated = {
 };
 
 type Infeasible = { blockedDays: string[]; alternatives: FeasibilityAlternative[] };
-
-function readImporterConflicts(raw: unknown): { date: string; reason: string }[] {
-  const list = raw && typeof raw === "object" ? (raw as { conflicts?: unknown }).conflicts : undefined;
-  if (!Array.isArray(list)) return [];
-  return list
-    .filter((c): c is { date: string; reason: string } =>
-      !!c && typeof c === "object" && typeof (c as { date?: unknown }).date === "string" && typeof (c as { reason?: unknown }).reason === "string")
-    .map((c) => ({ date: c.date, reason: c.reason.slice(0, 300) }));
-}
 
 export function PlanStep({
   authHeaders,
@@ -80,24 +72,12 @@ export function PlanStep({
 
     setBusy(true);
     try {
-      const request = wishes.trim();
-      const response = await fetch("/api/import", {
-        method: "POST",
-        headers: await authHeaders(),
-        body: JSON.stringify({
-          fallbackDate: context.days[0]?.date,
-          lang,
-          planning: { context, ...(request ? { request } : {}) },
-        }),
-      });
-      if (!response.ok) throw new Error(`status ${response.status}`);
-      const data: unknown = await response.json();
-      const { valid, conflicts } = validateProposals(proposalsFromImporter(data), context);
+      const { valid, conflicts, importerConflicts } = await requestPlanning({ context, request: wishes, lang, headers: await authHeaders() });
       setGenerated({
         context,
         proposals: valid.map((p, index) => ({ ...p, key: `${p.date}-${index}`, accepted: true })),
         rejected: conflicts,
-        importerConflicts: readImporterConflicts(data),
+        importerConflicts,
         skippedDays: feasibility.blockedDays,
       });
     } catch {
@@ -184,7 +164,7 @@ export function PlanStep({
             disabled={busy}
             className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-accent-ai)] px-4 text-sm font-black text-white disabled:opacity-60"
           >
-            {busy ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
+            {busy ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <TachiAvatar size={16} />}
             {busy ? t("booking_import_generating") : t("booking_import_generate")}
           </button>
         </>

@@ -124,6 +124,14 @@ describe("DayGeniusModal", () => {
     expect(applyButton()?.textContent).toBe("Aplicar 3 cambios");
   });
 
+  it("is Tachi's \"Rearrange the day\" action, with Tachi thinking while it plans", async () => {
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    const dialog = screen.getByRole("dialog", { name: "Reorganizar el día" });
+    expect(dialog.querySelector("svg[data-state=\"thinking\"]")).toBeTruthy();
+    await screen.findByText("Museo Insular");
+    expect(dialog.querySelector("svg[data-state=\"ready\"]")).toBeTruthy();
+  });
+
   it("blocks applying while the accepted changes overlap", async () => {
     renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
     await screen.findByText("Museo Insular");
@@ -164,7 +172,7 @@ describe("DayGeniusModal", () => {
   it("offers a retry when the genie fails", async () => {
     respond(502);
     renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
-    expect(await screen.findByText(/El genio no pudo reorganizar el día/)).toBeTruthy();
+    expect(await screen.findByText(/Tachi no pudo reorganizar el día/)).toBeTruthy();
     respond();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     expect(await screen.findByText("Museo Insular")).toBeTruthy();
@@ -191,7 +199,7 @@ describe("DayGeniusModal", () => {
     await settle();
     expect(fetchMock).toHaveBeenCalledWith("/api/day-genius", expect.anything());
     await settle(GENIUS_TIMEOUT_MS + 1000);
-    expect(screen.getByText(/El genio no pudo reorganizar el día/)).toBeTruthy();
+    expect(screen.getByText(/Tachi no pudo reorganizar el día/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeTruthy();
   });
 
@@ -241,7 +249,7 @@ describe("DayGeniusModal", () => {
   it("asks for a city when the day has nothing to place suggestions near", async () => {
     useItineraryStore.setState({ activeTrip: { ...trip, days: [{ ...trip.days[0], city: "New destination", activities: [] }, trip.days[1]] } });
     renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
-    expect(await screen.findByText("Añade la ciudad de este día para que el genio pueda sugerirte planes.")).toBeTruthy();
+    expect(await screen.findByText("Añade la ciudad de este día para que Tachi pueda sugerirte planes.")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { makeActivity, makeDay, makeTrip, renderWithI18n } from "./helpers/dom";
 import { TripOverview } from "@/components/TripOverview";
 import type { CriticalReservation, TripPlan } from "@/lib/types";
+import type { ReactNode } from "react";
 
 afterEach(cleanup);
 
@@ -30,17 +31,17 @@ function trip(overrides: Partial<TripPlan> = {}): TripPlan {
 
 const callbacks = { onEditContext: vi.fn(), onShare: vi.fn() };
 
-function renderOverview(plan: TripPlan = trip(), { canShare = true, lang = "es" as "es" | "en" } = {}) {
+function renderOverview(plan: TripPlan = trip(), { canShare = true, lang = "es" as "es" | "en", tips = undefined as ReactNode } = {}) {
   return renderWithI18n(
     <TripOverview
       trip={plan}
       canShare={canShare}
       {...callbacks}
       budget={<div data-testid="budget" />}
-      aiQuickActions={<div data-testid="ai" />}
       packing={<div data-testid="packing" />}
       shopping={<div data-testid="shopping" />}
       tools={<div data-testid="tools" />}
+      tips={tips}
     />,
     lang,
   );
@@ -70,6 +71,11 @@ describe("TripOverview tabs", () => {
     expect(screen.getByRole("tab", { name: "Herramientas" }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("shows the schedule tips in the summary when given (guests, who cannot open Tachi)", () => {
+    renderOverview(trip(), { tips: <div data-testid="tips" /> });
+    expect(screen.getByTestId("tips")).toBeTruthy();
+  });
+
   it("moves between tabs with the arrow keys", () => {
     renderOverview();
     fireEvent.keyDown(screen.getByRole("tab", { name: "Resumen" }), { key: "ArrowRight" });
@@ -95,7 +101,8 @@ describe("TripOverview summary", () => {
     expect(within(panel).getByText("Tokyo · Kyoto")).toBeTruthy();
     expect(within(panel).getByText("3 viajeros")).toBeTruthy();
     expect(within(panel).getByTestId("budget")).toBeTruthy();
-    expect(within(panel).getByTestId("ai")).toBeTruthy();
+    // AI shortcuts moved to Tachi: the summary no longer carries them.
+    expect(within(panel).queryByText("Acciones rápidas con IA")).toBeNull();
   });
 
   it("says the trip has no dates and asks for the context when they are missing", () => {

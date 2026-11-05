@@ -13,11 +13,11 @@ import {
   CircleSlash,
   HelpCircle,
   Snowflake,
-  Sparkles,
   Sun,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { TachiAvatar } from "@/components/TachiAvatar";
 import { useI18n } from "@/components/I18nProvider";
 import { OriginBadge } from "@/components/OriginBadge";
 import { useGeocodeCache } from "@/hooks/use-geocode-cache";
@@ -225,9 +225,10 @@ export function DayGeniusModal({
         className="relative flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl bg-[var(--color-surface)] shadow-2xl md:max-h-[85dvh] md:rounded-2xl"
       >
         <header className="flex items-start gap-3 border-b border-[var(--color-border)] px-5 pb-4 pt-5 md:px-8">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)]">
-            <Sparkles size={18} aria-hidden="true" />
-          </div>
+          <TachiAvatar
+            size={36}
+            state={status.kind === "loading" ? "thinking" : status.kind === "ready" ? "ready" : status.kind === "failed" ? "error" : "idle"}
+          />
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="text-xl font-black text-[var(--color-text)]">{t("day_genius")}</h2>
             {subtitle && <p className="text-xs text-[var(--color-text-secondary)]">{subtitle}</p>}

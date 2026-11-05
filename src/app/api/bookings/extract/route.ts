@@ -69,9 +69,9 @@ function parseRequest(body: unknown): ExtractRequest | null {
 }
 
 export async function POST(req: Request) {
-  // Booking documents carry personal data and every call spends AI credits: signed-in users only.
+  // Booking documents carry personal data and every call spends AI credits: registered users only.
   const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
-  if (authError || !authData?.user) {
+  if (authError || !authData?.user || authData.user.is_anonymous) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -11,6 +11,9 @@ import {
   Check,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { authHeaders } from "@/lib/auth-headers";
+import { useAuthStore } from "@/store/use-auth-store";
+import { TachiAvatar } from "@/components/TachiAvatar";
 import type {
   PackingCategory,
   PackingList,
@@ -32,11 +35,16 @@ type Props = {
   tripName: string;
   days: TripDay[];
   travelContext?: TravelContext;
+  /** Generating calls the AI, which is for registered users only: guests are asked to sign in. */
+  onRequireAuth?: () => void;
+  /** Starts expanded: Tachi's "Generate packing list" lands here. */
+  defaultOpen?: boolean;
 };
 
-export function PackingListCard({ tripId, tripName, days, travelContext }: Props) {
+export function PackingListCard({ tripId, tripName, days, travelContext, onRequireAuth, defaultOpen = false }: Props) {
   const { lang, t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const [open, setOpen] = useState(defaultOpen);
   const [list, setList] = useState<PackingList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +83,10 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
 
   const generate = useCallback(async () => {
     if (!hasDates) return;
+    if (!user || user.is_anonymous) {
+      onRequireAuth?.();
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -101,7 +113,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
 
       const res = await fetch("/api/packing-list", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify(input),
       });
 
@@ -122,7 +134,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
     } finally {
       setLoading(false);
     }
-  }, [hasDates, fetchWeather, days, cities, travelContext, tripId, lang, t]);
+  }, [hasDates, user, onRequireAuth, fetchWeather, days, cities, travelContext, tripId, lang, t]);
 
   const toggleItem = (categoryIndex: number, itemId: string) => {
     if (!list) return;
@@ -229,14 +241,16 @@ export function PackingListCard({ tripId, tripName, days, travelContext }: Props
               <button
                 type="button"
                 onClick={generate}
-                className="rounded-xl bg-[var(--color-primary)] px-4 py-2 text-xs font-black text-white hover:bg-[var(--color-primary-hover)]"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 text-xs font-black text-white hover:bg-[var(--color-primary-hover)]"
               >
+                <TachiAvatar size={20} />
                 {t("packing_generate")}
               </button>
             )}
 
             {loading && (
-              <p className="text-xs font-bold text-[var(--color-primary)] animate-pulse">
+              <p className="flex items-center gap-2 text-xs font-bold text-[var(--color-primary)]">
+                <TachiAvatar size={20} state="thinking" />
                 {t("packing_generating")}
               </p>
             )}

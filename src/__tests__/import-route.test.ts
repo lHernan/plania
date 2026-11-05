@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runAiPrompt = vi.fn();
 vi.mock("@/lib/ai/provider", () => ({ LONG_REPLY_TIMEOUT_MS: 60_000, runAiPrompt: (...args: unknown[]) => runAiPrompt(...args) }));
 
-const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string } | null, calls: 0 }));
+const auth = vi.hoisted(() => ({ user: { id: "u1" } as { id: string; is_anonymous?: boolean } | null, calls: 0 }));
 vi.mock("@/lib/supabase-server", () => ({
   getAuthClient: () => ({
     auth: {
@@ -107,12 +107,29 @@ describe("POST /api/import auth", () => {
     expect(runAiPrompt).not.toHaveBeenCalled();
   });
 
-  it("keeps the existing text import working without a session, as before", async () => {
+  it("requires a signed-in user for the text import too and never calls the AI without one", async () => {
     auth.user = null;
+    const res = await post({ text: "Park Güell 08:00", fallbackDate: "2026-11-01", lang: "es" });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+    expect(runAiPrompt).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["text import", { text: "Park Güell 08:00", fallbackDate: "2026-11-01", lang: "es" }],
+    ["planning", { fallbackDate: "2026-11-01", lang: "es", planning: { context: { tripName: "x", density: "balanced", days: [{ date: "2026-11-01", city: "c", anchors: [], freeWindows: [], maxSuggestions: 1 }] } } }],
+  ])("rejects an anonymous guest for the %s and never calls the AI", async (_mode, body) => {
+    auth.user = { id: "anon", is_anonymous: true };
+    const res = await post(body);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+    expect(runAiPrompt).not.toHaveBeenCalled();
+  });
+
+  it("still imports text for a registered user", async () => {
     runAiPrompt.mockResolvedValue(JSON.stringify({ activities: [] }));
     const res = await post({ text: "Park Güell 08:00", fallbackDate: "2026-11-01", lang: "es" });
     expect(res.status).toBe(200);
-    expect(auth.calls).toBe(0);
   });
 });
 

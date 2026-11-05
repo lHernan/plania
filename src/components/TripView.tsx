@@ -4,13 +4,12 @@
 // AuthInitializer handles routing here once activeTrip is ready.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { enUS, es } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Bot,
   CalendarDays,
   Check,
   Clock3,
@@ -18,7 +17,6 @@ import {
   CreditCard,
   FileText,
   Plus,
-  Sparkles,
   Plane,
   Camera,
   ShoppingBag,
@@ -37,13 +35,18 @@ import {
   Eye,
   EyeOff,
   Share2,
-  Compass,
   FileUp,
+  Luggage,
+  CalendarClock,
+  ListChecks,
+  Navigation,
+  Umbrella,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
-import { AuthModal } from "@/components/AuthModal";
+import { authHeaders } from "@/lib/auth-headers";
+import { AuthModal, type AuthReason } from "@/components/AuthModal";
 import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
@@ -78,7 +81,9 @@ import { NowNextCard } from "@/components/NowNextCard";
 import { TripModeBanner } from "@/components/TripModeBanner";
 import { ActivityCommentsModal } from "@/components/ActivityCommentsModal";
 import { FloatingActions } from "@/components/FloatingActions";
-import { ChatPanel } from "@/components/ChatPanel";
+import { TachiSheet, type TachiAction } from "@/components/TachiSheet";
+import { TachiAvatar } from "@/components/TachiAvatar";
+import { useChatStore } from "@/store/use-chat-store";
 import { TravelContextEditor } from "@/components/TravelContextEditor";
 import { ArrivalAssistant } from "@/components/ArrivalAssistant";
 import { CityPaymentGuideCard } from "@/components/CityPaymentGuideCard";
@@ -89,7 +94,7 @@ import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { WalletView } from "@/components/WalletView";
-import { TripOverview } from "@/components/TripOverview";
+import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -571,6 +576,12 @@ export function TripView() {
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // Why the sign-in sheet is open (saving a draft, asking Tachi), for its contextual copy.
+  const [authReason, setAuthReason] = useState<AuthReason | undefined>(undefined);
+  const requireAuth = (reason?: AuthReason) => {
+    setAuthReason(reason);
+    setShowAuthModal(true);
+  };
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingImport, setShowBookingImport] = useState(false);
   const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
@@ -648,7 +659,7 @@ export function TripView() {
   const canImportBookings = Boolean(activeTrip) && !isInvitee;
   const openBookingImport = () => {
     if (!user || user.is_anonymous) {
-      setShowAuthModal(true);
+      requireAuth("tachi");
       return;
     }
     setShowBookingImport(true);
@@ -657,11 +668,35 @@ export function TripView() {
   // The genie calls the AI for a signed-in owner; guests and the sample trip sign in first.
   const openDayGenius = (dayId: string) => {
     if (!user || user.is_anonymous) {
-      setShowAuthModal(true);
+      requireAuth("tachi");
       return;
     }
     setGeniusDayId(dayId);
   };
+
+  // Tachi is AI, for registered users only: a visitor sees the button and gets the sign-in sheet.
+  const openChat = useChatStore((s) => s.open);
+  const closeTachi = useChatStore((s) => s.close);
+  const setChatDraft = useChatStore((s) => s.setDraft);
+  const isRegistered = Boolean(user && !user.is_anonymous);
+  const openTachi = () => {
+    if (!isRegistered) {
+      requireAuth("tachi");
+      return;
+    }
+    openChat();
+  };
+  // Tachi can open the trip overview on its packing tab; leaving the overview resets it.
+  const [overviewTab, setOverviewTab] = useState<OverviewTab>("summary");
+  const [packingFromTachi, setPackingFromTachi] = useState(false);
+  const [overviewTabSection, setOverviewTabSection] = useState(section);
+  if (overviewTabSection !== section) {
+    setOverviewTabSection(section);
+    if (section !== "overview") {
+      setOverviewTab("summary");
+      setPackingFromTachi(false);
+    }
+  }
 
   const [celebrationEvent, setCelebrationEvent] = useState<CelebrationEvent | null>(null);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
@@ -690,7 +725,7 @@ export function TripView() {
   // Same quick actions wherever they are docked (page corner or the map section).
   const floatingActionsProps = {
     onAdd: isInvitee ? undefined : () => setShowAdd(true),
-    showAgent: Boolean(activeTrip),
+    onAskTachi: activeTrip ? openTachi : undefined,
   };
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const editingActivity = useMemo(() => {
@@ -744,6 +779,12 @@ export function TripView() {
 
   const handleImportSync = async (textToSync: string) => {
     if (!textToSync.trim() || isImporting) return;
+    // The import calls the AI, which is for registered users only.
+    if (!user || user.is_anonymous) {
+      cancelVoice();
+      requireAuth("tachi");
+      return;
+    }
     if (!isOnline) {
       showToast(t("trip_view_ai_import_offline"), "error");
       cancelVoice();
@@ -755,7 +796,7 @@ export function TripView() {
       
       const res = await fetch("/api/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({
           text: textToSync,
           fallbackDate: activeDay?.date || new Date().toISOString(),
@@ -1320,35 +1361,10 @@ export function TripView() {
   }
 
   // Former sidebar blocks: the wallet shows the reservations and the trip overview places
-  // the rest in its tabs.
-  const renderAiQuickActions = () => (
-    <div data-tour="ai-shortcuts" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_view_ai_quick_actions")}</h3>
-      <div className="space-y-3">
-        <button
-          onClick={() => openDayGenius(activeDayId)}
-          disabled={isInvitee}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-xs font-bold hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
-        >
-          <Sparkles size={16} />
-          {t("day_genius")} — {t("ai_route_optimization")}
-        </button>
-        <button
-          onClick={() => setTravelContextOpen(true)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
-        >
-          <Compass size={16} />
-          {t("trip_context")}
-        </button>
-        {canImportBookings && (
-          <button
-            onClick={openBookingImport}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary)]/15 transition-colors"
-          >
-            <FileUp size={16} />
-            {t("booking_import_action")}
-          </button>
-        )}
+  // the rest in its tabs. The AI shortcuts are now Tachi's actions.
+  /** Notes or voice to the timeline, shown inside Tachi's sheet. */
+  const renderNotesImport = () => (
+    <div className="space-y-3">
         <div className="relative">
           <textarea
             value={importText}
@@ -1383,7 +1399,7 @@ export function TripView() {
               <Loader2 size={20} className="text-[var(--color-primary)] animate-spin" />
             )}
             {voiceState === "idle" && !isSpeechSupported && (
-              <Bot className="text-[var(--color-text-muted)]" size={20} />
+              <TachiAvatar size={20} />
             )}
           </div>
         </div>
@@ -1398,16 +1414,16 @@ export function TripView() {
         >
           {isImporting || voiceState === 'syncing' ? t("processing_magic") : t("sync_to_timeline")}
         </button>
-      </div>
-
-      <ScheduleSuggestions
-        suggestions={suggestions}
-        onApplyFix={isInvitee ? undefined : (fix) => {
-          const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
-          if (activity) moveActivityTime(activity, fix.time);
-        }}
-      />
     </div>
+  );
+  const renderScheduleTips = () => (
+    <ScheduleSuggestions
+      suggestions={suggestions}
+      onApplyFix={isInvitee ? undefined : (fix) => {
+        const activity = activeDay?.activities.find((a) => a.id === fix.activityId);
+        if (activity) moveActivityTime(activity, fix.time);
+      }}
+    />
   );
   const renderReservations = () => (
     <CriticalReservationsPanel
@@ -1468,7 +1484,63 @@ export function TripView() {
     </div>
   );
   const renderPacking = () =>
-    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} /> : null;
+    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} onRequireAuth={() => requireAuth("tachi")} defaultOpen={packingFromTachi} /> : null;
+
+  const tachiPlace = activeDay
+    ? [isPlaceholderCity(activeDay.city) ? null : activeDay.city, format(parseISO(activeDay.date), "EEEE d", { locale: dateFnsLocale })]
+        .filter(Boolean)
+        .join(" · ")
+    : activeTrip?.name ?? "";
+  const tachiActivity =
+    section === "map" && activeMapActivityId ? activeDay?.activities.find((a) => a.id === activeMapActivityId) ?? null : null;
+  // Actions that open a modal close the sheet first; questions go to the conversation.
+  const runFromTachi = (run: () => void) => () => {
+    closeTachi();
+    run();
+  };
+  const askTachi = (question: string) => () => setChatDraft(question);
+  const canEditDay = !isInvitee && Boolean(activeDay);
+  const tachiActions: TachiAction[] = [
+    ...(tachiActivity
+      ? [
+          { id: "directions", label: t("tachi_action_directions"), icon: <Navigation size={16} />, onSelect: askTachi(t("tachi_prompt_directions", { title: tachiActivity.title })) },
+          { id: "indoor", label: t("tachi_action_indoor"), icon: <Umbrella size={16} />, onSelect: askTachi(t("tachi_prompt_indoor", { title: tachiActivity.title })) },
+        ]
+      : []),
+    ...((section === "itinerary" || section === "map") && canEditDay
+      ? [{ id: "rearrange", label: t("day_genius"), icon: <CalendarClock size={16} />, onSelect: runFromTachi(() => openDayGenius(activeDayId)) }]
+      : []),
+    // Spec order for the itinerary: rearrange the day, fill gaps, import notes (then the rest on demand).
+    ...(section === "itinerary"
+      ? [{ id: "gaps", label: t("tachi_action_fill_gaps"), icon: <Clock3 size={16} />, onSelect: askTachi(t("tachi_prompt_fill_gaps")) }]
+      : []),
+    ...(section === "itinerary" && !isInvitee
+      ? [
+          { id: "notes", label: t("tachi_action_import_notes"), icon: <FileText size={16} />, panel: renderNotesImport() },
+          { id: "bookings", label: t("booking_import_action"), icon: <FileUp size={16} />, onSelect: runFromTachi(openBookingImport) },
+        ]
+      : []),
+    ...(section === "wallet" && canImportBookings
+      ? [{ id: "pdf", label: t("tachi_action_import_pdf"), icon: <FileUp size={16} />, onSelect: runFromTachi(openBookingImport) }]
+      : []),
+    ...(section === "wallet"
+      ? [{ id: "missing", label: t("tachi_action_missing_bookings"), icon: <ListChecks size={16} />, onSelect: askTachi(t("tachi_prompt_missing_bookings")) }]
+      : []),
+    ...(section === "overview"
+      ? [
+          {
+            id: "packing",
+            label: t("tachi_action_packing"),
+            icon: <Luggage size={16} />,
+            onSelect: runFromTachi(() => {
+              setPackingFromTachi(true);
+              setOverviewTab("packing");
+            }),
+          },
+          { id: "preparation", label: t("tachi_action_preparation"), icon: <ListChecks size={16} />, onSelect: askTachi(t("tachi_prompt_preparation")) },
+        ]
+      : []),
+  ];
 
   return (
     // On mobile the bottom padding clears the fixed section bar (4rem) and, outside the map,
@@ -1494,7 +1566,7 @@ export function TripView() {
           <button
             onClick={async () => {
               if (!user || user.is_anonymous) {
-                setShowAuthModal(true);
+                requireAuth("draft");
                 return;
               }
               const res = await saveDraft();
@@ -1543,7 +1615,7 @@ export function TripView() {
               )
             ) : (
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => requireAuth(activeTripIsDraft ? "draft" : undefined)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
               >
                 <ShieldCheck size={10} />
@@ -1666,13 +1738,6 @@ export function TripView() {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary)] text-white text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-primary-hover)] transition-colors"
                   >
                     <Plus size={12} /> {t("trip_view_add")}
-                  </button>
-                  <button
-                    onClick={() => openDayGenius(activeDayId)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] text-[10px] font-bold uppercase tracking-wider hover:bg-[var(--color-accent-ai)]/20 transition-colors disabled:opacity-50"
-                  >
-                    <Sparkles size={12} />
-                    {t("day_genius")}
                   </button>
                 </>
               )}
@@ -2000,10 +2065,12 @@ export function TripView() {
             onEditContext={() => setTravelContextOpen(true)}
             onShare={() => setShowShareModal(true)}
             budget={renderBudget()}
-            aiQuickActions={renderAiQuickActions()}
             packing={renderPacking()}
             shopping={renderShopping()}
             tools={renderTravelTools()}
+            tips={isRegistered ? undefined : renderScheduleTips()}
+            tab={overviewTab}
+            onTabChange={setOverviewTab}
           />
         </div>
       )}
@@ -2013,7 +2080,7 @@ export function TripView() {
       {section !== "map" && (
         <FloatingActions
           onAdd={section === "itinerary" ? floatingActionsProps.onAdd : undefined}
-          showAgent={floatingActionsProps.showAgent}
+          onAskTachi={floatingActionsProps.onAskTachi}
           className="fixed right-8 bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] md:bottom-[calc(env(safe-area-inset-bottom,0px)+2rem)] z-50"
         />
       )}
@@ -2023,7 +2090,11 @@ export function TripView() {
       {activeTrip && (
         <>
           <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} isOpen={travelContextOpen} onClose={() => setTravelContextOpen(false)} />
-          <ChatPanel tripId={activeTrip.id} />
+          {isRegistered && (
+            <TachiSheet tripId={activeTrip.id} place={tachiPlace} activity={tachiActivity?.title} actions={tachiActions}>
+              {section === "itinerary" ? renderScheduleTips() : null}
+            </TachiSheet>
+          )}
         </>
       )}
 
@@ -2284,7 +2355,8 @@ export function TripView() {
 
       <AuthModal 
         isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
+        reason={authReason}
+        onClose={() => { setShowAuthModal(false); setAuthReason(undefined); }} 
         onShowToast={(msg) => showToast(msg)}
       />
 
