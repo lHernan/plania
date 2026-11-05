@@ -201,6 +201,12 @@ describe("POST /api/trips/[tripId]/summary", () => {
     expect(summary).toContain("Japón fue genial.");
   });
 
+  it("keeps symbols that are part of ordinary prose", async () => {
+    runAiPrompt.mockResolvedValue("Room #5 at snake_case_inn, rated 4*. A *great* stay.");
+    const { summary } = await (await summarize()).json();
+    expect(summary).toBe("Room #5 at snake_case_inn, rated 4*. A great stay.");
+  });
+
   it("works when the memories table does not exist yet", async () => {
     db.tables.memories = { data: null, error: { code: "42P01", message: "relation memories does not exist" } };
     const res = await summarize();

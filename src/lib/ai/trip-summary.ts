@@ -149,9 +149,9 @@ export function cleanSummaryText(raw: string): string {
       line
         .replace(/^\s{0,3}#{1,6}\s*/, "")
         .replace(/^\s*(?:[-*•]|\d+\.)\s+/, "")
-        .replace(/(\*\*|__)(.*?)\1/g, "$2")
-        .replace(/(\*|_)(\S(?:.*?\S)?)\1/g, "$2")
-        .replace(/[*#]/g, "")
+        // Emphasis markers only around words, so "#5", "snake_case" or "4*" in prose survive.
+        .replace(/(?<!\w)(\*\*|__)(\S(?:.*?\S)?)\1(?!\w)/g, "$2")
+        .replace(/(?<!\w)(\*|_)(\S(?:.*?\S)?)\1(?!\w)/g, "$2")
         .trimEnd(),
     )
     .join("\n")
