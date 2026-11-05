@@ -1074,5 +1074,8 @@
   "memory_caption_suggesting": "Pensando…",
   "memory_caption_note_filled": "Disponible cuando la nota está vacía",
   "memory_caption_offline": "Sin conexión. No se puede sugerir un pie de foto.",
-  "memory_caption_error": "No se pudo sugerir un pie de foto. Inténtalo de nuevo."
+  "memory_caption_error": "No se pudo sugerir un pie de foto. Inténtalo de nuevo.",
+  "share_story_title": "La historia del viaje",
+  "share_story_cover_alt": "Portada de {name}",
+  "share_link_story_note": "El enlace también muestra la historia del viaje con los recuerdos compartidos con todo el viaje (nunca los de solo algunas personas)."
 }

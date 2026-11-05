@@ -9,6 +9,8 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { AuthModal } from "@/components/AuthModal";
 import { useI18n } from "@/components/I18nProvider";
+import { PublicTripStory } from "@/components/memories/PublicTripStory";
+import type { PublicMemory } from "@/lib/types";
 
 type ShareInfo = {
   tripId: string;
@@ -21,11 +23,13 @@ type ShareInfo = {
 };
 
 type TripData = {
-  trip: { id: string; name: string; startDate?: string; endDate?: string };
+  trip: { id: string; name: string; startDate?: string; endDate?: string; coverUrl?: string };
   role: "viewer" | "editor";
   days: Array<{ id: string; date: string; city: string; label: string }>;
-  activities: Array<{ id: string; day_id: string; title: string; time: string; duration_min?: number; location?: string; category?: string }>;
+  activities: Array<{ id: string; day_id: string; title: string; time: string; duration_min?: number; location?: string; category?: string; state?: string }>;
   reservations: Array<{ id: string; title: string; reservation_date?: string; booking_deadline?: string; status?: string }>;
+  /** Only memories shared with the whole trip; absent when there are none. */
+  memories?: PublicMemory[];
 };
 
 export default function SharePage() {
@@ -126,6 +130,10 @@ export default function SharePage() {
     );
   }
 
+  // A trip without dates (planned by number of days) only has placeholder day dates.
+  const dayTitle = (day: TripData["days"][number], index: number) =>
+    tripData && (tripData.trip.startDate || tripData.trip.endDate) ? day.date : t("trip_view_day_number", { number: index + 1 });
+
   const activitiesByDay = new Map<string, TripData["activities"]>();
   if (tripData) {
     for (const a of tripData.activities) {
@@ -175,6 +183,17 @@ export default function SharePage() {
           </button>
         </motion.div>
 
+        {tripData?.memories && tripData.memories.length > 0 && (
+          <PublicTripStory
+            days={tripData.days}
+            activities={tripData.activities}
+            memories={tripData.memories}
+            coverUrl={tripData.trip.coverUrl}
+            tripName={tripData.trip.name}
+            dayTitle={dayTitle}
+          />
+        )}
+
         {/* Read-only itinerary */}
         {tripData && tripData.days.length > 0 && (
           <motion.div
@@ -185,8 +204,7 @@ export default function SharePage() {
           >
             {tripData.days.map((day, index) => {
               const acts = activitiesByDay.get(day.id) ?? [];
-              // A trip without dates (planned by number of days) only has placeholder day dates.
-              const dayName = tripData.trip.startDate || tripData.trip.endDate ? day.date : t("trip_view_day_number", { number: index + 1 });
+              const dayName = dayTitle(day, index);
               return (
                 <div key={day.id} className="bg-[var(--color-surface)] backdrop-blur-xl border border-[var(--color-border)] rounded-3xl p-5 space-y-3">
                   <div className="flex items-center gap-2">
