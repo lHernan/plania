@@ -46,7 +46,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { authHeaders } from "@/lib/auth-headers";
-import { AuthModal } from "@/components/AuthModal";
+import { AuthModal, type AuthReason } from "@/components/AuthModal";
 import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
 import { parseItineraryText } from "@/lib/import/parse-itinerary";
@@ -576,6 +576,12 @@ export function TripView() {
 
   const { user, signOut: authSignOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // Why the sign-in sheet is open (saving a draft, asking Tachi), for its contextual copy.
+  const [authReason, setAuthReason] = useState<AuthReason | undefined>(undefined);
+  const requireAuth = (reason?: AuthReason) => {
+    setAuthReason(reason);
+    setShowAuthModal(true);
+  };
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingImport, setShowBookingImport] = useState(false);
   const [geniusDayId, setGeniusDayId] = useState<string | null>(null);
@@ -653,7 +659,7 @@ export function TripView() {
   const canImportBookings = Boolean(activeTrip) && !isInvitee;
   const openBookingImport = () => {
     if (!user || user.is_anonymous) {
-      setShowAuthModal(true);
+      requireAuth("tachi");
       return;
     }
     setShowBookingImport(true);
@@ -662,7 +668,7 @@ export function TripView() {
   // The genie calls the AI for a signed-in owner; guests and the sample trip sign in first.
   const openDayGenius = (dayId: string) => {
     if (!user || user.is_anonymous) {
-      setShowAuthModal(true);
+      requireAuth("tachi");
       return;
     }
     setGeniusDayId(dayId);
@@ -675,7 +681,7 @@ export function TripView() {
   const isRegistered = Boolean(user && !user.is_anonymous);
   const openTachi = () => {
     if (!isRegistered) {
-      setShowAuthModal(true);
+      requireAuth("tachi");
       return;
     }
     openChat();
@@ -776,7 +782,7 @@ export function TripView() {
     // The import calls the AI, which is for registered users only.
     if (!user || user.is_anonymous) {
       cancelVoice();
-      setShowAuthModal(true);
+      requireAuth("tachi");
       return;
     }
     if (!isOnline) {
@@ -1478,7 +1484,7 @@ export function TripView() {
     </div>
   );
   const renderPacking = () =>
-    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} onRequireAuth={() => setShowAuthModal(true)} defaultOpen={packingFromTachi} /> : null;
+    activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} onRequireAuth={() => requireAuth("tachi")} defaultOpen={packingFromTachi} /> : null;
 
   const tachiPlace = activeDay
     ? [isPlaceholderCity(activeDay.city) ? null : activeDay.city, format(parseISO(activeDay.date), "EEEE d", { locale: dateFnsLocale })]
@@ -1504,14 +1510,15 @@ export function TripView() {
     ...((section === "itinerary" || section === "map") && canEditDay
       ? [{ id: "rearrange", label: t("day_genius"), icon: <CalendarClock size={16} />, onSelect: runFromTachi(() => openDayGenius(activeDayId)) }]
       : []),
+    // Spec order for the itinerary: rearrange the day, fill gaps, import notes (then the rest on demand).
+    ...(section === "itinerary"
+      ? [{ id: "gaps", label: t("tachi_action_fill_gaps"), icon: <Clock3 size={16} />, onSelect: askTachi(t("tachi_prompt_fill_gaps")) }]
+      : []),
     ...(section === "itinerary" && !isInvitee
       ? [
           { id: "notes", label: t("tachi_action_import_notes"), icon: <FileText size={16} />, panel: renderNotesImport() },
           { id: "bookings", label: t("booking_import_action"), icon: <FileUp size={16} />, onSelect: runFromTachi(openBookingImport) },
         ]
-      : []),
-    ...(section === "itinerary"
-      ? [{ id: "gaps", label: t("tachi_action_fill_gaps"), icon: <Clock3 size={16} />, onSelect: askTachi(t("tachi_prompt_fill_gaps")) }]
       : []),
     ...(section === "wallet" && canImportBookings
       ? [{ id: "pdf", label: t("tachi_action_import_pdf"), icon: <FileUp size={16} />, onSelect: runFromTachi(openBookingImport) }]
@@ -1559,7 +1566,7 @@ export function TripView() {
           <button
             onClick={async () => {
               if (!user || user.is_anonymous) {
-                setShowAuthModal(true);
+                requireAuth("draft");
                 return;
               }
               const res = await saveDraft();
@@ -1608,7 +1615,7 @@ export function TripView() {
               )
             ) : (
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => requireAuth(activeTripIsDraft ? "draft" : undefined)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
               >
                 <ShieldCheck size={10} />
@@ -2061,6 +2068,7 @@ export function TripView() {
             packing={renderPacking()}
             shopping={renderShopping()}
             tools={renderTravelTools()}
+            tips={isRegistered ? undefined : renderScheduleTips()}
             tab={overviewTab}
             onTabChange={setOverviewTab}
           />
@@ -2347,7 +2355,8 @@ export function TripView() {
 
       <AuthModal 
         isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
+        reason={authReason}
+        onClose={() => { setShowAuthModal(false); setAuthReason(undefined); }} 
         onShowToast={(msg) => showToast(msg)}
       />
 

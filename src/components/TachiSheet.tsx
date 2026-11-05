@@ -45,7 +45,8 @@ export function TachiSheet({
   const isOpen = useChatStore((s) => s.isOpen);
   const close = useChatStore((s) => s.close);
   const [panelId, setPanelId] = useState<string | null>(null);
-  const shown = actions.slice(0, MAX_TACHI_ACTIONS);
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? actions : actions.slice(0, MAX_TACHI_ACTIONS);
   const panel = shown.find((action) => action.id === panelId && action.panel);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export function TachiSheet({
 
   const closeSheet = () => {
     setPanelId(null);
+    setShowAll(false);
     close();
   };
 
@@ -129,6 +131,17 @@ export function TachiSheet({
                           {action.label}
                         </button>
                       ))}
+                    </div>
+                  )}
+                  {!showAll && actions.length > MAX_TACHI_ACTIONS && (
+                    <div className="px-5 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAll(true)}
+                        className="inline-flex min-h-11 items-center rounded-xl px-2 text-xs font-bold text-[var(--color-accent-ai)] hover:underline"
+                      >
+                        {t("tachi_more_actions")}
+                      </button>
                     </div>
                   )}
                   {children ? <div className="px-5 pt-4">{children}</div> : null}

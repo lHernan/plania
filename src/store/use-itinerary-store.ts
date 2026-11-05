@@ -1371,6 +1371,8 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
+          // The style chosen while planning (travelers, preferences) stays with the saved trip.
+          ...(activeTrip.travelContext ? { travel_context: activeTrip.travelContext } : {}),
         })
         .select()
         .single();

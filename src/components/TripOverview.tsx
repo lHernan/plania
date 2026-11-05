@@ -24,13 +24,15 @@ type TripOverviewProps = {
   packing: ReactNode;
   shopping: ReactNode;
   tools: ReactNode;
+  /** Schedule tips for the summary when Tachi cannot show them (guests). */
+  tips?: ReactNode;
   /** Controlled tab, so Tachi can open the packing list; uncontrolled when omitted. */
   tab?: OverviewTab;
   onTabChange?: (tab: OverviewTab) => void;
 };
 
 /** The trip section: summary and preparation, packing, shopping and travel tools as tabs. */
-export function TripOverview({ trip, canShare, onEditContext, onShare, budget, packing, shopping, tools, tab: controlledTab, onTabChange }: TripOverviewProps) {
+export function TripOverview({ trip, canShare, onEditContext, onShare, budget, packing, shopping, tools, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
   const { t } = useI18n();
   const [ownTab, setOwnTab] = useState<OverviewTab>("summary");
   const tab = controlledTab ?? ownTab;
@@ -98,6 +100,7 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, budget, p
             <TripSummary trip={trip} canShare={canShare} onEditContext={onEditContext} onShare={onShare} />
             <PreparationChecklist trip={trip} />
             {budget}
+            {tips}
           </>
         )}
         {tab === "packing" && packing}
