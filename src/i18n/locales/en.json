@@ -890,5 +890,19 @@
   "profile_signed_in_as": "Signed in as",
   "profile_guest_body": "Sign in to save your trips and see them on any device.",
   "profile_help": "Help",
-  "profile_shared_trips": "Trips shared with me"
+  "profile_shared_trips": "Trips shared with me",
+  "now_next_label": "Now and next",
+  "now_next_now": "Now",
+  "now_next_next": "Next",
+  "now_next_show": "Show “{title}” in the day",
+  "now_next_open_map": "Open “{location}” in Maps",
+  "now_next_open_document": "Open the document for “{title}”",
+  "trip_mode_planning": "Planning",
+  "trip_mode_starts_in_one": "Starts tomorrow",
+  "trip_mode_starts_in_other": "{count} days to go",
+  "trip_mode_no_dates": "No dates yet",
+  "trip_mode_prepare": "See preparation",
+  "trip_mode_memory": "Trip finished",
+  "trip_mode_crossed_off": "You crossed off {count} of {total} activities",
+  "trip_mode_plan_next": "Plan the next one"
 }

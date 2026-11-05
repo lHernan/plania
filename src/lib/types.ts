@@ -229,6 +229,8 @@ export type TravelContext = {
 export type TripSummary = {
   id: string;
   name: string;
+  /** Owner; the trips query also returns trips shared with the user. Missing in older caches. */
+  userId?: string;
   startDate?: string;
   endDate?: string;
   createdAt?: string;

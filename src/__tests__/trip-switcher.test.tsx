@@ -33,6 +33,7 @@ describe("TripSwitcher", () => {
     renderWithI18n(<TripSwitcher />);
     fireEvent.click(screen.getByRole("button", { name: /Selecciona un viaje/ }));
     expect(screen.getByRole("link", { name: "Ver todos los viajes" }).getAttribute("href")).toBe("/trips");
+    expect(screen.getByRole("link", { name: "Ver todos los viajes" }).className).toContain("min-h-11");
   });
 
   it("names the link in English", () => {

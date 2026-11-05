@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { makeActivity, makeDay, makeTrip, mockMatchMedia, renderWithI18n } from "./helpers/dom";
+import type { Activity } from "@/lib/types";
 
 const nav = vi.hoisted(() => ({ pathname: "/trips/t", push: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -315,6 +316,127 @@ describe("TripView sections", () => {
       await showFlightDay();
       fireEvent.click(screen.getByRole("button", { name: "Ver la reserva de «Flight home» en la Cartera" }));
       expect(nav.push).toHaveBeenCalledWith("/trips/t/wallet?day=2026-10-27");
+    });
+  });
+
+  describe("itinerary modes", () => {
+    const at = (date: string, time: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(`${date}T${time}:00`));
+    };
+    // d1 is 2026-10-26, d2 (the flight at 10:00 with its pass) is 2026-10-27.
+    async function show(dayId: string, ownerId = "me", edit?: (activities: Activity[]) => Activity[]) {
+      nav.pathname = "/trips/t";
+      seed(ownerId);
+      useItineraryStore.setState((s) => ({
+        activeDayId: dayId,
+        activeTrip: s.activeTrip && {
+          ...s.activeTrip,
+          days: s.activeTrip.days.map((d) => (d.id === "d1" && edit ? { ...d, activities: edit(d.activities) } : d)),
+        },
+      }));
+      renderWithI18n(<TripView />);
+      await act(async () => {});
+    }
+    const museumDay = (activities: Activity[]) => [
+      { ...activities[0], title: "Museum", durationMin: 90, location: "Louvre" },
+      makeActivity("a3", { title: "Lunch", time: "13:00" }),
+    ];
+
+    afterEach(() => vi.useRealTimers());
+
+    it("shows what is on now and next above the timeline on today's day", async () => {
+      at("2026-10-26", "10:30");
+      await show("d1", "me", museumDay);
+      const card = screen.getByRole("region", { name: "Ahora y siguiente" });
+      expect(card.textContent).toContain("Ahora");
+      expect(card.textContent).toContain("Museum");
+      expect(card.textContent).toContain("Siguiente");
+      expect(card.textContent).toContain("Lunch");
+      const mapLink = within(card).getByRole("link", { name: "Abrir «Louvre» en Maps" });
+      expect(mapLink.getAttribute("href")).toBe("https://www.google.com/maps/search/?api=1&query=Louvre");
+      const timeline = document.querySelector('[data-tour="timeline"]') as HTMLElement;
+      expect(card.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("tapping the card scrolls to the activity", async () => {
+      at("2026-10-26", "10:30");
+      const scrollIntoView = vi.fn();
+      Element.prototype.scrollIntoView = scrollIntoView;
+      await show("d1", "me", museumDay);
+      const card = screen.getByRole("region", { name: "Ahora y siguiente" });
+      fireEvent.click(within(card).getByRole("button", { name: "Ver «Lunch» en el día" }));
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(document.getElementById("activity-a3"));
+    });
+
+    it("opens the next activity's pass in one tap, for invitees too", async () => {
+      at("2026-10-27", "08:00");
+      await show("d2", "owner");
+      const card = screen.getByRole("region", { name: "Ahora y siguiente" });
+      fireEvent.click(within(card).getByRole("button", { name: "Abrir el documento de «Flight home»" }));
+      expect(screen.getByTestId("viewer").textContent).toBe("pass.pdf · Flight home");
+    });
+
+    it("gives the card and banner controls 44 px touch targets", async () => {
+      at("2026-10-27", "08:00");
+      await show("d2", "owner");
+      const card = screen.getByRole("region", { name: "Ahora y siguiente" });
+      expect(within(card).getByRole("button", { name: "Abrir el documento de «Flight home»" }).className).toContain("size-11");
+      for (const link of within(card).queryAllByRole("link")) expect(link.className).toContain("min-h-11");
+      cleanup();
+      at("2026-10-01", "10:00");
+      await show("d1");
+      const banner = screen.getByRole("region", { name: "Planificando" });
+      expect(within(banner).getByRole("link").className).toContain("min-h-11");
+    });
+
+    it("hides the card when the day has nothing pending", async () => {
+      at("2026-10-26", "20:00");
+      await show("d1");
+      expect(screen.queryByRole("region", { name: "Ahora y siguiente" })).toBeNull();
+    });
+
+    it("shows no card on a day other than today", async () => {
+      at("2026-10-26", "08:00");
+      await show("d2");
+      expect(screen.queryByRole("region", { name: "Ahora y siguiente" })).toBeNull();
+    });
+
+    it("shows no banner on a day of a trip in progress", async () => {
+      at("2026-10-26", "10:30");
+      await show("d1");
+      expect(screen.queryByRole("region", { name: "Planificando" })).toBeNull();
+      expect(screen.queryByRole("region", { name: "Viaje terminado" })).toBeNull();
+    });
+
+    it("before the trip, a planning banner links to the preparation in Trip › Summary", async () => {
+      at("2026-10-20", "10:00");
+      await show("d1");
+      const banner = screen.getByRole("region", { name: "Planificando" });
+      expect(banner.textContent).toContain("Faltan 6 días");
+      expect(within(banner).getByRole("link", { name: "Ver preparación" }).getAttribute("href")).toBe("/trips/t/overview");
+      expect(screen.queryByRole("region", { name: "Ahora y siguiente" })).toBeNull();
+    });
+
+    it("after the trip, a memory banner counts what was crossed off and links to My trips, without locking editing", async () => {
+      at("2026-11-05", "10:00");
+      await show("d1", "me", (activities) => [{ ...activities[0], state: "completed" }, makeActivity("a3")]);
+      const banner = screen.getByRole("region", { name: "Viaje terminado" });
+      expect(banner.textContent).toContain("Tachaste 1 de 3 actividades");
+      expect(within(banner).getByRole("link", { name: "Planificar el siguiente" }).getAttribute("href")).toBe("/trips");
+      expect(screen.getByRole("button", { name: "Agregar actividad" })).toBeTruthy();
+    });
+
+    it("a template draft, whose dates are the template's own, shows no trip mode banner", async () => {
+      at("2026-11-05", "10:00");
+      nav.pathname = "/trips/t";
+      seed("me");
+      useItineraryStore.setState({ activeDayId: "d1", activeTripIsDraft: true });
+      renderWithI18n(<TripView />);
+      await act(async () => {});
+      expect(screen.queryByRole("region", { name: "Viaje terminado" })).toBeNull();
+      expect(screen.queryByRole("region", { name: "Planificando" })).toBeNull();
     });
   });
 

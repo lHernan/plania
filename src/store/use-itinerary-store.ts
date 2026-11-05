@@ -371,6 +371,7 @@ function buildTripSummaryFromDb(
   return {
     id: String(trip.id),
     name: String(trip.name),
+    ...(trip.user_id ? { userId: String(trip.user_id) } : {}),
     startDate: trip.start_date ?? undefined,
     endDate: trip.end_date ?? undefined,
     createdAt: trip.created_at ?? undefined,

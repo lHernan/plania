@@ -224,7 +224,7 @@ export function TripSwitcher() {
               <Link
                 href="/trips"
                 onClick={() => setIsOpen(false)}
-                className="text-xs font-bold text-[var(--color-primary)] hover:underline px-2 py-2"
+                className="inline-flex min-h-11 items-center text-xs font-bold text-[var(--color-primary)] hover:underline px-2 py-2"
               >
                 {t("switcher_view_all")}
               </Link>

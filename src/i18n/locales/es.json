@@ -890,5 +890,19 @@
   "profile_signed_in_as": "Sesión iniciada como",
   "profile_guest_body": "Inicia sesión para guardar tus viajes y verlos en cualquier dispositivo.",
   "profile_help": "Ayuda",
-  "profile_shared_trips": "Viajes compartidos conmigo"
+  "profile_shared_trips": "Viajes compartidos conmigo",
+  "now_next_label": "Ahora y siguiente",
+  "now_next_now": "Ahora",
+  "now_next_next": "Siguiente",
+  "now_next_show": "Ver «{title}» en el día",
+  "now_next_open_map": "Abrir «{location}» en Maps",
+  "now_next_open_document": "Abrir el documento de «{title}»",
+  "trip_mode_planning": "Planificando",
+  "trip_mode_starts_in_one": "Empieza mañana",
+  "trip_mode_starts_in_other": "Faltan {count} días",
+  "trip_mode_no_dates": "Sin fechas",
+  "trip_mode_prepare": "Ver preparación",
+  "trip_mode_memory": "Viaje terminado",
+  "trip_mode_crossed_off": "Tachaste {count} de {total} actividades",
+  "trip_mode_plan_next": "Planificar el siguiente"
 }

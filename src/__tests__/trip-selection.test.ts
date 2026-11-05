@@ -45,3 +45,13 @@ describe("resolveTripSelection i18n keys", () => {
     expect(ui.hints.empty_state).toBeNull();
   });
 });
+
+describe("resolveTripSelection with a trip in progress", () => {
+  it("selects the trip in progress over two upcoming ones", () => {
+    const trips = [trip("soon", "2026-11-01", "2026-11-05"), trip("now", "2026-10-20", "2026-10-30"), trip("later", "2026-12-01", "2026-12-05")];
+    const output = resolveTripSelection({ current_date: "2026-10-26", trips });
+
+    expect(output.selected_trip_id).toBe("now");
+    expect(output.selection_reason).toBe("active_trip");
+  });
+});
