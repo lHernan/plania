@@ -110,6 +110,13 @@ describe("TripView header cover", () => {
     await waitFor(() => expect(within(header).getByTestId("trip-header-cover").querySelector("img")?.getAttribute("src")).toBe("https://cdn.test/t/header.jpg"));
   });
 
+  it("spans the whole header (top bar, tabs and day strip), not only the top bar", async () => {
+    await renderTrip({ coverPath: "t/header.jpg" });
+    const header = screen.getByRole("banner");
+    expect(within(header).getByTestId("trip-header-cover").parentElement).toBe(header);
+    expect(header.className).toContain("isolate");
+  });
+
   it("keeps the plain header when the trip has no cover", async () => {
     await renderTrip({ coverPath: null });
     expect(within(screen.getByRole("banner")).queryByTestId("trip-header-cover")).toBeNull();

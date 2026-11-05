@@ -1676,60 +1676,59 @@ export function TripView() {
         </div>
       )}
       {/* COMPACT STICKY HEADER */}
-      <header className="border-b border-[var(--color-border)]">
-        {/* Top bar: trip selector + controls, over the trip cover when there is one */}
-        <div className="relative">
-          {activeTrip?.coverPath && <TripHeaderCover path={activeTrip.coverPath} />}
-          <div className="relative flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
-            {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
-                overflows narrow screens (an overflow widens the layout viewport and every
-                fixed overlay with it, e.g. the mobile map). */}
-            <div data-tour="trip-switcher" className="min-w-0 flex-1">
-              <TripSwitcher />
-            </div>
-  
-            {/* Right: user controls */}
-            <div className="flex shrink-0 items-center gap-2">
-              {user && !user.is_anonymous ? (
-                activeTrip && (
-                  <div className="hidden sm:flex">
-                    {isInvitee ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
-                        <Share2 size={10} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowShareModal(true)}
-                        data-tour="share"
-                        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
-                      >
-                        <Share2 size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
-                      </button>
-                    )}
-                  </div>
-                )
-              ) : (
-                <button
-                  onClick={() => requireAuth(activeTripIsDraft ? "draft" : undefined)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
-                >
-                  <ShieldCheck size={10} />
-                  <span>{t("save")}</span>
-                </button>
-              )}
-  
-              {/* Account, language, theme, tour and sign in/out */}
-              <AccountMenu
-                email={user && !user.is_anonymous ? user.email ?? "" : null}
-                onStartTour={tour.start}
-                onSignOut={() => authSignOut()}
-                onSignIn={() => setShowAuthModal(true)}
-              />
-            </div>
+      <header className="relative isolate border-b border-[var(--color-border)]">
+        {/* The trip cover sits behind the whole header: top bar, section tabs and day strip */}
+        {activeTrip?.coverPath && <TripHeaderCover path={activeTrip.coverPath} />}
+        {/* Top bar: trip selector + controls */}
+        <div className="flex items-center justify-between gap-3 px-4 h-14 md:h-16 max-w-7xl mx-auto ios-compact-header">
+          {/* Left: Trip Switcher — the only part allowed to shrink, so the header never
+              overflows narrow screens (an overflow widens the layout viewport and every
+              fixed overlay with it, e.g. the mobile map). */}
+          <div data-tour="trip-switcher" className="min-w-0 flex-1">
+            <TripSwitcher />
+          </div>
+
+          {/* Right: user controls */}
+          <div className="flex shrink-0 items-center gap-2">
+            {user && !user.is_anonymous ? (
+              activeTrip && (
+                <div className="hidden sm:flex">
+                  {isInvitee ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent-ai)]/10 text-[var(--color-accent-ai)] rounded-full border border-[var(--color-accent-ai)]/20" title={t("trip_view_read_only")}>
+                      <Share2 size={10} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {t("trip_view_shared_by", { owner: sharedTripInfo?.ownerEmail || t("trip_view_owner_fallback") })}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowShareModal(true)}
+                      data-tour="share"
+                      className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[var(--color-primary-subtle)] text-[var(--color-primary)] rounded-full transition-colors border border-transparent hover:border-[var(--color-primary)]/20"
+                    >
+                      <Share2 size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">{t("trip_view_share")}</span>
+                    </button>
+                  )}
+                </div>
+              )
+            ) : (
+              <button
+                onClick={() => requireAuth(activeTripIsDraft ? "draft" : undefined)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-white text-[9px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-hover)] transition-all shadow-md shadow-[var(--color-primary)]/20"
+              >
+                <ShieldCheck size={10} />
+                <span>{t("save")}</span>
+              </button>
+            )}
+
+            {/* Account, language, theme, tour and sign in/out */}
+            <AccountMenu
+              email={user && !user.is_anonymous ? user.email ?? "" : null}
+              onStartTour={tour.start}
+              onSignOut={() => authSignOut()}
+              onSignIn={() => setShowAuthModal(true)}
+            />
           </div>
         </div>
 
