@@ -96,19 +96,23 @@ export function MyTrips() {
   }, [fetchSharedTrips, userId]);
 
   const groups = useMemo(() => {
-    const selection = resolveTripSelectionFromSummaries(todayStr, trips);
-    const byId = new Map(trips.map((trip) => [trip.id, trip]));
+    // The trips query returns every trip the user may read, shared ones included: only the
+    // user's own trips go in the dated groups (with favorite and delete), shared ones only
+    // under shared, and trips that are neither are left out.
+    const sharedIds = new Set(sharedTrips.map((trip) => trip.id));
+    const ownTrips = trips.filter((trip) => (trip.userId ? trip.userId === userId : !sharedIds.has(trip.id)));
+    const selection = resolveTripSelectionFromSummaries(todayStr, ownTrips);
+    const byId = new Map(ownTrips.map((trip) => [trip.id, trip]));
     const pick = (list: { id: string }[]) => list.map(({ id }) => byId.get(id)).filter((trip): trip is TripSummary => Boolean(trip));
-    const ownIds = new Set(trips.map((trip) => trip.id));
     const result: [GroupKey, (TripSummary | SharedTripSummary)[]][] = [
       ["active", pick(selection.groups.active)],
       ["upcoming", pick(selection.groups.upcoming)],
-      ["planning", trips.filter((trip) => !trip.startDate || !trip.endDate)],
-      ["shared", sharedTrips.filter((trip) => !ownIds.has(trip.id))],
+      ["planning", ownTrips.filter((trip) => !trip.startDate || !trip.endDate)],
+      ["shared", sharedTrips],
       ["past", pick(selection.groups.past)],
     ];
     return result.filter(([, list]) => list.length > 0);
-  }, [sharedTrips, todayStr, trips]);
+  }, [sharedTrips, todayStr, trips, userId]);
 
   const hasAnyTrip = groups.length > 0;
   const isLoading = !hasAnyTrip && (!initialized || !hasFetched || loading);

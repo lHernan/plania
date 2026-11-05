@@ -1111,7 +1111,8 @@ export function TripView() {
     () => (activeTrip && nowTs ? getCurrentTripDateTime(new Date(nowTs), tripTimeZone(activeTrip, Intl.DateTimeFormat().resolvedOptions().timeZone)) : null),
     [activeTrip, nowTs],
   );
-  const itineraryMode = activeTrip && tripNow ? tripMode(activeTrip, tripNow.date) : null;
+  // A template draft keeps the template's own dates, so its mode would say nothing true.
+  const itineraryMode = activeTrip && tripNow && !activeTripIsDraft ? tripMode(activeTrip, tripNow.date) : null;
   const nowAndNext = useMemo(
     () => (activeDay && tripNow && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
     [activeDay, tripNow],

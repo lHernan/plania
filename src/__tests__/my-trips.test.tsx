@@ -89,6 +89,25 @@ describe("MyTrips", () => {
     expect(within(groups[4]).getByText("Roma 2001")).toBeTruthy();
   });
 
+  it("lists a trip shared with the user only under shared, without favorite or delete, even when the trip list includes it", () => {
+    // The trips query returns every trip the user may read, shared ones included.
+    const sharedInList = { ...summary("sh", "Boda en Sevilla", ["2998-05-01", "2998-05-02"]), userId: "ana" };
+    seed([...ownTrips.map((trip) => ({ ...trip, userId: "me" })), sharedInList], shared);
+    renderWithI18n(<MyTrips />);
+    expect(screen.getAllByRole("article", { name: "Boda en Sevilla" })).toHaveLength(1);
+    const sharedCard = card("Boda en Sevilla");
+    expect(sharedCard.closest("section")?.querySelector("h2")?.textContent).toBe("Compartidos conmigo");
+    expect(within(sharedCard).queryByRole("button", { name: /eliminar/i })).toBeNull();
+    expect(within(sharedCard).queryByRole("button", { name: /favorit/i })).toBeNull();
+  });
+
+  it("does not list trips the user neither owns nor has been shared", () => {
+    const stranger = { ...summary("x", "Viaje ajeno", ["2998-01-01", "2998-01-02"]), userId: "someone" };
+    seed([...ownTrips.map((trip) => ({ ...trip, userId: "me" })), stranger], shared);
+    renderWithI18n(<MyTrips />);
+    expect(screen.queryByRole("article", { name: "Viaje ajeno" })).toBeNull();
+  });
+
   it("hides the groups that are empty", () => {
     seed([ownTrips[2]]);
     renderWithI18n(<MyTrips />);

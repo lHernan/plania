@@ -378,6 +378,19 @@ describe("TripView sections", () => {
       expect(screen.getByTestId("viewer").textContent).toBe("pass.pdf · Flight home");
     });
 
+    it("gives the card and banner controls 44 px touch targets", async () => {
+      at("2026-10-27", "08:00");
+      await show("d2", "owner");
+      const card = screen.getByRole("region", { name: "Ahora y siguiente" });
+      expect(within(card).getByRole("button", { name: "Abrir el documento de «Flight home»" }).className).toContain("size-11");
+      for (const link of within(card).queryAllByRole("link")) expect(link.className).toContain("min-h-11");
+      cleanup();
+      at("2026-10-01", "10:00");
+      await show("d1");
+      const banner = screen.getByRole("region", { name: "Planificando" });
+      expect(within(banner).getByRole("link").className).toContain("min-h-11");
+    });
+
     it("hides the card when the day has nothing pending", async () => {
       at("2026-10-26", "20:00");
       await show("d1");
@@ -413,6 +426,17 @@ describe("TripView sections", () => {
       expect(banner.textContent).toContain("Tachaste 1 de 3 actividades");
       expect(within(banner).getByRole("link", { name: "Planificar el siguiente" }).getAttribute("href")).toBe("/trips");
       expect(screen.getByRole("button", { name: "Agregar actividad" })).toBeTruthy();
+    });
+
+    it("a template draft, whose dates are the template's own, shows no trip mode banner", async () => {
+      at("2026-11-05", "10:00");
+      nav.pathname = "/trips/t";
+      seed("me");
+      useItineraryStore.setState({ activeDayId: "d1", activeTripIsDraft: true });
+      renderWithI18n(<TripView />);
+      await act(async () => {});
+      expect(screen.queryByRole("region", { name: "Viaje terminado" })).toBeNull();
+      expect(screen.queryByRole("region", { name: "Planificando" })).toBeNull();
     });
   });
 

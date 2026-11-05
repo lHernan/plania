@@ -43,7 +43,7 @@ export function NowNextCard({ now, next, onOpenFile, onShowActivity }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t("now_next_open_map", { location: activity.location })}
-            className="flex items-center gap-1 max-w-[40%] shrink-0 text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
+            className="flex min-h-11 items-center gap-1 max-w-[40%] shrink-0 text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
           >
             <MapPin size={12} className="shrink-0" />
             <span className="truncate">{activity.location}</span>
@@ -54,7 +54,7 @@ export function NowNextCard({ now, next, onOpenFile, onShowActivity }: Props) {
             type="button"
             onClick={() => onOpenFile(file, activity.title)}
             aria-label={t("now_next_open_document", { title: activity.title })}
-            className="size-8 shrink-0 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center"
+            className="size-11 shrink-0 rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center"
           >
             <FileText size={14} />
           </button>

@@ -40,7 +40,7 @@ export function TripModeBanner(props: Props) {
       </div>
       <Link
         href={props.mode === "planning" ? props.preparationHref : "/trips"}
-        className="shrink-0 rounded-xl bg-[var(--color-primary-subtle)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)]"
+        className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-[var(--color-primary-subtle)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)]"
       >
         {props.mode === "planning" ? t("trip_mode_prepare") : t("trip_mode_plan_next")}
       </Link>
