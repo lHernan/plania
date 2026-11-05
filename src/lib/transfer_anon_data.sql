@@ -50,6 +50,22 @@ BEGIN
     UPDATE packing_items SET assigned_to = p_new_id WHERE assigned_to = p_anon_id;
   END IF;
 
+  -- Memories (trip_memories_migration.sql): only once that migration was applied. The flag
+  -- lets the memories trigger accept this one author change, for this transaction only.
+  -- memory_photos has no person column: photos follow their memory.
+  IF to_regclass('public.memories') IS NOT NULL THEN
+    PERFORM set_config('plania.memories_transfer', 'on', true);
+    UPDATE memories SET author_id = p_new_id WHERE author_id = p_anon_id;
+    GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
+    PERFORM set_config('plania.memories_transfer', 'off', true);
+  END IF;
+  IF to_regclass('public.memory_audience') IS NOT NULL THEN
+    UPDATE memory_audience a SET user_id = p_new_id
+    WHERE a.user_id = p_anon_id
+      AND NOT EXISTS (SELECT 1 FROM memory_audience b WHERE b.memory_id = a.memory_id AND b.user_id = p_new_id);
+    DELETE FROM memory_audience WHERE user_id = p_anon_id;
+  END IF;
+
   UPDATE trips               SET user_id = p_new_id WHERE user_id = p_anon_id;
   GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
 

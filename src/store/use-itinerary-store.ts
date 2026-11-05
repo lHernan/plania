@@ -20,6 +20,23 @@ import {
   writePackingChange,
   type PackingPatch,
 } from "@/lib/packing-sync";
+import {
+  MEMORIES_TABLE,
+  MEMORY_AUDIENCE_TABLE,
+  MEMORY_NOTE_MAX,
+  MEMORY_PHOTOS_TABLE,
+  fetchTripMembers,
+  isMissingMemoriesTable,
+  loadTripMemories,
+  removeMemoryObjects,
+  saveMemoryAudienceChoice,
+  uploadMemoryPhotos,
+  type MemoryError,
+  type MemoryPatch,
+  type NewMemory,
+} from "@/lib/memories-sync";
+import { forgetMemoryPhotoUrl } from "@/lib/memory-photos";
+import { compressImage } from "@/lib/image-compress";
 import { removeCachedDocument } from "@/lib/offline-documents";
 import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
 import {
@@ -42,6 +59,8 @@ import type {
   BookingDetails,
   CriticalReservation,
   FocusArea,
+  Memory,
+  MemoryAudience,
   PackingList,
   PackingRecord,
   PackingScope,
@@ -49,6 +68,7 @@ import type {
   ShoppingItem,
   TripDay,
   TripPlan,
+  TripMember,
   TripShareUser,
   TripSummary,
   TravelContext,
@@ -178,6 +198,24 @@ type Store = {
   setTripCover: (file: File) => Promise<{ error?: TripCoverError }>;
   /** Back to the default placeholder: clears the trip's cover and removes its object. */
   removeTripCover: () => Promise<{ error?: TripCoverError }>;
+  // Memories (trip_memories_migration.sql) are online-only: every action answers "offline"
+  // without a connection and "draft" for a trip that is not saved yet, before any request.
+  // Only the author edits, deletes or changes the audience of a memory ("forbidden" otherwise).
+  /** The owner and everyone the trip is shared with, for any member (trip_members). */
+  loadTripMembers: (tripId: string) => Promise<{ members: TripMember[]; error?: MemoryError }>;
+  /**
+   * Saves a memory of the active trip, then its audience and photos (compressed, uploaded to
+   * trip-memories/<trip>/<memory>/). A photo that fails keeps the memory: failedPhotos holds
+   * the indexes of input.photos that were not saved.
+   */
+  createMemory: (input: NewMemory) => Promise<{ error?: MemoryError; memoryId?: string; failedPhotos?: number[] }>;
+  updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<{ error?: MemoryError }>;
+  /** Removes the photo objects (best effort) and then the memory; photos and audience rows cascade. */
+  deleteMemory: (memoryId: string) => Promise<{ error?: MemoryError }>;
+  addMemoryPhotos: (memoryId: string, files: File[]) => Promise<{ error?: MemoryError; failedPhotos?: number[] }>;
+  removeMemoryPhoto: (memoryId: string, photoId: string) => Promise<{ error?: MemoryError }>;
+  /** "trip" shares it with every member; "selected" only with userIds (the author always sees it). */
+  setMemoryAudience: (memoryId: string, audience: MemoryAudience, userIds: string[]) => Promise<{ error?: MemoryError }>;
   switchTrip: (tripId: string) => Promise<void>;
   clearData: () => void;
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
@@ -490,6 +528,35 @@ function newTripContext(context?: TravelContext) {
   return withTripCurrency(context, resolvePreferredCurrency(useAuthStore.getState().user));
 }
 
+/** The chosen people besides the author, once each. */
+function otherMembers(userIds: string[], authorId: string): string[] {
+  return [...new Set(userIds)].filter((userId) => userId !== authorId);
+}
+
+type MemoryColumns = { activity_id?: string | null; note?: string | null; rating?: number | null };
+
+/**
+ * The memories columns a create or patch sets, or null when a value is invalid: the activity
+ * must be one of this trip's, the rating a whole 1-5 and the note within its limit.
+ */
+function memoryFields(trip: TripPlan, patch: MemoryPatch): MemoryColumns | null {
+  const fields: MemoryColumns = {};
+  if (patch.activityId !== undefined) {
+    if (patch.activityId !== null && !trip.days.some((day) => day.activities.some((activity) => activity.id === patch.activityId))) return null;
+    fields.activity_id = patch.activityId;
+  }
+  if (patch.note !== undefined) {
+    const note = patch.note?.trim() ?? "";
+    if (note.length > MEMORY_NOTE_MAX) return null;
+    fields.note = note || null;
+  }
+  if (patch.rating !== undefined) {
+    if (patch.rating !== null && !(Number.isInteger(patch.rating) && patch.rating >= 1 && patch.rating <= 5)) return null;
+    fields.rating = patch.rating;
+  }
+  return fields;
+}
+
 function isOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
@@ -597,6 +664,40 @@ export const useItineraryStore = create<Store>((set, get) => {
       trips: state.trips.map((trip) => (trip.id === tripId ? { ...trip, coverPath } : trip)),
     }));
   };
+
+  /** Draft, offline and signed-out checks shared by every memory action (no request is made). */
+  const guardMemoryAction = (): { trip: TripPlan; userId: string } | { error: MemoryError } => {
+    const trip = get().activeTrip;
+    if (!trip) return { error: "forbidden" };
+    // A draft has no row yet, so a memory has no trip to belong to.
+    if (get().activeTripIsDraft) return { error: "draft" };
+    if (!isOnline()) return { error: "offline" };
+    const userId = getCurrentUserId();
+    if (!userId) return { error: "forbidden" };
+    return { trip, userId };
+  };
+
+  /** Only the author changes a memory; RLS enforces it anyway. */
+  const guardOwnMemory = (memoryId: string): { trip: TripPlan; userId: string; memory: Memory } | { error: MemoryError } => {
+    const guard = guardMemoryAction();
+    if ("error" in guard) return guard;
+    const memory = guard.trip.memories?.find((entry) => entry.id === memoryId);
+    if (!memory || memory.authorId !== guard.userId) return { error: "forbidden" };
+    return { ...guard, memory };
+  };
+
+  const memoryWriteError = (error: { code?: string; message?: string }): MemoryError => {
+    if (isMissingMemoriesTable(error)) return "unavailable";
+    return error.code === "42501" ? "forbidden" : "failed";
+  };
+
+  const writeMemories = (tripId: string, update: (memories: Memory[]) => Memory[]) =>
+    writeState((state) => ({
+      activeTrip: state.activeTrip?.id === tripId ? { ...state.activeTrip, memories: update(state.activeTrip.memories ?? []) } : state.activeTrip,
+    }));
+
+  const patchMemory = (tripId: string, memoryId: string, update: (memory: Memory) => Memory) =>
+    writeMemories(tripId, (memories) => memories.map((memory) => (memory.id === memoryId ? update(memory) : memory)));
 
   const removeTripFromCache = async (tripId: string) => {
     const userId = getCurrentUserId() ?? get().activeTrip?.userId ?? null;
@@ -815,11 +916,14 @@ export const useItineraryStore = create<Store>((set, get) => {
       canUpload: Boolean(userId) && trip.user_id === userId,
     });
     shoppingTableMissing = !shopping.remote;
+    // Never throws: a missing table or a failed query must not stop the trip from opening.
+    const memories = await loadTripMemories({ client: supabase as never, tripId: baseTripPlan.id, cached: cachedTrip?.memories });
     const tripPlan: TripPlan = normalizeTripPlan({
       ...baseTripPlan,
       shoppingItems: shopping.items,
       ignoredShoppingSuggestionKeys: cachedTrip?.ignoredShoppingSuggestionKeys ?? [],
       packing,
+      memories: memories.memories,
     });
 
     set((state) => {
@@ -1787,11 +1891,13 @@ export const useItineraryStore = create<Store>((set, get) => {
       if (!isOnline()) return { error: "offline" };
 
       const tripId = guard.trip.id;
-      const path = tripCoverObjectPath(tripId, file.type);
+      // Downscaled WebP when the browser can; otherwise the validated original.
+      const upload = await compressImage(file);
+      const path = tripCoverObjectPath(tripId, upload.type);
       try {
         const { error: uploadError } = await supabase.storage
           .from(TRIP_COVERS_BUCKET)
-          .upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
+          .upload(path, upload, { contentType: upload.type, upsert: false, cacheControl: "3600" });
         if (uploadError) return { error: /bucket not found/i.test(uploadError.message ?? "") ? "unavailable" : "upload" };
       } catch {
         return { error: "upload" };
@@ -1817,6 +1923,164 @@ export const useItineraryStore = create<Store>((set, get) => {
       if ("error" in result) return result;
       if (result.previous) await removeCoverObject(result.previous);
       await applyCoverPath(tripId, null);
+      return {};
+    },
+
+    loadTripMembers: async (tripId) => {
+      if (get().activeTripIsDraft && get().activeTrip?.id === tripId) return { members: [], error: "draft" };
+      if (!isOnline()) return { members: [], error: "offline" };
+      return fetchTripMembers(supabase as never, tripId);
+    },
+
+    createMemory: async (input) => {
+      const guard = guardMemoryAction();
+      if ("error" in guard) return guard;
+      const { trip, userId } = guard;
+      const fields = memoryFields(trip, input);
+      if (!fields || (input.audience !== "trip" && input.audience !== "selected")) return { error: "invalid" };
+
+      const memoryId = crypto.randomUUID();
+      const audienceUserIds = input.audience === "selected" ? otherMembers(input.audienceUserIds ?? [], userId) : [];
+      try {
+        // author_id is left to the database default (auth.uid()).
+        const { error } = await supabase.from(MEMORIES_TABLE).insert({
+          id: memoryId,
+          trip_id: trip.id,
+          activity_id: fields.activity_id ?? null,
+          note: fields.note ?? null,
+          rating: fields.rating ?? null,
+          audience: input.audience,
+        });
+        if (error) return { error: memoryWriteError(error) };
+        if (audienceUserIds.length > 0) {
+          const { error: audienceError } = await supabase
+            .from(MEMORY_AUDIENCE_TABLE)
+            .insert(audienceUserIds.map((user_id) => ({ memory_id: memoryId, user_id })));
+          if (audienceError) {
+            // Without its audience the memory would be the author's only: undo it instead.
+            await supabase.from(MEMORIES_TABLE).delete().eq("id", memoryId);
+            return { error: memoryWriteError(audienceError) };
+          }
+        }
+      } catch {
+        return { error: "failed" };
+      }
+
+      const { photos, failed } = await uploadMemoryPhotos(supabase as never, { tripId: trip.id, memoryId, files: input.photos ?? [], firstSortOrder: 0 });
+      const now = new Date().toISOString();
+      const memory: Memory = {
+        id: memoryId,
+        tripId: trip.id,
+        activityId: fields.activity_id ?? null,
+        authorId: userId,
+        note: fields.note ?? null,
+        rating: fields.rating ?? null,
+        audience: input.audience,
+        audienceUserIds,
+        photos,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await writeMemories(trip.id, (memories) => [...memories, memory]);
+      saveMemoryAudienceChoice(trip.id, input.audience);
+      return { memoryId, failedPhotos: failed };
+    },
+
+    updateMemory: async (memoryId, patch) => {
+      const guard = guardOwnMemory(memoryId);
+      if ("error" in guard) return guard;
+      const fields = memoryFields(guard.trip, patch);
+      if (!fields) return { error: "invalid" };
+      if (Object.keys(fields).length === 0) return {};
+      try {
+        const { error } = await supabase.from(MEMORIES_TABLE).update(fields).eq("id", memoryId);
+        if (error) return { error: memoryWriteError(error) };
+      } catch {
+        return { error: "failed" };
+      }
+      await patchMemory(guard.trip.id, memoryId, (memory) => ({
+        ...memory,
+        ...("activity_id" in fields ? { activityId: fields.activity_id ?? null } : {}),
+        ...("note" in fields ? { note: fields.note ?? null } : {}),
+        ...("rating" in fields ? { rating: fields.rating ?? null } : {}),
+        updatedAt: new Date().toISOString(),
+      }));
+      return {};
+    },
+
+    deleteMemory: async (memoryId) => {
+      const guard = guardOwnMemory(memoryId);
+      if ("error" in guard) return guard;
+      // Objects first: the storage delete policy needs the memory row to recognise its author.
+      const paths = guard.memory.photos.map((photo) => photo.path);
+      await removeMemoryObjects(supabase as never, paths);
+      paths.forEach(forgetMemoryPhotoUrl);
+      try {
+        const { error } = await supabase.from(MEMORIES_TABLE).delete().eq("id", memoryId);
+        if (error) return { error: memoryWriteError(error) };
+      } catch {
+        return { error: "failed" };
+      }
+      await writeMemories(guard.trip.id, (memories) => memories.filter((memory) => memory.id !== memoryId));
+      return {};
+    },
+
+    addMemoryPhotos: async (memoryId, files) => {
+      const guard = guardOwnMemory(memoryId);
+      if ("error" in guard) return guard;
+      const firstSortOrder = guard.memory.photos.reduce((max, photo) => Math.max(max, photo.sortOrder + 1), 0);
+      const { photos, failed } = await uploadMemoryPhotos(supabase as never, { tripId: guard.trip.id, memoryId, files, firstSortOrder });
+      if (photos.length > 0) await patchMemory(guard.trip.id, memoryId, (memory) => ({ ...memory, photos: [...memory.photos, ...photos] }));
+      return { failedPhotos: failed };
+    },
+
+    removeMemoryPhoto: async (memoryId, photoId) => {
+      const guard = guardOwnMemory(memoryId);
+      if ("error" in guard) return guard;
+      const photo = guard.memory.photos.find((entry) => entry.id === photoId);
+      if (!photo) return { error: "invalid" };
+      try {
+        const { error } = await supabase.from(MEMORY_PHOTOS_TABLE).delete().eq("id", photoId);
+        if (error) return { error: memoryWriteError(error) };
+      } catch {
+        return { error: "failed" };
+      }
+      await removeMemoryObjects(supabase as never, [photo.path]);
+      forgetMemoryPhotoUrl(photo.path);
+      await patchMemory(guard.trip.id, memoryId, (memory) => ({ ...memory, photos: memory.photos.filter((entry) => entry.id !== photoId) }));
+      return {};
+    },
+
+    setMemoryAudience: async (memoryId, audience, userIds) => {
+      const guard = guardOwnMemory(memoryId);
+      if ("error" in guard) return guard;
+      if (audience !== "trip" && audience !== "selected") return { error: "invalid" };
+      const current = guard.memory.audienceUserIds;
+      const next = audience === "selected" ? otherMembers(userIds, guard.userId) : [];
+      const added = next.filter((userId) => !current.includes(userId));
+      const removed = current.filter((userId) => !next.includes(userId));
+      // The order never shows it to someone not chosen: new people are added before the memory
+      // is restricted, and old ones are dropped only after it is restricted or widened.
+      // Rows already added by a failed earlier attempt are skipped, and the audience is always
+      // sent: another device of the author may have changed it since this one loaded.
+      try {
+        if (added.length > 0) {
+          const { error } = await supabase
+            .from(MEMORY_AUDIENCE_TABLE)
+            .upsert(added.map((user_id) => ({ memory_id: memoryId, user_id })), { onConflict: "memory_id,user_id", ignoreDuplicates: true });
+          if (error) return { error: memoryWriteError(error) };
+        }
+        const { error: audienceError } = await supabase.from(MEMORIES_TABLE).update({ audience }).eq("id", memoryId);
+        if (audienceError) return { error: memoryWriteError(audienceError) };
+        if (removed.length > 0) {
+          const { error } = await supabase.from(MEMORY_AUDIENCE_TABLE).delete().eq("memory_id", memoryId).in("user_id", removed);
+          if (error) return { error: memoryWriteError(error) };
+        }
+      } catch {
+        return { error: "failed" };
+      }
+      await patchMemory(guard.trip.id, memoryId, (memory) => ({ ...memory, audience, audienceUserIds: next, updatedAt: new Date().toISOString() }));
+      saveMemoryAudienceChoice(guard.trip.id, audience);
       return {};
     },
 

@@ -180,6 +180,8 @@ export type TripPlan = {
   ignoredShoppingSuggestionKeys: string[];
   /** Server packing lists (personal + shared); absent for the sample trip and before the first load. */
   packing?: TripPacking;
+  /** Memories the caller may see (trip_memories_migration.sql); absent before the first load. */
+  memories?: Memory[];
 };
 
 export type ArrivalTransportMode = "public_transport" | "taxi" | "ride_hailing" | "private_transfer" | "other";
@@ -483,4 +485,42 @@ export type TripPacking = {
   remote: boolean;
   /** The caller's access to the shared list. */
   role: PackingRole;
+};
+
+/** Who sees a memory: every member of the trip, or only the author and the chosen members. */
+export type MemoryAudience = "trip" | "selected";
+
+export type MemoryPhoto = {
+  id: string;
+  memoryId: string;
+  tripId: string;
+  /** Object path in the private trip-memories bucket: `<tripId>/<memoryId>/<uuid>.<ext>`. */
+  path: string;
+  caption: string | null;
+  sortOrder: number;
+  createdAt?: string;
+};
+
+/** A memory of a trip, optionally about one of its activities. */
+export type Memory = {
+  id: string;
+  tripId: string;
+  activityId: string | null;
+  authorId: string;
+  note: string | null;
+  /** 1-5, or null when not rated. */
+  rating: number | null;
+  audience: MemoryAudience;
+  /** The members a "selected" memory is shared with (besides its author). */
+  audienceUserIds: string[];
+  photos: MemoryPhoto[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Someone on the trip: its owner or a person it is shared with (any role). */
+export type TripMember = {
+  userId: string;
+  email: string | null;
+  isOwner: boolean;
 };
