@@ -145,16 +145,9 @@ describe("MyTrips", () => {
     await waitFor(() => expect(actions.deleteTrip).toHaveBeenCalledWith("past"));
   });
 
-  it("creates a new trip with a name and optional dates, then opens it", async () => {
-    actions.createTrip.mockImplementationOnce(async () => {
-      useItineraryStore.setState({ activeTrip: { id: "new-1" } as never });
-    });
+  it("creates a new trip with the same planner as the home page", () => {
     renderWithI18n(<MyTrips />);
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo viaje" }));
-    fireEvent.change(screen.getByPlaceholderText("Nombre del viaje, p. ej. Tokio 2026"), { target: { value: "Oporto" } });
-    fireEvent.click(screen.getByRole("button", { name: "Crear viaje" }));
-    await waitFor(() => expect(actions.createTrip).toHaveBeenCalledWith("Oporto", undefined, undefined));
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/new-1"));
+    expect(screen.getByRole("link", { name: "Nuevo viaje" }).getAttribute("href")).toBe("/plan");
   });
 
   it("links back to the current trip when there is one", () => {
@@ -167,7 +160,7 @@ describe("MyTrips", () => {
     seed([]);
     renderWithI18n(<MyTrips />);
     expect(screen.getByRole("heading", { name: "Aún no tienes viajes" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Crear un viaje" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Crear un viaje" }).getAttribute("href")).toBe("/plan");
     expect(screen.getByText(TRIP_TEMPLATES[0].name)).toBeTruthy();
     const template = TRIP_TEMPLATES[0];
     act(() => {

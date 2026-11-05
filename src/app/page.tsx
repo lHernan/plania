@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, LayoutTemplate, Plus, Loader2 } from "lucide-react";
@@ -83,6 +84,14 @@ export default function Home() {
     <main className="min-h-screen bg-[var(--color-bg)] p-4 md:p-8 overflow-hidden relative">
       {/* Top bar */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        {user && !user.is_anonymous && (
+          <Link
+            href="/trips"
+            className="bg-[var(--color-surface)]/80 backdrop-blur border border-[var(--color-border)] rounded-full px-3 py-2 text-xs font-bold text-[var(--color-primary)] min-h-[36px] flex items-center"
+          >
+            {t("account_menu_my_trips")}
+          </Link>
+        )}
         {user && !user.is_anonymous && (
           <button
             onClick={() => void signOut()}

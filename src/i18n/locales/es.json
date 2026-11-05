@@ -994,5 +994,6 @@
   "trip_set_dates_confirm": "Guardar fechas",
   "trip_set_dates_offline": "Conéctate a internet para fijar las fechas.",
   "trip_set_dates_failed": "No se pudieron guardar las fechas. Inténtalo de nuevo.",
-  "packing_no_dates_undated": "Fija las fechas del viaje en Resumen para generar una lista de equipaje inteligente."
+  "packing_no_dates_undated": "Fija las fechas del viaje en Resumen para generar una lista de equipaje inteligente.",
+  "account_menu_home": "Inicio"
 }

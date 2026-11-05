@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, HelpCircle, LogIn, LogOut, Luggage, Monitor, Moon, Sun, User as UserIcon } from "lucide-react";
+import { Check, HelpCircle, Home, LogIn, LogOut, Luggage, Monitor, Moon, Sun, User as UserIcon } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 
 export type ThemeMode = "light" | "dark" | "system";
@@ -151,6 +151,10 @@ export function AccountMenu({
           </p>
           <div role="separator" className="my-1 h-px bg-[var(--color-border)]" />
 
+          <Link href="/" role="menuitem" tabIndex={-1} onClick={() => close(false)} className={itemClass}>
+            <Home size={14} aria-hidden="true" />
+            {t("account_menu_home")}
+          </Link>
           <Link href="/trips" role="menuitem" tabIndex={-1} onClick={() => close(false)} className={itemClass}>
             <Luggage size={14} aria-hidden="true" />
             {t("account_menu_my_trips")}

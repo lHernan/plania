@@ -56,6 +56,28 @@ describe("AuthInitializer routes", () => {
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/t-9"));
   });
 
+  it("lets a user who goes back to the home page stay there", async () => {
+    nav.pathname = "/trips/t-9";
+    const { rerender } = render(<AuthInitializer />);
+    act(() => useItineraryStore.setState({ activeTrip: trip("t-9") as never, hasFetched: true }));
+    await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
+    nav.pathname = "/";
+    rerender(<AuthInitializer />);
+    await act(async () => {});
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it("still opens a trip picked on the home page after going back to it", async () => {
+    nav.pathname = "/trips/t-9";
+    const { rerender } = render(<AuthInitializer />);
+    act(() => useItineraryStore.setState({ activeTrip: trip("t-9") as never, hasFetched: true }));
+    nav.pathname = "/";
+    rerender(<AuthInitializer />);
+    act(() => useItineraryStore.setState({ activeTrip: trip("draft-1") as never }));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips/draft-1"));
+    expect(nav.push).not.toHaveBeenCalledWith("/trips/t-9");
+  });
+
   it("keeps /trips as the trip list instead of opening the active trip", async () => {
     nav.pathname = "/trips";
     render(<AuthInitializer />);
@@ -97,6 +119,17 @@ describe("AuthInitializer routes", () => {
       act(() => useItineraryStore.setState({ trips: [], activeTrip: null, hasFetched: true, loading: false }));
       await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/trips"));
       expect(nav.push).not.toHaveBeenCalledWith("/");
+    });
+
+    it("with no trips can go from the trip list to the home page and stay there", async () => {
+      nav.pathname = "/trips";
+      const { rerender } = render(<AuthInitializer />);
+      act(() => useItineraryStore.setState({ trips: [], activeTrip: null, hasFetched: true, loading: false }));
+      await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
+      nav.pathname = "/";
+      rerender(<AuthInitializer />);
+      await act(async () => {});
+      expect(nav.push).not.toHaveBeenCalled();
     });
 
     it("with no trips stays on the trip list", async () => {

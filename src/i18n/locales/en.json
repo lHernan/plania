@@ -994,5 +994,6 @@
   "trip_set_dates_confirm": "Save dates",
   "trip_set_dates_offline": "Connect to the internet to set the dates.",
   "trip_set_dates_failed": "Could not save the dates. Try again.",
-  "packing_no_dates_undated": "Set the trip dates in Summary to generate a smart packing list."
+  "packing_no_dates_undated": "Set the trip dates in Summary to generate a smart packing list.",
+  "account_menu_home": "Home"
 }

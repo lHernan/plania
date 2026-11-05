@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Plus, Share2, Star, Trash2, WifiOff } from "lucide-react";
+import { ArrowLeft, Plus, Share2, Star, Trash2, WifiOff } from "lucide-react";
 import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { AuthModal } from "@/components/AuthModal";
 import { useI18n } from "@/components/I18nProvider";
@@ -70,19 +70,14 @@ export function MyTrips() {
     hasFetched,
     loading,
     fetchSharedTrips,
-    createTrip,
     deleteTrip,
     setTripFavorite,
     loadTemplate,
   } = useItineraryStore();
 
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
-  const [showCreate, setShowCreate] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [newStartDate, setNewStartDate] = useState("");
-  const [newEndDate, setNewEndDate] = useState("");
   const todayStr = getCurrentDateString();
   const userId = user?.id;
 
@@ -117,23 +112,6 @@ export function MyTrips() {
   const hasAnyTrip = groups.length > 0;
   const isLoading = !hasAnyTrip && (!initialized || !hasFetched || loading);
   const signedInEmail = user && !user.is_anonymous ? user.email ?? "" : null;
-
-  const openCreatedTrip = (previousId: string | undefined) => {
-    const openedId = useItineraryStore.getState().activeTrip?.id;
-    if (openedId && openedId !== previousId) router.push(tripPath(openedId));
-  };
-
-  const handleCreate = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!newName.trim()) return;
-    const previousId = useItineraryStore.getState().activeTrip?.id;
-    await createTrip(newName, newStartDate || undefined, newEndDate || undefined);
-    setNewName("");
-    setNewStartDate("");
-    setNewEndDate("");
-    setShowCreate(false);
-    openCreatedTrip(previousId);
-  };
 
   const handleTemplate = (template: TripTemplate) => {
     loadTemplate(template.plan);
@@ -215,8 +193,6 @@ export function MyTrips() {
     );
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-4 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30";
   const gridClass = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
 
   return (
@@ -227,14 +203,13 @@ export function MyTrips() {
           <h1 className="flex-1 truncate text-lg font-black tracking-tight text-[var(--color-text)] font-[family-name:var(--font-display)]">
             {t("my_trips_title")}
           </h1>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
+          <Link
+            href="/plan"
             className="flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-3 text-xs font-black text-white hover:bg-[var(--color-primary-hover)]"
           >
             <Plus size={14} aria-hidden="true" />
             {t("switcher_new_trip")}
-          </button>
+          </Link>
           <AccountMenu email={signedInEmail} onSignOut={() => void signOut()} onSignIn={() => setShowAuthModal(true)} />
         </div>
         {activeTrip && (
@@ -253,45 +228,6 @@ export function MyTrips() {
             <WifiOff size={14} aria-hidden="true" />
             {t("my_trips_offline")}
           </p>
-        )}
-
-        {showCreate && (
-          <form onSubmit={handleCreate} className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:max-w-md">
-            <input
-              autoFocus
-              type="text"
-              placeholder={t("switcher_trip_name_placeholder")}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className={inputClass}
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1">
-                <span className="ml-1 block text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)]">{t("switcher_start")}</span>
-                <input type="date" min={todayStr} value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} className={inputClass} />
-              </label>
-              <label className="space-y-1">
-                <span className="ml-1 block text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)]">{t("switcher_end")}</span>
-                <input type="date" min={newStartDate || todayStr} value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} className={inputClass} />
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={loading || !newName.trim()}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : t("switcher_create_trip")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="min-h-11 rounded-xl bg-[var(--color-surface-subtle)] px-5 text-xs font-bold text-[var(--color-text-secondary)]"
-              >
-                {t("cancel")}
-              </button>
-            </div>
-          </form>
         )}
 
         {isLoading ? (
@@ -314,14 +250,13 @@ export function MyTrips() {
             <div className="space-y-3 rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
               <h2 className="text-xl font-black text-[var(--color-text)] font-[family-name:var(--font-display)]">{t("my_trips_empty_title")}</h2>
               <p className="text-sm text-[var(--color-text-secondary)]">{t("my_trips_empty_body")}</p>
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
+              <Link
+                href="/plan"
                 className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[var(--color-primary)] px-6 text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-[var(--color-primary-hover)]"
               >
                 <Plus size={16} aria-hidden="true" />
                 {t("my_trips_create_first")}
-              </button>
+              </Link>
             </div>
             <div className="space-y-3">
               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">{t("landing_examples_title")}</h3>
