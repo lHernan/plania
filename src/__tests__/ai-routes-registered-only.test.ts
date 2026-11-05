@@ -21,6 +21,8 @@ const runAiPrompt = vi.mocked(provider.runAiPrompt);
 const chat = await import("@/app/api/chat/route");
 const packing = await import("@/app/api/packing-list/route");
 const detectCodes = await import("@/app/api/detect-codes/route");
+const tripSummary = await import("@/app/api/trips/[tripId]/summary/route");
+const memoryCaption = await import("@/app/api/memories/caption/route");
 
 const json = (url: string, body: unknown) =>
   new Request(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer t" }, body: JSON.stringify(body) });
@@ -79,6 +81,30 @@ describe("AI routes reject anonymous guests", () => {
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "unauthorized" });
     expect(detectCodeRegions).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an anonymous guest", { id: "anon", is_anonymous: true }],
+    ["no session", null],
+  ])("trip summary: 401 for %s without reading the trip or calling the AI", async (_who, user) => {
+    auth.user = user;
+    const res = await tripSummary.POST(json("http://localhost/api/trips/t1/summary", { lang: "es" }), { params: Promise.resolve({ tripId: "t1" }) });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+    expect(auth.from).not.toHaveBeenCalled();
+    expect(runAiPrompt).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an anonymous guest", { id: "anon", is_anonymous: true }],
+    ["no session", null],
+  ])("memory caption: 401 for %s without reading the trip or calling the AI", async (_who, user) => {
+    auth.user = user;
+    const res = await memoryCaption.POST(json("http://localhost/api/memories/caption", { tripId: "t1", activityTitle: "Museo", lang: "es" }));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+    expect(auth.from).not.toHaveBeenCalled();
+    expect(runAiPrompt).not.toHaveBeenCalled();
   });
 
   it("detect codes: still answers a registered user", async () => {

@@ -1061,5 +1061,18 @@
   "memories_trip_heading": "Del viaje",
   "memories_activity_list": "Recuerdos de «{title}»",
   "memories_map_link": "Ver en el mapa lo que tachaste",
-  "memories_story_empty": "Todavía no hay actividades tachadas ni recuerdos."
+  "memories_story_empty": "Todavía no hay actividades tachadas ni recuerdos.",
+  "tachi_action_trip_summary": "Resume mi viaje",
+  "trip_summary_loading": "Tachi está resumiendo tu viaje…",
+  "trip_summary_copy": "Copiar",
+  "trip_summary_copied": "Copiado",
+  "trip_summary_regenerate": "Volver a generar",
+  "trip_summary_offline": "Sin conexión. Tachi necesita internet para resumir tu viaje.",
+  "trip_summary_error": "Tachi no pudo resumir tu viaje. Inténtalo de nuevo.",
+  "memories_summarize_with_tachi": "Resume mi viaje con Tachi",
+  "memory_caption_suggest": "Sugerir pie de foto",
+  "memory_caption_suggesting": "Pensando…",
+  "memory_caption_note_filled": "Disponible cuando la nota está vacía",
+  "memory_caption_offline": "Sin conexión. No se puede sugerir un pie de foto.",
+  "memory_caption_error": "No se pudo sugerir un pie de foto. Inténtalo de nuevo."
 }

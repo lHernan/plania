@@ -18,6 +18,7 @@ const { MemoryEditor } = await import("@/components/memories/MemoryEditor");
 const { MemoryCard } = await import("@/components/memories/MemoryCard");
 const { clearTripMembersCache } = await import("@/components/memories/use-trip-members");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
+const { useAuthStore } = await import("@/store/use-auth-store");
 
 const members: TripMember[] = [
   { userId: "owner", email: "ana@x.io", isOwner: true },
@@ -66,6 +67,7 @@ beforeEach(() => {
   Object.values(actions).forEach((action) => action.mockClear());
   onClose.mockClear();
   useItineraryStore.setState({ ...actions, activeTrip: null } as never);
+  useAuthStore.setState({ user: null } as never);
 });
 afterEach(cleanup);
 
@@ -188,6 +190,66 @@ describe("MemoryEditor", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Eliminar" }));
     await waitFor(() => expect(actions.deleteMemory).toHaveBeenCalledWith("m1"));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("MemoryEditor: suggested caption (S4)", () => {
+  const SUGGEST = "Sugerir pie de foto";
+  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ caption: "Miles de toriis al amanecer" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => true });
+    useItineraryStore.setState({
+      activeTrip: { id: "t", days: [{ id: "d1", city: "Kyoto", activities: [{ id: "a1", title: "Fushimi Inari" }] }] },
+    } as never);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    ["guests", { id: "me", is_anonymous: true }],
+    ["nobody signed in", null],
+  ])("is not offered to %s", async (_who, user) => {
+    useAuthStore.setState({ user } as never);
+    await renderEditor();
+    expect(screen.queryByRole("button", { name: SUGGEST })).toBeNull();
+  });
+
+  it("fills an empty note with the suggestion for a registered user", async () => {
+    useAuthStore.setState({ user: { id: "me", is_anonymous: false } } as never);
+    await renderEditor();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: SUGGEST }));
+    });
+    await waitFor(() => expect((screen.getByLabelText("Nota") as HTMLTextAreaElement).value).toBe("Miles de toriis al amanecer"));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/memories/caption");
+    expect(JSON.parse(String(init?.body))).toEqual({ tripId: "t", activityTitle: "Fushimi Inari", city: "Kyoto", lang: "es" });
+  });
+
+  it("never overwrites a note the user wrote: the button is disabled while the note has text", async () => {
+    useAuthStore.setState({ user: { id: "me", is_anonymous: false } } as never);
+    await renderEditor({ memory: memory() });
+    const button = screen.getByRole("button", { name: SUGGEST }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((screen.getByLabelText("Nota") as HTMLTextAreaElement).value).toBe("Great sunset");
+    fireEvent.change(screen.getByLabelText("Nota"), { target: { value: "  " } });
+    expect(button.disabled).toBe(false);
+  });
+
+  it("says it is offline without calling the route", async () => {
+    useAuthStore.setState({ user: { id: "me", is_anonymous: false } } as never);
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
+    await renderEditor();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: SUGGEST }));
+    });
+    expect(screen.getByRole("alert").textContent).toContain("Sin conexión");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

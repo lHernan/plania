@@ -30,6 +30,8 @@ export function TachiSheet({
   place,
   activity,
   actions,
+  panelId: controlledPanelId,
+  onPanelChange,
   children,
 }: {
   tripId: string;
@@ -38,16 +40,24 @@ export function TachiSheet({
   /** Title of the activity the user opened Tachi from, when there is one. */
   activity?: string;
   actions: TachiAction[];
+  /**
+   * The action whose panel is open, when the parent controls it (e.g. to open Tachi straight
+   * on a panel from elsewhere). Left undefined, the sheet keeps it on its own.
+   */
+  panelId?: string | null;
+  onPanelChange?: (panelId: string | null) => void;
   /** Extra hints for this context (e.g. schedule fixes for the day). */
   children?: ReactNode;
 }) {
   const { t } = useI18n();
   const isOpen = useChatStore((s) => s.isOpen);
   const close = useChatStore((s) => s.close);
-  const [panelId, setPanelId] = useState<string | null>(null);
+  const [ownPanelId, setOwnPanelId] = useState<string | null>(null);
+  const panelId = controlledPanelId !== undefined ? controlledPanelId : ownPanelId;
+  const setPanelId = onPanelChange ?? setOwnPanelId;
   const [showAll, setShowAll] = useState(false);
   const shown = showAll ? actions : actions.slice(0, MAX_TACHI_ACTIONS);
-  const panel = shown.find((action) => action.id === panelId && action.panel);
+  const panel = actions.find((action) => action.id === panelId && action.panel);
 
   useEffect(() => {
     if (!isOpen) return;
