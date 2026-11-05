@@ -11,6 +11,15 @@ import {
   shoppingItemToDb,
   shoppingPatchToDb,
 } from "@/lib/shopping/db";
+import {
+  isMissingPackingTable,
+  loadTripPacking,
+  packingListToRecords,
+  recordsOf,
+  savePackingMeta,
+  writePackingChange,
+  type PackingPatch,
+} from "@/lib/packing-sync";
 import { removeCachedDocument } from "@/lib/offline-documents";
 import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
 import {
@@ -33,6 +42,9 @@ import type {
   BookingDetails,
   CriticalReservation,
   FocusArea,
+  PackingList,
+  PackingRecord,
+  PackingScope,
   SharedTripSummary,
   ShoppingItem,
   TripDay,
@@ -42,7 +54,9 @@ import type {
   TravelContext,
 } from "@/lib/types";
 import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
+import { resolvePreferredCurrency, withTripCurrency } from "@/lib/trip-currency";
 import { tripTimeZone } from "@/lib/day-genius/context";
+import { consecutiveDates, isTripUndated, withoutUndatedFlag } from "@/lib/trip-undated";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 
@@ -73,6 +87,7 @@ type ActivityDb = {
   maps_url?: string | null;
   reservation_url?: string | null;
   expected_cost?: number | null;
+  actual_cost?: number | null;
   category: Activity["category"];
   priority: Activity["priority"];
   state: ActivityState;
@@ -145,6 +160,8 @@ type Store = {
   deleteTrip: (tripId: string) => Promise<void>;
   setTripFavorite: (tripId: string) => Promise<void>;
   saveTravelContext: (travelContext: TravelContext | null) => Promise<{ error?: string }>;
+  /** [Fijar fechas] of an undated trip: consecutive day dates from `startDate`; "offline" without a connection. */
+  setTripDates: (startDate: string) => Promise<{ error?: string }>;
   switchTrip: (tripId: string) => Promise<void>;
   clearData: () => void;
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
@@ -175,6 +192,14 @@ type Store = {
   updateShoppingItem: (itemId: string, patch: Partial<ShoppingItem>) => Promise<void>;
   removeShoppingItem: (itemId: string) => Promise<void>;
   ignoreShoppingSuggestion: (ignoreKey: string) => Promise<void>;
+  /** Generation: replaces the chosen packing list (mine, or the shared one) with a new one. */
+  replacePackingList: (scope: PackingScope, list: PackingList) => Promise<void>;
+  /** Adds a manual item to the first category of the chosen list. */
+  addPackingItem: (scope: PackingScope, name: string) => Promise<void>;
+  togglePackingItem: (itemId: string) => Promise<void>;
+  /** Shared list only: who brings the item (a trip member), or nobody. */
+  assignPackingItem: (itemId: string, userId: string | null) => Promise<void>;
+  removePackingItem: (itemId: string) => Promise<void>;
   uploadActivityFile: (activityId: string, file: File) => Promise<void>;
   deleteActivityFile: (fileId: string) => Promise<void>;
   setFileFocusArea: (fileId: string, focusArea: FocusArea | null) => Promise<void>;
@@ -215,6 +240,8 @@ export const mapActivityFromDb = (db: ActivityDb): Activity => ({
   mapsUrl: db.maps_url ?? undefined,
   reservationUrl: db.reservation_url ?? undefined,
   expectedCost: db.expected_cost ?? undefined,
+  // Undefined when the column is absent or empty; select("*") never fails over it.
+  actualCost: db.actual_cost ?? undefined,
   category: db.category,
   priority: db.priority,
   state: db.state,
@@ -249,6 +276,8 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   // undefined origin would be sent as NULL (or as an unknown column before the migration).
   ...(activity.origin !== undefined ? { origin: activity.origin } : {}),
   ...(activity.booking !== undefined ? { booking: activity.booking } : {}),
+  // Only when the user set it (null clears it), for the same reason as origin.
+  ...(activity.actualCost !== undefined ? { actual_cost: activity.actualCost } : {}),
 });
 
 /**
@@ -437,6 +466,11 @@ function getCurrentUserId() {
   return useAuthStore.getState().user?.id ?? null;
 }
 
+/** The travel context a new trip is saved with: the given one, carrying a currency. */
+function newTripContext(context?: TravelContext) {
+  return withTripCurrency(context, resolvePreferredCurrency(useAuthStore.getState().user));
+}
+
 function isOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
@@ -556,8 +590,37 @@ export const useItineraryStore = create<Store>((set, get) => {
     if (error && !isMissingShoppingTable(error)) set({ error: error.message ?? "Shopping list sync failed" });
   };
 
+  /**
+   * Mirrors a packing change in Supabase (or the offline queue), like the shopping list: the
+   * sample trip and trips loaded while the packing_items migration is missing stay on this device.
+   */
+  const syncPacking = async (operation: OfflineMutationQueueEntry["operation"], payload: Record<string, unknown>) => {
+    if (get().activeTripIsDraft || !get().activeTrip?.packing?.remote) return;
+    if (!isOnline()) {
+      await enqueueMutation(operation, "packing_item", payload);
+      return;
+    }
+    const error = await writePackingChange(supabase as never, operation, payload, new Map());
+    if (error && !isMissingPackingTable(error)) set({ error: error.message ?? "Packing list sync failed" });
+  };
+
+  const writePackingItems = (update: (items: PackingRecord[]) => PackingRecord[]) =>
+    writeState((current) => ({
+      activeTrip: current.activeTrip?.packing
+        ? { ...current.activeTrip, packing: { ...current.activeTrip.packing, items: update(current.activeTrip.packing.items) } }
+        : current.activeTrip,
+    }));
+
+  const patchPackingItem = async (itemId: string, patch: PackingPatch) => {
+    if (!get().activeTrip?.packing?.items.some((item) => item.id === itemId)) return;
+    await writePackingItems((items) => items.map((item) => (item.id === itemId ? { ...item, ...patch } : item)));
+    await syncPacking("update", { itemId, patch });
+  };
+
   // The day that is today where the trip happens (its time zone, else the device's), not in UTC.
+  // An undated trip has no today: its day dates are placeholders.
   const findTripToday = (plan: TripPlan) => {
+    if (isTripUndated(plan)) return undefined;
     const today = getCurrentTripDateTime(new Date(), tripTimeZone(plan, Intl.DateTimeFormat().resolvedOptions().timeZone)).date;
     return plan.days.find((day) => day.date === today);
   };
@@ -675,6 +738,13 @@ export const useItineraryStore = create<Store>((set, get) => {
       (files ?? []) as ActivityFileDb[]
     );
     const cachedTrip = userId ? (await loadOfflineTripCache(userId))?.tripPlans?.[baseTripPlan.id] : null;
+    const packing = await loadTripPacking({
+      client: supabase as never,
+      tripId: baseTripPlan.id,
+      userId,
+      tripOwnerId: trip.user_id,
+      cached: cachedTrip?.packing,
+    });
     const shopping = await loadShoppingItems({
       client: supabase as never,
       tripId: baseTripPlan.id,
@@ -687,6 +757,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       ...baseTripPlan,
       shoppingItems: shopping.items,
       ignoredShoppingSuggestionKeys: cachedTrip?.ignoredShoppingSuggestionKeys ?? [],
+      packing,
     });
 
     set((state) => {
@@ -734,6 +805,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: startDate,
           end_date: endDate,
+          ...(payload.travelContext ? { travel_context: payload.travelContext } : {}),
         })
         .select()
         .single();
@@ -863,6 +935,12 @@ export const useItineraryStore = create<Store>((set, get) => {
       if (orderedActivityIds.length === 0) return;
       const { error } = await supabase.from("activities").upsert(orderedActivityIds);
       if (error) throw error;
+      return;
+    }
+
+    if (entry.target === "packing_item") {
+      const error = await writePackingChange(supabase as never, entry.operation, payload, idMap);
+      if (error && !isMissingPackingTable(error)) throw error;
       return;
     }
 
@@ -1158,6 +1236,7 @@ export const useItineraryStore = create<Store>((set, get) => {
 
       const finalStartDate = startDate || new Date().toISOString().split("T")[0];
       const finalEndDate = endDate || finalStartDate;
+      const travelContext = newTripContext();
 
       if (!isOnline()) {
         const tripId = createOfflineId("trip");
@@ -1170,6 +1249,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           endDate: finalEndDate,
           createdAt: new Date().toISOString(),
           isFavorite: false,
+          travelContext,
           days,
           criticalReservations: [],
           shoppingItems: [],
@@ -1190,6 +1270,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           name,
           startDate: finalStartDate,
           endDate: finalEndDate,
+          travelContext,
         });
         return;
       }
@@ -1202,6 +1283,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
+          travel_context: travelContext,
         })
         .select()
         .single();
@@ -1256,6 +1338,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
+          travel_context: newTripContext(template.travelContext?.currency ? { version: 1, currency: template.travelContext.currency } : undefined),
         })
         .select()
         .single();
@@ -1361,8 +1444,10 @@ export const useItineraryStore = create<Store>((set, get) => {
       const userId = session.user.id;
 
       set({ loading: true });
-      const finalStartDate = activeTrip.startDate || new Date().toISOString().split("T")[0];
-      const finalEndDate = activeTrip.endDate || finalStartDate;
+      // An undated trip (planned by number of days) is saved without a start or end.
+      const undated = isTripUndated(activeTrip);
+      const finalStartDate = undated ? null : activeTrip.startDate || new Date().toISOString().split("T")[0];
+      const finalEndDate = undated ? null : activeTrip.endDate || finalStartDate;
 
       const { data: newTrip, error } = await supabase
         .from("trips")
@@ -1371,8 +1456,9 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
-          // The style chosen while planning (travelers, preferences) stays with the saved trip.
-          ...(activeTrip.travelContext ? { travel_context: activeTrip.travelContext } : {}),
+          // The style chosen while planning (travelers, preferences) stays with the saved trip,
+          // which also takes the preferred currency unless the draft already has one.
+          travel_context: newTripContext(activeTrip.travelContext),
         })
         .select()
         .single();
@@ -1582,6 +1668,51 @@ export const useItineraryStore = create<Store>((set, get) => {
         activeTrip: state.activeTrip?.id === activeTrip.id
           ? { ...state.activeTrip, travelContext: normalizedContext ?? undefined }
           : state.activeTrip,
+      }));
+      return {};
+    },
+
+    setTripDates: async (startDate) => {
+      const activeTrip = get().activeTrip;
+      const userId = getCurrentUserId();
+      if (!activeTrip) return { error: "No trip to date." };
+      const dates = consecutiveDates(startDate, activeTrip.days.length);
+      const startOfTrip = dates[0] ?? startDate;
+      const endOfTrip = dates.at(-1) ?? startDate;
+      const travelContext = withoutUndatedFlag(activeTrip.travelContext);
+      const dated = (plan: TripPlan): TripPlan => ({
+        ...plan,
+        startDate: startOfTrip,
+        endDate: endOfTrip,
+        travelContext: travelContext ?? undefined,
+        days: plan.days.map((day, index) => ({ ...day, date: dates[index] ?? day.date })),
+      });
+
+      // A draft lives only on this device until it is saved.
+      if (get().activeTripIsDraft) {
+        set((state) => ({ activeTrip: state.activeTrip?.id === activeTrip.id ? dated(state.activeTrip) : state.activeTrip }));
+        return {};
+      }
+      if (!userId || activeTrip.userId !== userId) return { error: "Only the trip owner can set its dates." };
+      // Every day changes at once, so it is not queued for later like a single edit.
+      if (!isOnline()) return { error: "offline" };
+
+      // Days first, in order: the trip only stops being undated once they all have their date.
+      const dayResults = await Promise.all(
+        activeTrip.days.map((day, index) => supabase.from("trip_days").update({ date: dates[index] }).eq("id", day.id)),
+      );
+      const dayError = dayResults.find((result) => result.error)?.error;
+      if (dayError) return { error: dayError.message };
+
+      const { error } = await supabase
+        .from("trips")
+        .update({ start_date: startOfTrip, end_date: endOfTrip, travel_context: travelContext })
+        .eq("id", activeTrip.id)
+        .eq("user_id", userId);
+      if (error) return { error: error.message };
+
+      await writeState((state) => ({
+        activeTrip: state.activeTrip?.id === activeTrip.id ? dated(state.activeTrip) : state.activeTrip,
       }));
       return {};
     },
@@ -2205,6 +2336,60 @@ export const useItineraryStore = create<Store>((set, get) => {
             }
           : null,
       }));
+    },
+
+    replacePackingList: async (scope, list) => {
+      const activeTrip = get().activeTrip;
+      const ownerId = getCurrentUserId();
+      if (!activeTrip?.packing || !ownerId) return;
+      const previousIds = recordsOf(activeTrip.packing.items, scope, ownerId).map((item) => item.id);
+      const nextItems = packingListToRecords(list, scope, ownerId);
+      await writePackingItems((items) => [...items.filter((item) => !previousIds.includes(item.id)), ...nextItems]);
+      savePackingMeta(activeTrip.id, scope, { generatedAt: list.generatedAt, weatherSummaries: list.weatherSummaries });
+      if (previousIds.length > 0) await syncPacking("delete", { itemIds: previousIds });
+      await syncPacking("create", { tripId: activeTrip.id, items: nextItems });
+    },
+
+    addPackingItem: async (scope, name) => {
+      const activeTrip = get().activeTrip;
+      const ownerId = getCurrentUserId();
+      const trimmed = name.trim();
+      if (!activeTrip?.packing || !ownerId || !trimmed) return;
+      const current = recordsOf(activeTrip.packing.items, scope, ownerId);
+      const firstCategory = current[0]?.category;
+      if (firstCategory === undefined) return;
+      const item: PackingRecord = {
+        id: crypto.randomUUID(),
+        name: trimmed,
+        quantity: 1,
+        reason: "Manually added",
+        status: "pending",
+        scope,
+        category: firstCategory,
+        ownerId: scope === "personal" ? ownerId : null,
+        assignedTo: null,
+        sortOrder: Math.max(...current.map((entry) => entry.sortOrder)) + 1,
+      };
+      await writePackingItems((items) => [...items, item]);
+      await syncPacking("create", { tripId: activeTrip.id, items: [item] });
+    },
+
+    togglePackingItem: async (itemId) => {
+      const item = get().activeTrip?.packing?.items.find((entry) => entry.id === itemId);
+      if (!item) return;
+      await patchPackingItem(itemId, { status: item.status === "packed" ? "pending" : "packed" });
+    },
+
+    assignPackingItem: async (itemId, userId) => {
+      const item = get().activeTrip?.packing?.items.find((entry) => entry.id === itemId);
+      if (!item || item.scope !== "shared") return;
+      await patchPackingItem(itemId, { assignedTo: userId });
+    },
+
+    removePackingItem: async (itemId) => {
+      if (!get().activeTrip?.packing?.items.some((item) => item.id === itemId)) return;
+      await writePackingItems((items) => items.filter((item) => item.id !== itemId));
+      await syncPacking("delete", { itemIds: [itemId] });
     },
 
     uploadActivityFile: async (activityId, file) => {

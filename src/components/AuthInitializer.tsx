@@ -35,6 +35,11 @@ export function AuthInitializer() {
   }, [initialize]);
 
   const previousUserId = useRef<string | null>(null);
+  // The landing opens the selected trip only on arrival (app entry or a sign-in); once the
+  // user has left it, coming back to "/" is a choice and the landing stays.
+  const landingOpensTrip = useRef(true);
+  /** The trip that was open when the user came back to the landing. */
+  const tripOnLanding = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (!initialized) return;
@@ -42,6 +47,7 @@ export function AuthInitializer() {
     const currentUserId = user?.id ?? null;
     if (currentUserId === previousUserId.current) return;
     previousUserId.current = currentUserId;
+    landingOpensTrip.current = true;
 
     if (!currentUserId) {
       // When offline, Supabase may temporarily report no session while our
@@ -75,8 +81,17 @@ export function AuthInitializer() {
 
   // The landing opens the selected trip; /trips is the trip list and stays put.
   useEffect(() => {
-    if (activeTrip && pathname === "/") {
-      router.push(tripPath(activeTrip.id));
+    if (pathname !== "/") {
+      landingOpensTrip.current = false;
+      tripOnLanding.current = undefined;
+      return;
+    }
+    const tripId = activeTrip?.id ?? null;
+    if (tripOnLanding.current === undefined) tripOnLanding.current = tripId;
+    // A trip created or picked on the landing (template, quick start) still opens.
+    if (tripId && (landingOpensTrip.current || tripId !== tripOnLanding.current)) {
+      landingOpensTrip.current = false;
+      router.push(tripPath(tripId));
     }
   }, [activeTrip, pathname, router]);
 
@@ -91,7 +106,7 @@ export function AuthInitializer() {
     if (isRegistered) {
       // With no trips at all, a registered user gets the empty trip list (create, templates)
       // instead of the landing. While trips exist the selected one is still on its way.
-      if (!hasTrips && (pathname === "/" || onTripPage)) router.push("/trips");
+      if (!hasTrips && ((pathname === "/" && landingOpensTrip.current) || onTripPage)) router.push("/trips");
       else if (hasTrips && onTripPage) router.push("/");
       return;
     }

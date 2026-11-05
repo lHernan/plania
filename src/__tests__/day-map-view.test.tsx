@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { makeActivity, mockMatchMedia, renderWithI18n } from "./helpers/dom";
 import DayMapView from "@/components/DayMapView";
@@ -11,7 +11,11 @@ const coordsByLocation: Record<string, { lat: number; lng: number }> = {
   "Senso-ji": { lat: 35.7148, lng: 139.7967 },
   "Ueno Park": { lat: 35.7156, lng: 139.7745 },
   "Shibuya <Crossing>": { lat: 35.6595, lng: 139.7005 },
+  "Fushimi Inari": { lat: 34.9671, lng: 135.7727 },
+  "Kinkaku-ji": { lat: 35.0394, lng: 135.7292 },
 };
+
+const geocodeActivities = vi.hoisted(() => vi.fn());
 
 const stableMap = {
   getContainer: () => document.createElement("div"),
@@ -44,7 +48,7 @@ vi.mock("leaflet/dist/leaflet.css", () => ({}));
 vi.mock("@/hooks/use-geocode-cache", () => ({
   useGeocodeCache: () => ({
     getCoords: (location: string) => coordsByLocation[location] ?? null,
-    geocodeActivities: vi.fn(),
+    geocodeActivities,
     isLoading: false,
   }),
 }));
@@ -465,5 +469,115 @@ describe("DayMapView bottom dock", () => {
   it("respects the bottom safe area", () => {
     renderMap(variedDay(), { activeActivityId: "a" });
     expect(dockOf(screen.getByRole("dialog"))!.className).toContain("safe-area-inset-bottom");
+  });
+});
+
+describe("DayMapView whole trip", () => {
+  const tripDays = () => [
+    { id: "d1", city: "Tokyo", activities: mixedDay() },
+    {
+      id: "d2",
+      city: "Kyoto",
+      activities: [
+        makeActivity("k1", { title: "Shrine", location: "Fushimi Inari", time: "09:00", category: "food" }),
+        makeActivity("k2", { title: "Golden", location: "Kinkaku-ji", time: "12:00" }),
+      ],
+    },
+  ];
+  const renderTrip = (overrides: Partial<Parameters<typeof DayMapView>[0]> = {}) =>
+    renderMap(mixedDay(), { tripDays: tripDays(), ...overrides });
+  const scopeButton = (name: string) => screen.getByRole("button", { name });
+  const legs = () => screen.queryAllByTestId("route-leg");
+
+  beforeEach(() => geocodeActivities.mockClear());
+
+  it("keeps the single-day map when no trip days are given", () => {
+    renderMap(mixedDay());
+    expect(screen.queryByRole("group", { name: "Alcance del mapa" })).toBeNull();
+    expect(markerTitles()).toEqual(["1. Temple — Pendiente", "2. Park — Tachada ✓"]);
+  });
+
+  it("starts on the active day and shows only its markers", () => {
+    renderTrip();
+    expect(scopeButton("Día").getAttribute("aria-pressed")).toBe("true");
+    expect(markerTitles()).toEqual(["1. Temple — Pendiente", "2. Park — Tachada ✓"]);
+  });
+
+  it("shows markers of every day in whole-trip mode and goes back to the day", () => {
+    renderTrip();
+    fireEvent.click(scopeButton("Viaje completo"));
+    expect(scopeButton("Viaje completo").getAttribute("aria-pressed")).toBe("true");
+    expect(markerTitles()).toEqual([
+      "Día 1 · 1. Temple — Pendiente",
+      "Día 1 · 2. Park — Tachada ✓",
+      "Día 2 · 1. Shrine — Pendiente",
+      "Día 2 · 2. Golden — Pendiente",
+    ]);
+    fireEvent.click(scopeButton("Día"));
+    expect(markerTitles()).toEqual(["1. Temple — Pendiente", "2. Park — Tachada ✓"]);
+  });
+
+  it("geocodes each day with its own city", () => {
+    renderTrip();
+    fireEvent.click(scopeButton("Viaje completo"));
+    const calls = geocodeActivities.mock.calls.map((call) => [call[0].map((a: Activity) => a.id), call[1]]);
+    expect(calls).toContainEqual([["a", "b", "c"], "Tokyo"]);
+    expect(calls).toContainEqual([["k1", "k2"], "Kyoto"]);
+  });
+
+  it("colors markers by day and lists the day colors in a legend", () => {
+    renderTrip();
+    fireEvent.click(scopeButton("Viaje completo"));
+    const [first, , third] = screen.getAllByTestId("marker");
+    const colorOf = (html: string) => html.match(/background:(#[0-9A-Fa-f]{6})/)?.[1];
+    expect(colorOf(first.dataset.icon!)).toBeTruthy();
+    expect(colorOf(third.dataset.icon!)).toBeTruthy();
+    expect(colorOf(first.dataset.icon!)).not.toBe(colorOf(third.dataset.icon!));
+    const legend = screen.getByRole("list", { name: "Colores por día" });
+    expect(legend.textContent).toContain("Día 1");
+    expect(legend.textContent).toContain("Día 2");
+  });
+
+  it("never joins stops of different days with the visit order line", () => {
+    renderTrip();
+    fireEvent.click(scopeButton("Viaje completo"));
+    expect(legs().map((l) => JSON.parse(l.dataset.positions!))).toEqual([
+      [[35.7148, 139.7967], [35.7156, 139.7745]],
+      [[34.9671, 135.7727], [35.0394, 135.7292]],
+    ]);
+  });
+
+  it("keeps the status and search filters working across the trip", () => {
+    renderTrip();
+    fireEvent.click(scopeButton("Viaje completo"));
+    fireEvent.click(screen.getByRole("button", { name: /Pendientes/ }));
+    expect(markerTitles()).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /Todas/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Buscar actividades" }));
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "golden" } });
+    expect(markerTitles()).toEqual(["Día 2 · 2. Golden — Pendiente"]);
+  });
+
+  it("offers categories from every day of the trip", () => {
+    renderTrip();
+    fireEvent.click(scopeButton("Viaje completo"));
+    fireEvent.click(screen.getByRole("button", { name: "Categorías" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Categorías" })).getByRole("button", { name: /Comida/ }));
+    expect(markerTitles()).toEqual(["Día 2 · 1. Shrine — Pendiente"]);
+  });
+
+  it("opens the card of another day and completes it on that day", () => {
+    const { props } = renderTrip({ activeActivityId: "k1" });
+    fireEvent.click(scopeButton("Viaje completo"));
+    const card = screen.getByRole("dialog", { name: "Shrine" });
+    expect(card.textContent).toContain("Día 2");
+    fireEvent.click(screen.getByRole("button", { name: "Tachar" }));
+    expect(props.onToggleComplete).toHaveBeenCalledWith("k1", true, "d2");
+  });
+
+  it("hides the completion toggle for read-only viewers in whole-trip mode", () => {
+    renderTrip({ activeActivityId: "k1", canEdit: false });
+    fireEvent.click(scopeButton("Viaje completo"));
+    expect(screen.queryByRole("button", { name: "Tachar" })).toBeNull();
   });
 });

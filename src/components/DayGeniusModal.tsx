@@ -24,6 +24,7 @@ import { useGeocodeCache } from "@/hooks/use-geocode-cache";
 import { authHeaders } from "@/lib/auth-headers";
 import { getCurrentTripDateTime } from "@/lib/travel-context";
 import { buildGeniusContext, tripTimeZone, type Coords, type GeniusContext, type GeniusUnavailableReason } from "@/lib/day-genius/context";
+import { isTripUndated } from "@/lib/trip-undated";
 import { geniusConflicts, type GeniusChange, type GeniusRejection } from "@/lib/day-genius/validate";
 import { planToOps } from "@/lib/day-genius/apply";
 import type { DayWeather, WeatherCondition } from "@/lib/weather/day-forecast";
@@ -104,7 +105,7 @@ export function DayGeniusModal({
     const zone = tripTimeZone(trip, Intl.DateTimeFormat().resolvedOptions().timeZone);
     const now = getCurrentTripDateTime(new Date(), zone);
     // Cheap check first: no geocoding or AI call when there is nothing to do.
-    const precheck = buildGeniusContext({ days: trip.days, dayId, now });
+    const precheck = buildGeniusContext({ days: trip.days, dayId, now, undated: isTripUndated(trip) });
     if (!precheck.ok) return setStatus({ kind: "unavailable", reason: precheck.reason });
 
     await settleWithin(geocodeActivities(day.activities, day.city), GEOCODE_TIMEOUT_MS);
@@ -114,7 +115,7 @@ export function DayGeniusModal({
       const found = activity.location ? getCoords(activity.location) : null;
       if (found) coords[activity.id] = found;
     }
-    const built = buildGeniusContext({ days: trip.days, dayId, now, coords });
+    const built = buildGeniusContext({ days: trip.days, dayId, now, coords, undated: isTripUndated(trip) });
     if (!built.ok) return setStatus({ kind: "unavailable", reason: built.reason });
     // Where the traveler ends the day (a flight's place is where it departs from).
     const weatherCoords = [...day.activities]

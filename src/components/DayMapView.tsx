@@ -30,13 +30,19 @@ import { buildGoogleMapsNavigationUrl, type GoogleMapsTravelMode } from "@/lib/g
 import {
   DEFAULT_MAP_FILTERS,
   availableCategories,
-  buildRouteLegs,
   filterMapActivities,
   hasNarrowingMapFilters,
   isActivityCompleted,
   type MapFilters,
   type MapStatusFilter,
 } from "@/lib/trip-progress";
+import {
+  aggregateTripActivities,
+  buildDayRouteLegs,
+  dayColor,
+  type TripMapDay,
+  type TripMapEntry,
+} from "@/lib/trip-map";
 import type { Activity } from "@/lib/types";
 
 function escapeHtml(value: string): string {
@@ -44,13 +50,15 @@ function escapeHtml(value: string): string {
 }
 
 // Pending: solid brand green with order number. Completed: soft green with a check glyph,
-// so the state never depends on color alone.
-function makeMarkerIcon(order: number, title: string, completed: boolean, active: boolean) {
+// so the state never depends on color alone. On the whole-trip map `color` is the day's color.
+function makeMarkerIcon(order: number, title: string, completed: boolean, active: boolean, color?: string) {
   const maxLen = active ? 22 : 14;
   const label = escapeHtml(title.length > maxLen ? title.slice(0, maxLen - 1) + "…" : title);
+  const fill = color ?? "var(--color-primary)";
+  const soft = color ? "white" : "var(--color-primary-subtle)";
   const badge = completed
-    ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--color-primary);color:white;font-size:10px;line-height:1;">✓</span>`
-    : `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;border-radius:999px;background:white;color:var(--color-primary);font-size:10px;line-height:1;">${order}</span>`;
+    ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${fill};color:white;font-size:10px;line-height:1;">✓</span>`
+    : `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;border-radius:999px;background:white;color:${fill};font-size:10px;line-height:1;">${order}</span>`;
   return L.divIcon({
     className: "",
     iconSize: [0, 0],
@@ -59,9 +67,9 @@ function makeMarkerIcon(order: number, title: string, completed: boolean, active
       transform:translate(-50%,-50%);
       display:inline-flex;align-items:center;gap:5px;
       padding:${active ? "5px 10px 5px 5px" : "4px 8px 4px 4px"};border-radius:20px;
-      background:${completed ? "var(--color-primary-subtle)" : "var(--color-primary)"};
-      border:2px solid ${completed ? "var(--color-primary)" : "white"};
-      color:${completed ? "var(--color-primary)" : "white"};
+      background:${completed ? soft : fill};
+      border:2px solid ${completed ? fill : "white"};
+      color:${completed ? fill : "white"};
       font-size:${active ? 12 : 11}px;font-weight:700;white-space:nowrap;
       box-shadow:${active ? "0 0 0 4px rgba(36,107,87,0.25)," : ""}0 2px 6px rgba(0,0,0,0.25);
     ">${badge}<span>${label}</span></div>`,
@@ -215,19 +223,24 @@ function ToolButton({
   );
 }
 
-type MarkerItem = { activity: Activity; coords: GeocodedLocation; order: number };
+type MarkerItem = TripMapEntry & { coords: GeocodedLocation };
+
+type MapScope = "day" | "trip";
 
 type DayMapViewProps = {
   dayId: string;
   activities: Activity[];
   city: string;
   anchor?: { lat: number; lng: number };
+  /** Every day of the trip. With two or more, the map offers a Day / Whole trip selector. */
+  tripDays?: TripMapDay[];
   activeActivityId: string | null;
   canEdit?: boolean;
   /** From the trip's travel preferences; picks transit as the default directions mode. */
   preferMinimizeWalking?: boolean;
   onActivitySelect: (activityId: string | null) => void;
-  onToggleComplete: (activityId: string, completed: boolean) => void;
+  /** `dayId` is passed on the whole-trip map, where the activity may belong to another day. */
+  onToggleComplete: (activityId: string, completed: boolean, dayId?: string) => void;
   onOpenDetails: (activityId: string) => void;
   onClose: () => void;
   /** Page-level quick actions, docked above the card so they never overlap it (mobile overlay). */
@@ -245,6 +258,7 @@ export default function DayMapView({
   activities,
   city,
   anchor,
+  tripDays,
   activeActivityId,
   canEdit = true,
   preferMinimizeWalking = false,
@@ -292,35 +306,51 @@ export default function DayMapView({
   const setFilter = (status: MapStatusFilter) => setFilters((f) => ({ ...f, status }));
   const narrowed = hasNarrowingMapFilters(filters);
 
-  // Categories and search belong to the day being viewed; reset them when it changes.
-  const [filtersDayId, setFiltersDayId] = useState(dayId);
-  if (filtersDayId !== dayId) {
-    setFiltersDayId(dayId);
+  // Day: only the day being viewed. Whole trip: every day, aggregated on the client.
+  const [scope, setScope] = useState<MapScope>("day");
+  const canShowTrip = !!tripDays && tripDays.length > 1;
+  const tripScope = scope === "trip" && canShowTrip;
+  const scopeDays = useMemo<TripMapDay[]>(
+    () => (tripScope && tripDays ? tripDays : [{ id: dayId, city, activities }]),
+    [tripScope, tripDays, dayId, city, activities]
+  );
+  const scopeActivities = useMemo(
+    () => (tripScope ? scopeDays.flatMap((d) => d.activities) : activities),
+    [tripScope, scopeDays, activities]
+  );
+  const dayIndexById = useMemo(() => new Map(scopeDays.map((d, i) => [d.id, i])), [scopeDays]);
+  const dayLabel = (dayIndex: number) => t("trip_view_day_number", { number: dayIndex + 1 });
+
+  // Categories and search belong to the day (or trip) being viewed; reset them when it changes.
+  const filtersScopeKey = `${tripScope ? "trip" : "day"}|${dayId}`;
+  const [filtersScope, setFiltersScope] = useState(filtersScopeKey);
+  if (filtersScope !== filtersScopeKey) {
+    setFiltersScope(filtersScopeKey);
     setFilters((f) => ({ ...f, categories: [], query: "" }));
     setSearchOpen(false);
     setCategoriesOpen(false);
   }
 
+  // Each day is geocoded with its own city, so a multi-city trip resolves places correctly.
   useEffect(() => {
-    geocodeActivities(activities, city, anchor);
-  }, [activities, city, anchor, geocodeActivities]);
+    for (const day of scopeDays) geocodeActivities(day.activities, day.city, anchor);
+  }, [scopeDays, anchor, geocodeActivities]);
 
-  // Every geolocated activity of the day — completed ones stay as memories.
+  // Every geolocated activity in scope — completed ones stay as memories.
   // Order is by time so a marker's number doesn't change when it's crossed off.
   const allMarkers = useMemo(() => {
-    const ordered = [...activities].sort((a, b) => a.time.localeCompare(b.time) || a.sort_order - b.sort_order);
     const result: MarkerItem[] = [];
-    ordered.forEach((a, index) => {
-      if (!a.location) return;
-      const coords = getCoords(a.location);
+    for (const entry of aggregateTripActivities(scopeDays)) {
+      if (!entry.activity.location) continue;
+      const coords = getCoords(entry.activity.location);
       if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
-        result.push({ activity: a, coords, order: index + 1 });
+        result.push({ ...entry, coords });
       }
-    });
+    }
     return result;
     // isLoading flips when geocoding resolves, which changes getCoords results
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, getCoords, isLoading]);
+  }, [scopeDays, getCoords, isLoading]);
 
   const markers = useMemo(() => {
     const visibleIds = new Set(filterMapActivities(allMarkers.map((m) => m.activity), filters).map((a) => a.id));
@@ -334,25 +364,31 @@ export default function DayMapView({
     return { all: scoped.length, completed, pending: scoped.length - completed };
   }, [allMarkers, filters]);
 
-  const categories = useMemo(() => availableCategories(activities), [activities]);
+  const categories = useMemo(() => availableCategories(scopeActivities), [scopeActivities]);
 
-  // Search results cover every activity of the day, including ones without a map location.
+  // Search results cover every activity in scope, including ones without a map location.
   const searchResults = useMemo(() => {
     if (!filters.query.trim()) return [];
     const located = new Set(allMarkers.map((m) => m.activity.id));
-    return filterMapActivities(activities, { ...filters, status: "all" }).map((activity) => ({
+    const dayIndexByActivity = new Map(
+      scopeDays.flatMap((d, i) => d.activities.map((a) => [a.id, i] as const))
+    );
+    return filterMapActivities(scopeActivities, { ...filters, status: "all" }).map((activity) => ({
       activity,
       located: located.has(activity.id),
+      dayIndex: dayIndexByActivity.get(activity.id) ?? 0,
     }));
-  }, [activities, allMarkers, filters]);
+  }, [scopeActivities, scopeDays, allMarkers, filters]);
 
-  // Straight connector between consecutive mapped stops in itinerary order. Hidden while
+  // Straight connector between consecutive mapped stops in itinerary order, never across
+  // days: the whole-trip map draws one line per day in that day's color. Hidden while
   // filtering: joining only the visible stops would draw legs that don't exist.
   const routeLegs = useMemo(
     () =>
-      buildRouteLegs(
+      buildDayRouteLegs(
         allMarkers.map((m) => ({
           id: m.activity.id,
+          dayId: m.dayId,
           completed: isActivityCompleted(m.activity),
           position: [m.coords.lat, m.coords.lng] as [number, number],
         }))
@@ -361,7 +397,14 @@ export default function DayMapView({
   );
   const routeVisible = showRoute && !narrowed && routeLegs.length > 0;
 
-  const dayComplete = activities.length > 0 && activities.every(isActivityCompleted);
+  // Days of the trip that have something on the map, for the color legend.
+  const legendDays = useMemo(
+    () => (tripScope ? [...new Set(allMarkers.map((m) => m.dayIndex))] : []),
+    [tripScope, allMarkers]
+  );
+
+  // The memories note talks about one day, so it only applies to the day view.
+  const dayComplete = !tripScope && activities.length > 0 && activities.every(isActivityCompleted);
 
   const anchorPos: [number, number] | null = useMemo(() => {
     if (!anchor || !Number.isFinite(anchor.lat) || !Number.isFinite(anchor.lng)) return null;
@@ -402,6 +445,31 @@ export default function DayMapView({
     </button>
   );
 
+  const scopeSelector = canShowTrip && (
+    <div
+      role="group"
+      aria-label={t("map_scope_label")}
+      className="inline-flex shrink-0 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/95 p-0.5 shadow-sm backdrop-blur-sm"
+    >
+      {(["day", "trip"] as const).map((value) => {
+        const on = (tripScope ? "trip" : "day") === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => setScope(value)}
+            className={`min-h-8 rounded-full px-3 text-[11px] font-bold whitespace-nowrap transition-colors ${
+              on ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-subtle)]"
+            }`}
+          >
+            {t(value === "day" ? "map_scope_day" : "map_scope_trip")}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   // Early states have no card, but the docked quick actions must stay reachable.
   const standaloneDock = floatingActions && (
     <div
@@ -429,6 +497,8 @@ export default function DayMapView({
     return (
       <div className="relative flex flex-col items-center justify-center gap-2 h-full p-8 text-center bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]">
         <div className="absolute top-3 right-3">{closeButton}</div>
+        {/* A day without places can still switch to the whole trip, and back */}
+        {scopeSelector && <div className="absolute top-3 left-3">{scopeSelector}</div>}
         {standaloneDock}
         <MapPinOff size={28} className="text-[var(--color-text-muted)]" aria-hidden="true" />
         <p className="text-sm font-bold text-[var(--color-text)]">{t("map_no_locations")}</p>
@@ -486,6 +556,7 @@ export default function DayMapView({
       {/* SECONDARY TOOLS: search, categories, route — right side stays free for zoom */}
       <div className="absolute left-3 right-14 top-[calc(env(safe-area-inset-top,0px)+3.75rem)] z-[1000] flex flex-col items-start gap-2 pointer-events-none">
         <div className="pointer-events-auto flex w-full max-w-sm items-center gap-1.5">
+          {scopeSelector}
           {searchOpen ? (
             <div className="flex min-w-0 flex-1 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/95 pl-3 pr-1 shadow-sm backdrop-blur-sm">
               <Search size={14} className="shrink-0 text-[var(--color-text-muted)]" aria-hidden="true" />
@@ -554,7 +625,7 @@ export default function DayMapView({
               </p>
             ) : (
               <ul className="max-h-56 overflow-y-auto py-1" aria-label={t("map_search_results")}>
-                {searchResults.map(({ activity, located }) => (
+                {searchResults.map(({ activity, located, dayIndex }) => (
                   <li key={activity.id}>
                     <button
                       type="button"
@@ -570,7 +641,11 @@ export default function DayMapView({
                           {activity.title}
                         </span>
                         <span className="truncate text-[11px] text-[var(--color-text-muted)]">
-                          {[activity.time, located ? activity.location : t("map_search_no_location")].filter(Boolean).join(" · ")}
+                          {[
+                            tripScope ? dayLabel(dayIndex) : null,
+                            activity.time,
+                            located ? activity.location : t("map_search_no_location"),
+                          ].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                       {located && <MapPin size={14} className="shrink-0 text-[var(--color-primary)]" aria-hidden="true" />}
@@ -628,8 +703,23 @@ export default function DayMapView({
           </div>
         )}
 
+        {/* Whole trip: which color is which day (the route lines use the same colors) */}
+        {tripScope && legendDays.length > 0 && !categoriesOpen && !(searchOpen && resultsOpen && filters.query.trim()) && (
+          <ul
+            aria-label={t("map_day_legend")}
+            className="pointer-events-auto flex max-w-full items-center gap-2.5 overflow-x-auto rounded-full bg-[var(--color-surface)]/90 px-2.5 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] shadow-sm backdrop-blur-sm"
+          >
+            {legendDays.map((dayIndex) => (
+              <li key={dayIndex} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+                <span className="size-2.5 rounded-full" style={{ background: dayColor(dayIndex) }} aria-hidden="true" />
+                {dayLabel(dayIndex)}
+              </li>
+            ))}
+          </ul>
+        )}
+
         {/* Route legend: a visual sequence, explicitly not street navigation */}
-        {showRoute && routeLegs.length > 0 && !categoriesOpen && !(searchOpen && resultsOpen && filters.query.trim()) && (
+        {!tripScope && showRoute && routeLegs.length > 0 && !categoriesOpen && !(searchOpen && resultsOpen && filters.query.trim()) && (
           <p className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--color-surface)]/90 px-2.5 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] shadow-sm backdrop-blur-sm">
             {routeVisible ? (
               <>
@@ -681,12 +771,17 @@ export default function DayMapView({
         {selected ? (
           <MarkerDetailCard
             item={selected}
+            day={tripScope ? { label: dayLabel(selected.dayIndex), color: dayColor(selected.dayIndex) } : undefined}
             canEdit={canEdit}
             travelMode={travelMode}
             onTravelModeChange={changeTravelMode}
             onClose={() => onActivitySelect(null)}
             onOpenDetails={() => onOpenDetails(selected.activity.id)}
-            onToggleComplete={() => onToggleComplete(selected.activity.id, !isActivityCompleted(selected.activity))}
+            onToggleComplete={() =>
+              tripScope
+                ? onToggleComplete(selected.activity.id, !isActivityCompleted(selected.activity), selected.dayId)
+                : onToggleComplete(selected.activity.id, !isActivityCompleted(selected.activity))
+            }
           />
         ) : (
           dayComplete &&
@@ -718,7 +813,7 @@ export default function DayMapView({
 
         <MapCamera
           positions={fitPositions}
-          resetKey={`${dayId}|${filter}|${filters.categories.join(",")}|${filters.query.trim()}`}
+          resetKey={`${tripScope ? "trip" : "day"}|${dayId}|${filter}|${filters.categories.join(",")}|${filters.query.trim()}`}
           activePosition={activePosition}
           getBottomOcclusion={getBottomOcclusion}
         />
@@ -735,13 +830,14 @@ export default function DayMapView({
         {markers.map((m) => {
           const completed = isActivityCompleted(m.activity);
           const active = m.activity.id === activeActivityId;
+          const dayPrefix = tripScope ? `${dayLabel(m.dayIndex)} · ` : "";
           return (
             <Marker
               key={m.activity.id}
               position={[m.coords.lat, m.coords.lng]}
-              icon={makeMarkerIcon(m.order, m.activity.title, completed, active)}
+              icon={makeMarkerIcon(m.order, m.activity.title, completed, active, tripScope ? dayColor(m.dayIndex) : undefined)}
               zIndexOffset={active ? 1000 : completed ? 0 : 500}
-              title={`${m.order}. ${m.activity.title} — ${completed ? t("map_status_completed") : t("map_status_pending")}`}
+              title={`${dayPrefix}${m.order}. ${m.activity.title} — ${completed ? t("map_status_completed") : t("map_status_pending")}`}
               keyboard
               eventHandlers={{
                 click: () => onActivitySelect(m.activity.id),
@@ -756,18 +852,21 @@ export default function DayMapView({
 
         {/* Visit order as straight segments: solid = both ends done, dashed = still ahead */}
         {routeVisible &&
-          routeLegs.map((leg) => (
-            <Polyline
-              key={`${leg.fromId}-${leg.toId}-${leg.done ? "done" : "pending"}`}
-              positions={leg.positions}
-              interactive={false}
-              pathOptions={
-                leg.done
-                  ? { color: ROUTE_COLOR, weight: 3, opacity: ROUTE_DONE_OPACITY, lineCap: "round" }
-                  : { color: ROUTE_COLOR, weight: 2.5, opacity: 0.75, dashArray: "6 8" }
-              }
-            />
-          ))}
+          routeLegs.map((leg) => {
+            const color = tripScope ? dayColor(dayIndexById.get(leg.dayId) ?? 0) : ROUTE_COLOR;
+            return (
+              <Polyline
+                key={`${leg.fromId}-${leg.toId}-${leg.done ? "done" : "pending"}`}
+                positions={leg.positions}
+                interactive={false}
+                pathOptions={
+                  leg.done
+                    ? { color, weight: 3, opacity: ROUTE_DONE_OPACITY, lineCap: "round" }
+                    : { color, weight: 2.5, opacity: 0.75, dashArray: "6 8" }
+                }
+              />
+            );
+          })}
       </MapContainer>
     </div>
   );
@@ -775,6 +874,7 @@ export default function DayMapView({
 
 function MarkerDetailCard({
   item,
+  day,
   canEdit,
   travelMode,
   onTravelModeChange,
@@ -783,6 +883,8 @@ function MarkerDetailCard({
   onToggleComplete,
 }: {
   item: MarkerItem;
+  /** Whole-trip map only: the activity's day, shown with its marker color. */
+  day?: { label: string; color: string };
   canEdit: boolean;
   travelMode: GoogleMapsTravelMode;
   onTravelModeChange: (mode: GoogleMapsTravelMode) => void;
@@ -824,7 +926,15 @@ function MarkerDetailCard({
         <X size={15} />
       </button>
 
-      <div className="flex items-center gap-2 pr-8">
+      <div className={`flex items-center gap-2 pr-8${day ? " flex-wrap" : ""}`}>
+        {day && (
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+            style={{ background: day.color }}
+          >
+            {day.label}
+          </span>
+        )}
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
             completed

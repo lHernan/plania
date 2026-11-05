@@ -12,13 +12,8 @@ import {
   type ExchangeRate,
 } from "@/lib/currency";
 import { findCityPaymentGuide } from "@/lib/city-payment-guides";
-
-const STORAGE_KEY = "plania_home_currency";
-
-function getStoredHome(): CurrencyCode {
-  if (typeof window === "undefined") return "USD";
-  return localStorage.getItem(STORAGE_KEY) ?? "USD";
-}
+import { savePreferredCurrency, usePreferredCurrency } from "@/lib/trip-currency";
+import { useAuthStore } from "@/store/use-auth-store";
 
 /** Resolve currency with payment-guide countryCode as fallback. */
 function resolveWithFallback(city: string): CurrencyCode | undefined {
@@ -32,7 +27,11 @@ function resolveWithFallback(city: string): CurrencyCode | undefined {
 
 export function CurrencyConverter({ city }: { city: string }) {
   const { t } = useI18n();
-  const [homeCurrency, setHomeCurrency] = useState<CurrencyCode>(getStoredHome);
+  // The home currency is the profile's preferred currency (same fallback chain).
+  const user = useAuthStore((s) => s.user);
+  const preferredCurrency = usePreferredCurrency();
+  const [chosenHome, setChosenHome] = useState<CurrencyCode | null>(null);
+  const homeCurrency = chosenHome ?? preferredCurrency;
   const [rate, setRate] = useState<ExchangeRate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -78,8 +77,10 @@ export function CurrencyConverter({ city }: { city: string }) {
   }, [homeCurrency, destinationCurrency, sameCurrency, fetchRate]);
 
   function changeHome(code: CurrencyCode) {
-    setHomeCurrency(code);
-    localStorage.setItem(STORAGE_KEY, code);
+    setChosenHome(code);
+    void savePreferredCurrency(code, user).then((result) => {
+      if (result.user) useAuthStore.setState({ user: result.user });
+    });
     setSelectorOpen(false);
     setRate(null);
   }

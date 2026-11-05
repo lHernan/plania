@@ -122,6 +122,16 @@ export function savePackingList(list: PackingList): void {
   }
 }
 
+/** Drops the device copy once the list lives on the server. */
+export function removePackingList(tripId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(`${STORAGE_PREFIX}${tripId}`);
+  } catch {
+    // Storage unavailable — nothing to remove
+  }
+}
+
 // ─── Unique Cities ───────────────────────────────────────────────────────────
 
 export function getUniqueCities(days: TripDay[]): string[] {

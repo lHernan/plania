@@ -49,6 +49,13 @@ describe("AccountMenu", () => {
     expect(within(menu).getByRole("menuitem", { name: "Cerrar sesión" })).toBeTruthy();
   });
 
+  it("links to the home page, the trip list and the profile", () => {
+    renderMenu();
+    const menu = open();
+    expect(within(menu).getByRole("menuitem", { name: "Inicio" }).getAttribute("href")).toBe("/");
+    expect(within(menu).getByRole("menuitem", { name: "Mis viajes" }).getAttribute("href")).toBe("/trips");
+  });
+
   it("closes with Escape and gives focus back to the avatar", () => {
     renderMenu();
     open();

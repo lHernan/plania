@@ -42,6 +42,14 @@ BEGIN
   UPDATE trip_days           SET user_id = p_new_id WHERE user_id = p_anon_id;
   GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
 
+  -- Packing lists (packing_items_migration.sql): only once that migration was applied.
+  IF to_regclass('public.packing_items') IS NOT NULL THEN
+    UPDATE packing_items SET owner_id = p_new_id WHERE owner_id = p_anon_id;
+    GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
+    UPDATE packing_items SET created_by = p_new_id WHERE created_by = p_anon_id;
+    UPDATE packing_items SET assigned_to = p_new_id WHERE assigned_to = p_anon_id;
+  END IF;
+
   UPDATE trips               SET user_id = p_new_id WHERE user_id = p_anon_id;
   GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
 

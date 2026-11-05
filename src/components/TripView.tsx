@@ -60,7 +60,7 @@ import {
   TripDay,
 } from "@/lib/types";
 import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
-import { toCurrency } from "@/lib/utils";
+import { currencyChoices, currencyLabel, currencySymbol, formatTripAmount, getTripCurrency, usePreferredCurrency } from "@/lib/trip-currency";
 import { timeForMove } from "@/lib/schedule/fit";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
@@ -95,6 +95,8 @@ import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
+import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
+import { isTripUndated } from "@/lib/trip-undated";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -343,8 +345,15 @@ function ActivityFilesSection({
   );
 }
 
-function ActivityEditModal({
+/** An empty or invalid actual cost clears it. */
+function parseActualCost(value: string): number | null {
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function ActivityEditModal({
   activity,
+  currency,
   onClose,
   onSave,
   onDelete,
@@ -352,18 +361,25 @@ function ActivityEditModal({
   onPreviewFile
 }: {
   activity: Activity;
+  /** The trip currency the costs are entered in. */
+  currency: string;
   onClose: () => void;
   onSave: (updates: Partial<Activity>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onPreviewFile: (file: ActivityFile) => void;
 }) {
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
+  const symbol = currencySymbol(currency, lang);
   const [localTitle, setLocalTitle] = useState(activity.title);
   const [localTime, setLocalTime] = useState(activity.time);
   const [localDuration, setLocalDuration] = useState(activity.durationMin);
   const [localCategory, setLocalCategory] = useState<ActivityCategory>(activity.category);
   const [localCost, setLocalCost] = useState(activity.expectedCost || 0);
+  // Text so it can stay empty; only sent when the user touched it.
+  const [localActual, setLocalActual] = useState(activity.actualCost != null ? String(activity.actualCost) : "");
+  const [actualTouched, setActualTouched] = useState(false);
+  const actualCostInputId = `actual-cost-${activity.id}`;
   const [localLocation, setLocalLocation] = useState(activity.location || "");
   const [localNotes, setLocalNotes] = useState(activity.notes || "");
 
@@ -467,12 +483,28 @@ function ActivityEditModal({
               <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)]">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2 flex items-center gap-1"><CreditCard size={12}/> {t("expected_cost")}</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-black text-[var(--color-text-muted)]">$</span>
+                  <span className="text-xl font-black text-[var(--color-text-muted)]">{symbol}</span>
                   <input
                     type="number"
                     value={localCost}
                     onChange={(e) => setLocalCost(parseFloat(e.target.value) || 0)}
                     className="w-full bg-transparent text-xl font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
+                  />
+                </div>
+                <label htmlFor={actualCostInputId} className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mt-3 mb-1 block">{t("actual_cost")}</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-black text-[var(--color-text-muted)]">{symbol}</span>
+                  <input
+                    id={actualCostInputId}
+                    type="number"
+                    min={0}
+                    value={localActual}
+                    onChange={(e) => {
+                      setLocalActual(e.target.value);
+                      setActualTouched(true);
+                    }}
+                    placeholder="—"
+                    className="w-full bg-transparent text-sm font-black tabular-nums border-none p-0 outline-none focus:ring-0 text-[var(--color-text)]"
                   />
                 </div>
               </div>
@@ -521,6 +553,7 @@ function ActivityEditModal({
                   durationMin: localDuration,
                   category: localCategory,
                   expectedCost: localCost,
+                  ...(actualTouched ? { actualCost: parseActualCost(localActual) } : {}),
                   location: localLocation,
                   notes: localNotes
                 });
@@ -622,18 +655,37 @@ export function TripView() {
     }
   }, [activeTripIsDraft, user, saveDraft]);
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
+  // Planned by number of days: the day dates are placeholders, so days go by number and the
+  // trip is never live until its dates are set ([Fijar fechas], owner only like other trip edits).
+  const undated = isTripUndated(activeTrip);
+  const setTripDates = useItineraryStore((s) => s.setTripDates);
+  const [setDatesOpen, setSetDatesOpen] = useState(false);
   const sharedTrips = useItineraryStore((s) => s.sharedTrips);
   const sharedTripInfo = isInvitee ? sharedTrips.find((t) => t.id === activeTrip?.id) ?? null : null;
 
+  const preferredCurrency = usePreferredCurrency();
+  const tripCurrency = getTripCurrency(activeTrip?.travelContext, preferredCurrency);
+  const saveTravelContext = useItineraryStore((s) => s.saveTravelContext);
+  const formatMoney = (amount: number) => formatTripAmount(amount, tripCurrency, lang);
+
   const budgetSummary = useMemo(() => {
-    if (!activeTrip) return { total: 0, perDay: [] as { date: string; total: number }[] };
+    if (!activeTrip) return { total: 0, actualTotal: 0, hasActual: false, perDay: [] as { date: string; total: number }[] };
     const perDay = activeTrip.days.map((day) => ({
       date: day.date,
       total: day.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0),
     }));
     const total = perDay.reduce((sum, d) => sum + d.total, 0);
-    return { total, perDay };
+    const actualCosts = activeTrip.days.flatMap((day) => day.activities.map((a) => a.actualCost))
+      .filter((cost): cost is number => typeof cost === "number");
+    const actualTotal = actualCosts.reduce((sum, cost) => sum + cost, 0);
+    return { total, actualTotal, hasActual: actualCosts.length > 0, perDay };
   }, [activeTrip]);
+
+  const changeTripCurrency = async (currency: string) => {
+    if (!activeTrip || currency === tripCurrency) return;
+    const result = await saveTravelContext({ ...(activeTrip.travelContext ?? { version: 1 }), currency });
+    if (result.error) showToast(t("trip_currency_error"), "error");
+  };
 
   const tripMapUrl = useMemo(() => {
     if (!activeTrip) return null;
@@ -1155,8 +1207,8 @@ export function TripView() {
   // A template draft keeps the template's own dates, so its mode would say nothing true.
   const itineraryMode = activeTrip && tripNow && !activeTripIsDraft ? tripMode(activeTrip, tripNow.date) : null;
   const nowAndNext = useMemo(
-    () => (activeDay && tripNow && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
-    [activeDay, tripNow],
+    () => (activeDay && tripNow && !undated && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
+    [activeDay, tripNow, undated],
   );
   const showActivityCard = (activityId: string) => {
     document.getElementById(`activity-${activityId}`)?.scrollIntoView?.({ block: "center", behavior: "smooth" });
@@ -1444,7 +1496,8 @@ export function TripView() {
   );
   const renderBudget = () => (
     <>
-      {activeTrip && budgetSummary.total > 0 && (
+      {/* Owners always see it, to choose the trip currency before the first cost. */}
+      {activeTrip && (budgetSummary.total > 0 || budgetSummary.hasActual || !isInvitee) && (
         <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("trip_budget_title")}</p>
@@ -1459,16 +1512,43 @@ export function TripView() {
               </a>
             ) : null}
           </div>
-          <p className="text-2xl font-black text-[var(--color-text)]">
-            {budgetSummary.total.toFixed(2)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
-          </p>
+          {budgetSummary.hasActual ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">{t("trip_budget_estimated")}</p>
+                <p className="text-2xl font-black tabular-nums text-[var(--color-text)]">{formatMoney(budgetSummary.total)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">{t("trip_budget_actual")}</p>
+                <p className="text-2xl font-black tabular-nums text-[var(--color-text)]">{formatMoney(budgetSummary.actualTotal)}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-2xl font-black tabular-nums text-[var(--color-text)]">
+              {formatMoney(budgetSummary.total)} <span className="text-xs font-bold text-[var(--color-text-muted)]">{t("trip_view_estimated_short")}</span>
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
-            {budgetSummary.perDay.map((d) => (
+            {budgetSummary.perDay.map((d, index) => (
               <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
-                {d.date}: {d.total.toFixed(2)}
+                {undated ? t("trip_view_day_number", { number: index + 1 }) : d.date}: {formatMoney(d.total)}
               </span>
             ))}
           </div>
+          {!isInvitee ? (
+            <label className="flex items-center justify-between gap-3 text-xs font-semibold text-[var(--color-text-secondary)]">
+              {t("trip_currency")}
+              <select
+                value={tripCurrency}
+                onChange={(e) => void changeTripCurrency(e.target.value)}
+                className="min-h-11 max-w-[60%] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm font-semibold text-[var(--color-text)]"
+              >
+                {currencyChoices(tripCurrency).map((code) => (
+                  <option key={code} value={code}>{currencyLabel(code, lang)}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
       )}
     </>
@@ -1487,7 +1567,10 @@ export function TripView() {
     activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} onRequireAuth={() => requireAuth("tachi")} defaultOpen={packingFromTachi} /> : null;
 
   const tachiPlace = activeDay
-    ? [isPlaceholderCity(activeDay.city) ? null : activeDay.city, format(parseISO(activeDay.date), "EEEE d", { locale: dateFnsLocale })]
+    ? [
+        isPlaceholderCity(activeDay.city) ? null : activeDay.city,
+        undated ? t("trip_view_day_number", { number: activeIndex + 1 }) : format(parseISO(activeDay.date), "EEEE d", { locale: dateFnsLocale }),
+      ]
         .filter(Boolean)
         .join(" · ")
     : activeTrip?.name ?? "";
@@ -1661,7 +1744,7 @@ export function TripView() {
 
           {visibleDays.map((day) => {
             const isActive = day.id === activeDayId;
-            const isToday = day.date === today;
+            const isToday = !undated && day.date === today;
             return (
               <button
                 key={day.id}
@@ -1673,10 +1756,10 @@ export function TripView() {
                 }`}
               >
                 <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-white/70" : "text-[var(--color-text-muted)]"}`}>
-                  {format(day.date, "EEE", { locale: dateFnsLocale })}
+                  {undated ? t("trip_view_day") : format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
                 <span className="text-base font-black tracking-tight leading-none">
-                  {format(day.date, "d", { locale: dateFnsLocale })}
+                  {undated ? (activeTrip?.days.findIndex((d) => d.id === day.id) ?? 0) + 1 : format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
                   <div className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[var(--color-primary)]" />
@@ -1708,7 +1791,7 @@ export function TripView() {
             <div className="flex items-center gap-2 min-w-0">
               <MapPin size={14} className="text-[var(--color-text-muted)] shrink-0" />
               <span className="text-sm font-bold text-[var(--color-text)] truncate">
-                {format(activeDay.date, "EEE, MMM d", { locale: dateFnsLocale })}
+                {undated ? t("trip_view_day_number", { number: activeIndex + 1 }) : format(activeDay.date, "EEE, MMM d", { locale: dateFnsLocale })}
               </span>
               <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider truncate">{activeDay.city}</span>
             </div>
@@ -1727,7 +1810,7 @@ export function TripView() {
             </div>
             {activeDay.activities.some(a => a.expectedCost) && (
               <span className="text-xs font-bold text-[var(--color-text-secondary)] tabular-nums">
-                {toCurrency(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
+                {formatMoney(activeDay.activities.reduce((sum, a) => sum + (a.expectedCost ?? 0), 0))}
               </span>
             )}
             <div className="flex items-center gap-2 ml-auto">
@@ -1779,7 +1862,7 @@ export function TripView() {
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-1">
                 <h2 className="text-xl font-black text-[var(--color-text)]">
-                  {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
+                  {undated ? t("trip_view_day_number", { number: activeIndex + 1 }) : format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
                 </h2>
                 <div className="flex items-center gap-2">
                   <MapPin size={12} className="text-[var(--color-text-muted)]" />
@@ -1813,12 +1896,14 @@ export function TripView() {
                     <Trash2 size={14} />
                   </button>
                 )}
-                <button
-                  onClick={jumpToToday}
-                  className="px-4 py-2 rounded-2xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-subtle)]/80 transition-all"
-                >
-                  {t("today")}
-                </button>
+                {!undated && (
+                  <button
+                    onClick={jumpToToday}
+                    className="px-4 py-2 rounded-2xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-subtle)]/80 transition-all"
+                  >
+                    {t("today")}
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -2027,11 +2112,12 @@ export function TripView() {
                 activities={activeDay.activities}
                 city={activeDay.city}
                 anchor={mapAnchor ?? undefined}
+                tripDays={activeTrip?.days}
                 activeActivityId={activeMapActivityId}
                 canEdit={!isInvitee}
                 preferMinimizeWalking={activeTrip?.travelContext?.preferences?.minimizeWalking}
                 onActivitySelect={setActiveMapActivityId}
-                onToggleComplete={(id, done) => (done ? handleComplete(activeDay.id, id) : handleUncomplete(activeDay.id, id))}
+                onToggleComplete={(id, done, dayId = activeDay.id) => (done ? handleComplete(dayId, id) : handleUncomplete(dayId, id))}
                 onOpenDetails={(id) => setEditingActivityId(id)}
                 onClose={() => goToSection("itinerary")}
                 floatingActions={<FloatingActions {...floatingActionsProps} />}
@@ -2064,6 +2150,7 @@ export function TripView() {
             canShare={!isInvitee}
             onEditContext={() => setTravelContextOpen(true)}
             onShare={() => setShowShareModal(true)}
+            onSetDates={undated && !isInvitee ? () => setSetDatesOpen(true) : undefined}
             budget={renderBudget()}
             packing={renderPacking()}
             shopping={renderShopping()}
@@ -2073,6 +2160,10 @@ export function TripView() {
             onTabChange={setOverviewTab}
           />
         </div>
+      )}
+
+      {setDatesOpen && activeTrip && (
+        <SetTripDatesDialog dayCount={activeTrip.days.length} onSave={setTripDates} onClose={() => setSetDatesOpen(false)} />
       )}
 
       {/* THE PRIMARY FAB: "+" only on the itinerary; on the map the agent docks inside the map.
@@ -2211,6 +2302,7 @@ export function TripView() {
         {editingActivity && (
           <ActivityEditModal
             activity={editingActivity}
+            currency={tripCurrency}
             onClose={() => setEditingActivityId(null)}
             onSave={(updates) => patchActivity(activeDayId, editingActivity.id, updates)}
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}

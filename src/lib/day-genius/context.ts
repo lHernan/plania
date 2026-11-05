@@ -124,10 +124,12 @@ export function buildGeniusContext(input: {
   dayId: string;
   now: GeniusNow;
   coords?: Record<string, Coords>;
+  /** Undated trip: its day dates are placeholders, so no day is past or today. */
+  undated?: boolean;
 }): GeniusContextResult {
   const day = input.days.find((d) => d.id === input.dayId);
-  if (!day || day.date < input.now.date) return { ok: false, reason: "past_day" };
-  const isToday = day.date === input.now.date;
+  if (!day || (!input.undated && day.date < input.now.date)) return { ok: false, reason: "past_day" };
+  const isToday = !input.undated && day.date === input.now.date;
   const nowMin = toMinutes(input.now.time) ?? 0;
 
   const candidates = day.activities

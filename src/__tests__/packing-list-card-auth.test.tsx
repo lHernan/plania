@@ -69,3 +69,12 @@ describe("PackingListCard opened from Tachi", () => {
     expect(screen.queryByRole("button", { name: "Generar lista de equipaje" })).toBeNull();
   });
 });
+
+describe("PackingListCard of an undated trip", () => {
+  it("does not generate and points to setting the dates", () => {
+    useAuthStore.setState({ user: { id: "u1", is_anonymous: false } as never });
+    renderWithI18n(<PackingListCard tripId="t1" tripName="Madrid" days={days} travelContext={{ version: 1, undated: true }} defaultOpen />);
+    expect(screen.getByText("Fija las fechas del viaje en Resumen para generar una lista de equipaje inteligente.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Generar lista de equipaje" })).toBeNull();
+  });
+});

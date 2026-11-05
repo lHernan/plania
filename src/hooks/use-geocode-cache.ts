@@ -17,7 +17,10 @@ type GeocodeResult =
 
 export function useGeocodeCache() {
   const cache = useRef<Map<string, CacheEntry>>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
+  // Requests in flight, not a boolean: the whole-trip map geocodes one batch per day
+  // concurrently, and every batch that resolves must re-render with its new coordinates.
+  const [pendingRequests, setPendingRequests] = useState(0);
+  const isLoading = pendingRequests > 0;
 
   const getCoords = useCallback(
     (location: string): GeocodedLocation | null => {
@@ -43,7 +46,7 @@ export function useGeocodeCache() {
 
       if (missing.length === 0) return;
 
-      setIsLoading(true);
+      setPendingRequests((n) => n + 1);
       try {
         const res = await fetch("/api/geocode", {
           method: "POST",
@@ -87,7 +90,7 @@ export function useGeocodeCache() {
           cache.current.delete(normalizeKey(loc));
         }
       } finally {
-        setIsLoading(false);
+        setPendingRequests((n) => n - 1);
       }
     },
     [],

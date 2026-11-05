@@ -100,6 +100,7 @@ export function Planner() {
       dates,
       userId: user?.id,
       preferences: plannerPreferences(form),
+      undated: form.mode === "days",
     });
 
   const goNext = () => {
@@ -124,6 +125,7 @@ export function Planner() {
       destinations: destinationList(form.destinations),
       dates: plannedDates(form),
       preferences: plannerPreferences(form),
+      undated: form.mode === "days",
     });
     if (plan.days.length === 0) return;
     setBusy(true);
@@ -276,8 +278,13 @@ export function Planner() {
                     <div className="flex items-baseline justify-between gap-2">
                       <h2 className="text-sm font-black text-[var(--color-text)]">{t("planner_day_label", { n: index + 1 })}</h2>
                       <p className="text-xs font-bold text-[var(--color-text-muted)]">
-                        {date}
-                        {destinations.length > 0 ? ` · ${destinations[Math.min(destinations.length - 1, Math.floor((index * destinations.length) / dates.length))]}` : ""}
+                        {/* By number of days the dates are placeholders: only the city is shown. */}
+                        {[
+                          form.mode === "days" ? null : date,
+                          destinations.length > 0 ? destinations[Math.min(destinations.length - 1, Math.floor((index * destinations.length) / dates.length))] : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </p>
                     </div>
                     {dayProposals.length === 0 ? (

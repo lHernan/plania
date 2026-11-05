@@ -8,6 +8,7 @@ import { applyTheme, readTheme, saveTheme, type ThemeMode } from "@/components/A
 import { AuthModal } from "@/components/AuthModal";
 import { useI18n } from "@/components/I18nProvider";
 import { TOUR_SEEN_KEY } from "@/components/ProductTour";
+import { currencyChoices, currencyLabel, savePreferredCurrency, usePreferredCurrency } from "@/lib/trip-currency";
 import { tripPath } from "@/lib/trip-routes";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
@@ -64,6 +65,15 @@ export function ProfileView() {
   const theme = chosenTheme ?? savedTheme;
   const [showAuthModal, setShowAuthModal] = useState(false);
   const email = user && !user.is_anonymous ? user.email ?? "" : null;
+  const preferredCurrency = usePreferredCurrency();
+  const [currencyError, setCurrencyError] = useState(false);
+
+  const changeCurrency = async (code: string) => {
+    setCurrencyError(false);
+    const result = await savePreferredCurrency(code, user);
+    if (result.user) useAuthStore.setState({ user: result.user });
+    if (result.error) setCurrencyError(true);
+  };
 
   useEffect(() => {
     applyTheme(readTheme());
@@ -162,6 +172,23 @@ export function ProfileView() {
               </Choice>
             ))}
           </div>
+        </Section>
+
+        <Section title={t("profile_currency")}>
+          <label className="flex flex-col gap-1.5 text-sm font-semibold text-[var(--color-text)]">
+            {t("profile_preferred_currency")}
+            <select
+              value={preferredCurrency}
+              onChange={(e) => void changeCurrency(e.target.value)}
+              className="min-h-11 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm font-semibold text-[var(--color-text)]"
+            >
+              {currencyChoices(preferredCurrency).map((code) => (
+                <option key={code} value={code}>{currencyLabel(code, lang)}</option>
+              ))}
+            </select>
+          </label>
+          <p className="text-xs text-[var(--color-text-muted)]">{t("profile_currency_hint")}</p>
+          {currencyError && <p role="alert" className="text-xs font-semibold text-[var(--color-danger)]">{t("profile_currency_error")}</p>}
         </Section>
 
         {activeTrip && (

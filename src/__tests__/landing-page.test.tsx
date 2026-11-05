@@ -87,6 +87,16 @@ describe("landing for visitors", () => {
     expect(nav.push).toHaveBeenCalledWith("/plan?dest=Lisboa&days=4");
   });
 
+  it("gives a registered user a way back to their trips", async () => {
+    await renderHome("registered");
+    expect(screen.getByRole("link", { name: "Mis viajes" }).getAttribute("href")).toBe("/trips");
+  });
+
+  it("does not show the trip list link to a visitor", async () => {
+    await renderHome("guest");
+    expect(screen.queryByRole("link", { name: "Mis viajes" })).toBeNull();
+  });
+
   it("sends a registered user who asks Tachi to the planner instead of the sign-in sheet", async () => {
     await renderHome("registered");
     fireEvent.click(screen.getByRole("button", { name: "¡Pregúntale a Tachi!" }));

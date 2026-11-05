@@ -98,6 +98,8 @@ describe("planner for a visitor", () => {
       ["2027-04-03", "Kioto"],
     ]);
     expect(activeTrip?.travelContext?.preferences).toEqual({ budgetLevel: "low", minimizeWalking: true });
+    expect(activeTrip?.travelContext?.undated).toBeUndefined();
+    expect([activeTrip?.startDate, activeTrip?.endDate]).toEqual(["2027-04-01", "2027-04-03"]);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(auth.from).not.toHaveBeenCalled();
     expect(saveDraft).not.toHaveBeenCalled();
@@ -111,11 +113,18 @@ describe("planner for a visitor", () => {
     fireEvent.change(screen.getByLabelText("Nº de días"), { target: { value: "4" } });
     next();
     next();
-    expect(within(screen.getByTestId("planner-preview")).getByText("Día 4")).toBeTruthy();
+    const preview = within(screen.getByTestId("planner-preview"));
+    expect(preview.getByText("Día 4")).toBeTruthy();
+    // No placeholder dates on the preview: the trip has no dates yet.
+    expect(preview.queryByText(new RegExp(format(new Date(), "yyyy-MM-dd")))).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Crear borrador" }));
 
     const today = new Date();
     const { activeTrip } = useItineraryStore.getState();
+    expect(activeTrip?.travelContext?.undated).toBe(true);
+    expect(activeTrip?.days).toHaveLength(4);
+    expect(activeTrip?.startDate).toBeUndefined();
+    expect(activeTrip?.endDate).toBeUndefined();
     expect(activeTrip?.days.map((d) => d.date)).toEqual([0, 1, 2, 3].map((n) => format(addDays(today, n), "yyyy-MM-dd")));
     expect(activeTrip?.days.map((d) => d.city)).toEqual(["Lisboa", "Lisboa", "Oporto", "Oporto"]);
     expect(fetchMock).not.toHaveBeenCalled();
