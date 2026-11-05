@@ -32,7 +32,7 @@ describe("resolveTripSelection i18n keys", () => {
   });
 
   it.each([
-    [[trip("fav", "2026-12-01", "2026-12-05", true), trip("now", "2026-10-20", "2026-10-30")], "trip_selection_reason_favorite", "Favorite trip selected"],
+    [[trip("fav", "2026-12-01", "2026-12-05", true), trip("soon", "2026-11-01", "2026-11-05")], "trip_selection_reason_favorite", "Favorite trip selected"],
     [[trip("now", "2026-10-20", "2026-10-30")], "trip_selection_reason_active_trip", "Active trip selected"],
     [[trip("soon", "2026-11-01", "2026-11-05")], "trip_selection_reason_closest_upcoming", "Closest upcoming trip selected"],
     [[trip("old", "2026-01-01", "2026-01-05")], "trip_selection_reason_most_recent_past", "Most recent past trip selected"],
@@ -53,5 +53,29 @@ describe("resolveTripSelection with a trip in progress", () => {
 
     expect(output.selected_trip_id).toBe("now");
     expect(output.selection_reason).toBe("active_trip");
+  });
+
+  it("selects the trip in progress over a favorite that is not in progress", () => {
+    const trips = [trip("fav", "2026-12-01", "2026-12-05", true), trip("now", "2026-10-20", "2026-10-30")];
+    const output = resolveTripSelection({ current_date: "2026-10-26", trips });
+
+    expect(output.selected_trip_id).toBe("now");
+    expect(output.selection_reason).toBe("active_trip");
+  });
+
+  it("prefers the favorite among several trips in progress", () => {
+    const trips = [trip("now", "2026-10-24", "2026-10-30"), trip("fav", "2026-10-20", "2026-10-30", true)];
+    const output = resolveTripSelection({ current_date: "2026-10-26", trips });
+
+    expect(output.selected_trip_id).toBe("fav");
+    expect(output.selection_reason).toBe("favorite");
+  });
+
+  it("still selects the favorite when no trip is in progress", () => {
+    const trips = [trip("soon", "2026-11-01", "2026-11-05"), trip("fav", "2026-12-01", "2026-12-05", true)];
+    const output = resolveTripSelection({ current_date: "2026-10-26", trips });
+
+    expect(output.selected_trip_id).toBe("fav");
+    expect(output.selection_reason).toBe("favorite");
   });
 });

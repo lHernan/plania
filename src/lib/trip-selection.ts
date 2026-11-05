@@ -164,17 +164,25 @@ function buildSelectionLabelKey(reason: TripSelectionReason): TripSelectionLabel
 }
 
 function selectDefaultTrip(classifiedTrips: ClassifiedTrip[]) {
+  // A trip in progress wins over a favorite that is not; among trips in progress the favorite wins.
+  const activeTrips = classifiedTrips.filter((trip) => trip.timing === "active").sort(sortActive);
+  const activeFavorite = activeTrips.find((trip) => trip.is_favorite);
+  if (activeFavorite) {
+    return {
+      selectedTrip: activeFavorite,
+      selectionReason: "favorite" as const,
+    };
+  }
+  if (activeTrips.length > 0) {
+    return {
+      selectedTrip: activeTrips[0],
+      selectionReason: "active_trip" as const,
+    };
+  }
+
   const favorites = classifiedTrips.filter((trip) => trip.is_favorite);
 
   if (favorites.length > 0) {
-    const activeFavorites = favorites.filter((trip) => trip.timing === "active").sort(sortActive);
-    if (activeFavorites.length > 0) {
-      return {
-        selectedTrip: activeFavorites[0],
-        selectionReason: "favorite" as const,
-      };
-    }
-
     const upcomingFavorites = favorites.filter((trip) => trip.timing === "upcoming").sort(sortUpcoming);
     if (upcomingFavorites.length > 0) {
       return {
@@ -190,14 +198,6 @@ function selectDefaultTrip(classifiedTrips: ClassifiedTrip[]) {
         selectionReason: "favorite" as const,
       };
     }
-  }
-
-  const activeTrips = classifiedTrips.filter((trip) => trip.timing === "active").sort(sortActive);
-  if (activeTrips.length > 0) {
-    return {
-      selectedTrip: activeTrips[0],
-      selectionReason: "active_trip" as const,
-    };
   }
 
   const upcomingTrips = classifiedTrips.filter((trip) => trip.timing === "upcoming").sort((left, right) => {

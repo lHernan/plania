@@ -41,7 +41,8 @@ import type {
   TripSummary,
   TravelContext,
 } from "@/lib/types";
-import { parseTravelContext } from "@/lib/travel-context";
+import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
+import { tripTimeZone } from "@/lib/day-genius/context";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 
@@ -555,6 +556,12 @@ export const useItineraryStore = create<Store>((set, get) => {
     if (error && !isMissingShoppingTable(error)) set({ error: error.message ?? "Shopping list sync failed" });
   };
 
+  // The day that is today where the trip happens (its time zone, else the device's), not in UTC.
+  const findTripToday = (plan: TripPlan) => {
+    const today = getCurrentTripDateTime(new Date(), tripTimeZone(plan, Intl.DateTimeFormat().resolvedOptions().timeZone)).date;
+    return plan.days.find((day) => day.date === today);
+  };
+
   const hydrateFromCache = async (tripId?: string) => {
     const userId = getCurrentUserId();
     if (!userId) {
@@ -589,8 +596,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       ? normalizeTripPlan(cache.tripPlans[resolvedTripId])
       : null;
     const currentActiveDayId = get().activeDayId;
-    const todayStr = new Date().toISOString().split("T")[0];
-    const todayDay = cachedTrip?.days.find((day) => day.date === todayStr);
+    const todayDay = cachedTrip ? findTripToday(cachedTrip) : undefined;
 
     const nextActiveDayId = cachedTrip?.days.some((day) => day.id === currentActiveDayId)
       ? currentActiveDayId
@@ -689,8 +695,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           ? state.trips.map((summary) => (summary.id === tripPlan.id ? buildTripSummaryFromPlan(tripPlan) : summary))
           : [buildTripSummaryFromPlan(tripPlan), ...state.trips]
       );
-      const todayStr = new Date().toISOString().split("T")[0];
-      const todayDay = tripPlan.days.find((day) => day.date === todayStr);
+      const todayDay = findTripToday(tripPlan);
 
       const nextActiveDayId = tripPlan.days.some((day) => day.id === state.activeDayId)
         ? state.activeDayId
