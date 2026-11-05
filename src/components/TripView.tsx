@@ -41,6 +41,7 @@ import {
   ListChecks,
   Navigation,
   Umbrella,
+  BookOpen,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -95,6 +96,7 @@ import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { MemoryList } from "@/components/memories/MemoryList";
 import { TripMemoriesStory } from "@/components/memories/TripMemoriesStory";
+import { TripSummaryPanel } from "@/components/memories/TripSummaryPanel";
 import { memoriesForActivity } from "@/lib/memories-view";
 import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
@@ -744,6 +746,12 @@ export function TripView() {
       return;
     }
     openChat();
+  };
+  // The Tachi panel shown (e.g. "Resume mi viaje"), held here so other places can open Tachi on it.
+  const [tachiPanelId, setTachiPanelId] = useState<string | null>(null);
+  const openTripSummary = () => {
+    setTachiPanelId("summary");
+    openTachi();
   };
   // Tachi can open the trip overview on its packing tab; leaving the overview resets it.
   const [overviewTab, setOverviewTab] = useState<OverviewTab>("summary");
@@ -1634,6 +1642,10 @@ export function TripView() {
     ...(section === "wallet"
       ? [{ id: "missing", label: t("tachi_action_missing_bookings"), icon: <ListChecks size={16} />, onSelect: askTachi(t("tachi_prompt_missing_bookings")) }]
       : []),
+    // An ended trip (Recuerdo mode) leads with its story; the AI is for registered users only.
+    ...(section === "overview" && itineraryMode === "memory" && isRegistered && activeTrip
+      ? [{ id: "summary", label: t("tachi_action_trip_summary"), icon: <BookOpen size={16} />, panel: <TripSummaryPanel tripId={activeTrip.id} /> }]
+      : []),
     ...(section === "overview"
       ? [
           {
@@ -2206,7 +2218,12 @@ export function TripView() {
             tools={renderTravelTools()}
             memories={
               itineraryMode === "memory" ? (
-                <TripMemoriesStory trip={activeTrip} currentUserId={user?.id ?? null} mapHref={tripSectionHref(activeTrip.id, "map")} />
+                <TripMemoriesStory
+                  trip={activeTrip}
+                  currentUserId={user?.id ?? null}
+                  mapHref={tripSectionHref(activeTrip.id, "map")}
+                  onSummarize={isRegistered ? openTripSummary : undefined}
+                />
               ) : undefined
             }
             tips={isRegistered ? undefined : renderScheduleTips()}
@@ -2236,7 +2253,14 @@ export function TripView() {
         <>
           <TravelContextEditor key={activeTrip.id} context={activeTrip.travelContext} canEdit={!isInvitee} isOpen={travelContextOpen} onClose={() => setTravelContextOpen(false)} />
           {isRegistered && (
-            <TachiSheet tripId={activeTrip.id} place={tachiPlace} activity={tachiActivity?.title} actions={tachiActions}>
+            <TachiSheet
+              tripId={activeTrip.id}
+              place={tachiPlace}
+              activity={tachiActivity?.title}
+              actions={tachiActions}
+              panelId={tachiPanelId}
+              onPanelChange={setTachiPanelId}
+            >
               {section === "itinerary" ? renderScheduleTips() : null}
             </TachiSheet>
           )}

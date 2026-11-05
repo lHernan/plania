@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { enUS, es } from "date-fns/locale";
-import { CheckCircle2, Map as MapIcon } from "lucide-react";
+import { CheckCircle2, Map as MapIcon, Sparkles } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { MemoryList } from "@/components/memories/MemoryList";
 import { memoriesForActivity, memoryStoryDays, tripLevelMemories } from "@/lib/memories-view";
@@ -15,10 +15,12 @@ type TripMemoriesStoryProps = {
   currentUserId: string | null;
   /** The map section, where the "Tachadas" filter shows what was crossed off. */
   mapHref: string;
+  /** Opens Tachi on "Resume mi viaje"; only passed for registered users (the AI is not for guests). */
+  onSummarize?: () => void;
 };
 
 /** Viaje › Recuerdos: trip memories first, then the story by day and a way to the map. */
-export function TripMemoriesStory({ trip, currentUserId, mapHref }: TripMemoriesStoryProps) {
+export function TripMemoriesStory({ trip, currentUserId, mapHref, onSummarize }: TripMemoriesStoryProps) {
   const { t, lang } = useI18n();
   const locale = lang === "es" ? es : enUS;
   const memories = trip.memories ?? [];
@@ -30,6 +32,16 @@ export function TripMemoriesStory({ trip, currentUserId, mapHref }: TripMemories
 
   return (
     <div className="space-y-6">
+      {onSummarize && (
+        <button
+          type="button"
+          onClick={onSummarize}
+          className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent-ai)]/10 px-4 text-xs font-bold text-[var(--color-text)] hover:bg-[var(--color-accent-ai)]/20 transition-colors"
+        >
+          <Sparkles size={16} aria-hidden="true" className="text-[var(--color-accent-ai)]" />
+          {t("memories_summarize_with_tachi")}
+        </button>
+      )}
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("memories_trip_heading")}</h3>
         <MemoryList

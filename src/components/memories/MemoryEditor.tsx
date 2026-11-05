@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { ImagePlus, Star, Trash2, X } from "lucide-react";
+import { ImagePlus, Sparkles, Star, Trash2, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { requestMemoryCaption } from "@/components/memories/memory-caption-client";
 import { MemoryPhotoImage } from "@/components/memories/MemoryPhotoImage";
 import { useTripMembers } from "@/components/memories/use-trip-members";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
@@ -11,6 +12,7 @@ import { loadMemoryAudienceChoice, saveMemoryAudienceChoice, type MemoryError } 
 import { MEMORY_ERROR_KEYS } from "@/lib/memories-view";
 import { MEMORY_PHOTO_ACCEPT } from "@/lib/memory-photos";
 import type { Memory, MemoryAudience } from "@/lib/types";
+import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
 type MemoryEditorProps = {
@@ -33,7 +35,7 @@ const chip =
 
 /** Sheet to create or edit a memory: note, rating, photos and who sees it. */
 export function MemoryEditor({ tripId, activityId, currentUserId, memory, onClose }: MemoryEditorProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const titleId = useId();
   const noteId = useId();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
@@ -52,6 +54,12 @@ export function MemoryEditor({ tripId, activityId, currentUserId, memory, onClos
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
+  // Suggested caption (AI): registered users only, never for guests.
+  const isRegistered = useAuthStore((state) => Boolean(state.user && !state.user.is_anonymous));
+  const [suggesting, setSuggesting] = useState(false);
+  // Stable references from the store (a new object per read would re-render forever).
+  const activityDay = useItineraryStore((state) => (activityId ? state.activeTrip?.days?.find((day) => day.activities.some((entry) => entry.id === activityId)) : undefined));
+  const activity = activityDay?.activities.find((entry) => entry.id === activityId);
 
   const { members, loading: membersLoading, error: membersError } = useTripMembers(tripId, audience === "selected");
   const others = members.filter((member) => member.userId !== currentUserId);
@@ -168,6 +176,22 @@ export function MemoryEditor({ tripId, activityId, currentUserId, memory, onClos
     else onClose();
   };
 
+  // Fill rule: the suggestion only fills an empty note, so it never overwrites what the user wrote.
+  const suggestCaption = async () => {
+    if (suggesting || note.trim()) return;
+    setSuggesting(true);
+    setError(null);
+    const result = await requestMemoryCaption({
+      tripId,
+      activityTitle: activity?.title,
+      city: activity?.city || activityDay?.city,
+      lang,
+    });
+    setSuggesting(false);
+    if ("caption" in result) setNote((current) => (current.trim() ? current : result.caption));
+    else setError(t(result.error === "offline" ? "memory_caption_offline" : "memory_caption_error"));
+  };
+
   const toggleChosen = (userId: string) =>
     setChosen((current) => (current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]));
 
@@ -199,7 +223,21 @@ export function MemoryEditor({ tripId, activityId, currentUserId, memory, onClos
 
         <form onSubmit={submit} className="flex-1 space-y-5 overflow-y-auto px-5 py-4" aria-busy={busy}>
           <div className="space-y-2">
-            <label htmlFor={noteId} className={fieldLabel}>{t("memory_note_label")}</label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor={noteId} className={fieldLabel}>{t("memory_note_label")}</label>
+              {isRegistered && (
+                <button
+                  type="button"
+                  onClick={() => void suggestCaption()}
+                  disabled={busy || suggesting || Boolean(note.trim())}
+                  title={note.trim() ? t("memory_caption_note_filled") : undefined}
+                  className={chip}
+                >
+                  <Sparkles size={16} aria-hidden="true" />
+                  {suggesting ? t("memory_caption_suggesting") : t("memory_caption_suggest")}
+                </button>
+              )}
+            </div>
             <textarea
               id={noteId}
               ref={noteRef}
