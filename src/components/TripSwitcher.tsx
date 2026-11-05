@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronRight, Check, Loader2, MapPin, Plus, Share2, Star, Trash2, Users, X } from "lucide-react";
@@ -219,6 +220,14 @@ export function TripSwitcher() {
                   </span>
                 ) : null}
               </div>
+              <div className="flex items-center gap-2">
+              <Link
+                href="/trips"
+                onClick={() => setIsOpen(false)}
+                className="text-xs font-bold text-[var(--color-primary)] hover:underline px-2 py-2"
+              >
+                {t("switcher_view_all")}
+              </Link>
               <button
                 onClick={() => {
                   setIsOpen(false);
@@ -228,6 +237,7 @@ export function TripSwitcher() {
               >
                 <X size={16} />
               </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-4 min-h-0">

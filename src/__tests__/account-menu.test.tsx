@@ -108,4 +108,16 @@ describe("AccountMenu", () => {
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Iniciar sesión" }));
     expect(h.onSignIn).toHaveBeenCalledTimes(1);
   });
+
+  it("links to the trip list and the profile", () => {
+    renderMenu();
+    const menu = open();
+    expect(within(menu).getByRole("menuitem", { name: "Mis viajes" }).getAttribute("href")).toBe("/trips");
+    expect(within(menu).getByRole("menuitem", { name: "Perfil" }).getAttribute("href")).toBe("/me");
+  });
+
+  it("leaves the tour out where there is no trip to tour", () => {
+    renderMenu({ onStartTour: undefined });
+    expect(within(open()).queryByRole("menuitem", { name: "Ver el tour de la app" })).toBeNull();
+  });
 });
