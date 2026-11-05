@@ -183,14 +183,16 @@ export default function SharePage() {
             transition={{ delay: 0.1 }}
             className="space-y-4"
           >
-            {tripData.days.map((day) => {
+            {tripData.days.map((day, index) => {
               const acts = activitiesByDay.get(day.id) ?? [];
+              // A trip without dates (planned by number of days) only has placeholder day dates.
+              const dayName = tripData.trip.startDate || tripData.trip.endDate ? day.date : t("trip_view_day_number", { number: index + 1 });
               return (
                 <div key={day.id} className="bg-[var(--color-surface)] backdrop-blur-xl border border-[var(--color-border)] rounded-3xl p-5 space-y-3">
                   <div className="flex items-center gap-2">
                     <Calendar size={14} className="text-[var(--color-primary)]" />
                     <h2 className="text-sm font-black text-[var(--color-text)]">
-                      {day.date} {day.city ? `· ${day.city}` : ""}
+                      {dayName} {day.city ? `· ${day.city}` : ""}
                     </h2>
                     {day.label && <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{day.label}</span>}
                   </div>

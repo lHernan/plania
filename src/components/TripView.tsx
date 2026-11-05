@@ -95,6 +95,8 @@ import { useCelebration, type CelebrationEvent } from "@/hooks/use-celebration";
 import { TripSectionNav, tripSectionHref } from "@/components/TripSectionNav";
 import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
+import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
+import { isTripUndated } from "@/lib/trip-undated";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -653,6 +655,11 @@ export function TripView() {
     }
   }, [activeTripIsDraft, user, saveDraft]);
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
+  // Planned by number of days: the day dates are placeholders, so days go by number and the
+  // trip is never live until its dates are set ([Fijar fechas], owner only like other trip edits).
+  const undated = isTripUndated(activeTrip);
+  const setTripDates = useItineraryStore((s) => s.setTripDates);
+  const [setDatesOpen, setSetDatesOpen] = useState(false);
   const sharedTrips = useItineraryStore((s) => s.sharedTrips);
   const sharedTripInfo = isInvitee ? sharedTrips.find((t) => t.id === activeTrip?.id) ?? null : null;
 
@@ -1200,8 +1207,8 @@ export function TripView() {
   // A template draft keeps the template's own dates, so its mode would say nothing true.
   const itineraryMode = activeTrip && tripNow && !activeTripIsDraft ? tripMode(activeTrip, tripNow.date) : null;
   const nowAndNext = useMemo(
-    () => (activeDay && tripNow && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
-    [activeDay, tripNow],
+    () => (activeDay && tripNow && !undated && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
+    [activeDay, tripNow, undated],
   );
   const showActivityCard = (activityId: string) => {
     document.getElementById(`activity-${activityId}`)?.scrollIntoView?.({ block: "center", behavior: "smooth" });
@@ -1522,9 +1529,9 @@ export function TripView() {
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            {budgetSummary.perDay.map((d) => (
+            {budgetSummary.perDay.map((d, index) => (
               <span key={d.date} className="text-[10px] font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-subtle)] rounded-full px-2 py-1">
-                {d.date}: {formatMoney(d.total)}
+                {undated ? t("trip_view_day_number", { number: index + 1 }) : d.date}: {formatMoney(d.total)}
               </span>
             ))}
           </div>
@@ -1560,7 +1567,10 @@ export function TripView() {
     activeTrip ? <PackingListCard tripId={activeTrip.id} tripName={activeTrip.name} days={activeTrip.days} travelContext={activeTrip.travelContext} onRequireAuth={() => requireAuth("tachi")} defaultOpen={packingFromTachi} /> : null;
 
   const tachiPlace = activeDay
-    ? [isPlaceholderCity(activeDay.city) ? null : activeDay.city, format(parseISO(activeDay.date), "EEEE d", { locale: dateFnsLocale })]
+    ? [
+        isPlaceholderCity(activeDay.city) ? null : activeDay.city,
+        undated ? t("trip_view_day_number", { number: activeIndex + 1 }) : format(parseISO(activeDay.date), "EEEE d", { locale: dateFnsLocale }),
+      ]
         .filter(Boolean)
         .join(" · ")
     : activeTrip?.name ?? "";
@@ -1734,7 +1744,7 @@ export function TripView() {
 
           {visibleDays.map((day) => {
             const isActive = day.id === activeDayId;
-            const isToday = day.date === today;
+            const isToday = !undated && day.date === today;
             return (
               <button
                 key={day.id}
@@ -1746,10 +1756,10 @@ export function TripView() {
                 }`}
               >
                 <span className={`text-[9px] font-black uppercase tracking-wider mb-0.5 ${isActive ? "text-white/70" : "text-[var(--color-text-muted)]"}`}>
-                  {format(day.date, "EEE", { locale: dateFnsLocale })}
+                  {undated ? t("trip_view_day") : format(day.date, "EEE", { locale: dateFnsLocale })}
                 </span>
                 <span className="text-base font-black tracking-tight leading-none">
-                  {format(day.date, "d", { locale: dateFnsLocale })}
+                  {undated ? (activeTrip?.days.findIndex((d) => d.id === day.id) ?? 0) + 1 : format(day.date, "d", { locale: dateFnsLocale })}
                 </span>
                 {isToday && !isActive && (
                   <div className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[var(--color-primary)]" />
@@ -1781,7 +1791,7 @@ export function TripView() {
             <div className="flex items-center gap-2 min-w-0">
               <MapPin size={14} className="text-[var(--color-text-muted)] shrink-0" />
               <span className="text-sm font-bold text-[var(--color-text)] truncate">
-                {format(activeDay.date, "EEE, MMM d", { locale: dateFnsLocale })}
+                {undated ? t("trip_view_day_number", { number: activeIndex + 1 }) : format(activeDay.date, "EEE, MMM d", { locale: dateFnsLocale })}
               </span>
               <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider truncate">{activeDay.city}</span>
             </div>
@@ -1852,7 +1862,7 @@ export function TripView() {
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-1">
                 <h2 className="text-xl font-black text-[var(--color-text)]">
-                  {format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
+                  {undated ? t("trip_view_day_number", { number: activeIndex + 1 }) : format(activeDay.date, "EEEE, MMM d", { locale: dateFnsLocale })}
                 </h2>
                 <div className="flex items-center gap-2">
                   <MapPin size={12} className="text-[var(--color-text-muted)]" />
@@ -1886,12 +1896,14 @@ export function TripView() {
                     <Trash2 size={14} />
                   </button>
                 )}
-                <button
-                  onClick={jumpToToday}
-                  className="px-4 py-2 rounded-2xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-subtle)]/80 transition-all"
-                >
-                  {t("today")}
-                </button>
+                {!undated && (
+                  <button
+                    onClick={jumpToToday}
+                    className="px-4 py-2 rounded-2xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest hover:bg-[var(--color-primary-subtle)]/80 transition-all"
+                  >
+                    {t("today")}
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -2138,6 +2150,7 @@ export function TripView() {
             canShare={!isInvitee}
             onEditContext={() => setTravelContextOpen(true)}
             onShare={() => setShowShareModal(true)}
+            onSetDates={undated && !isInvitee ? () => setSetDatesOpen(true) : undefined}
             budget={renderBudget()}
             packing={renderPacking()}
             shopping={renderShopping()}
@@ -2147,6 +2160,10 @@ export function TripView() {
             onTabChange={setOverviewTab}
           />
         </div>
+      )}
+
+      {setDatesOpen && activeTrip && (
+        <SetTripDatesDialog dayCount={activeTrip.days.length} onSave={setTripDates} onClose={() => setSetDatesOpen(false)} />
       )}
 
       {/* THE PRIMARY FAB: "+" only on the itinerary; on the map the agent docks inside the map.

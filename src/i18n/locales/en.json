@@ -985,5 +985,14 @@
   "profile_currency": "Currency",
   "profile_preferred_currency": "Preferred currency",
   "profile_currency_hint": "Default for new trips.",
-  "profile_currency_error": "Could not save the currency to your profile."
+  "profile_currency_error": "Could not save the currency to your profile.",
+  "trip_set_dates": "Set dates",
+  "trip_set_dates_title": "Set the trip dates",
+  "trip_set_dates_hint": "The {count} days follow one another from the start date.",
+  "trip_set_dates_start": "Start date",
+  "trip_set_dates_end": "End date",
+  "trip_set_dates_confirm": "Save dates",
+  "trip_set_dates_offline": "Connect to the internet to set the dates.",
+  "trip_set_dates_failed": "Could not save the dates. Try again.",
+  "packing_no_dates_undated": "Set the trip dates in Summary to generate a smart packing list."
 }

@@ -228,6 +228,11 @@ export type TravelContext = {
   arrivalOptions?: ArrivalOption[];
   /** ISO 4217 code every budget amount of the trip is expressed in. */
   currency?: string;
+  /**
+   * Planned by number of days only: the days keep placeholder dates (consecutive, in order)
+   * that are never shown, and the trip has no start or end until its dates are set.
+   */
+  undated?: boolean;
 };
 
 export type TripSummary = {

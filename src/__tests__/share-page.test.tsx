@@ -63,4 +63,31 @@ describe("share link page", () => {
     expect(await screen.findByText("La Palma")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalledWith("/api/share/tok/accept", expect.anything());
   });
+  describe("the day list of the preview", () => {
+    const days = [
+      { id: "d1", date: "2026-11-05", city: "Funchal", label: "Day 1" },
+      { id: "d2", date: "2026-11-06", city: "Funchal", label: "Day 2" },
+    ];
+    const withTrip = (trip: Record<string, unknown>) =>
+      fetchMock.mockImplementation(async (url: string) => {
+        if (url === "/api/share/tok") return new Response(JSON.stringify({ tripId: "t1", tripName: "La Palma", role: "viewer", accepted: false, ...trip }));
+        if (url === "/api/share/tok/trip") return new Response(JSON.stringify({ trip: { id: "t1", name: "La Palma", ...trip }, role: "viewer", days, activities: [], reservations: [] }));
+        throw new Error(url);
+      });
+
+    it("names the days of a trip without dates by number", async () => {
+      useAuthStore.setState({ user: null });
+      withTrip({});
+      renderWithI18n(<SharePage />);
+      expect(await screen.findByText("Día 2 · Funchal")).toBeTruthy();
+      expect(screen.queryByText(/2026-11-05/)).toBeNull();
+    });
+
+    it("keeps the day dates of a dated trip", async () => {
+      useAuthStore.setState({ user: null });
+      withTrip({ startDate: "2026-11-05", endDate: "2026-11-06" });
+      renderWithI18n(<SharePage />);
+      expect(await screen.findByText("2026-11-06 · Funchal")).toBeTruthy();
+    });
+  });
 });

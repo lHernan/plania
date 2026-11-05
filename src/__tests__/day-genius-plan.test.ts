@@ -136,6 +136,15 @@ describe("buildGeniusContext", () => {
     expect(noCity).toEqual({ ok: false, reason: "no_place" });
   });
 
+  it("plans a day of an undated trip as a future day even when its placeholder date has passed", () => {
+    const undated = buildGeniusContext({ days: overrunTrip(), dayId: "d2", now: { date: "2026-11-05", time: "10:00" }, undated: true });
+    if (!undated.ok) throw new Error(undated.reason);
+    expect(undated.context.mode).not.toBe("today");
+
+    const placeholderToday = buildGeniusContext({ days: overrunTrip(), dayId: "d2", now: { date: "2026-11-02", time: "23:58" }, undated: true });
+    expect(placeholderToday.ok).toBe(true);
+  });
+
   it("plans the free time of a day with nothing planned yet", () => {
     const arrival = [
       day("d1", "2026-11-01", [

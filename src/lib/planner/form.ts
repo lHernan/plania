@@ -82,7 +82,7 @@ export function destinationList(destinations: string): string[] {
 
 /**
  * The dates the trip covers. By number of days the data model still needs a date per day, so
- * the days start today and can be moved later.
+ * the days get placeholder dates from today: the trip is saved undated and they are never shown.
  */
 export function plannedDates(form: PlannerForm, today: Date = new Date()): string[] {
   if (form.mode === "dates" && DATE_RE.test(form.startDate)) {
@@ -115,6 +115,8 @@ export function buildDraftTrip(input: {
   dates: string[];
   userId?: string | null;
   preferences?: TravelContext["preferences"];
+  /** Planned by number of days: the dates are placeholders and the trip has no start or end. */
+  undated?: boolean;
 }): TripPlan {
   const userId = input.userId ?? "";
   const days: TripDay[] = input.dates.map((date, index) => {
@@ -126,8 +128,16 @@ export function buildDraftTrip(input: {
     id: input.id,
     name: input.name,
     userId: input.userId ?? null,
-    ...(days.length > 0 ? { startDate: days[0].date, endDate: days[days.length - 1].date } : {}),
-    ...(input.preferences ? { travelContext: { version: 1, preferences: input.preferences } } : {}),
+    ...(days.length > 0 && !input.undated ? { startDate: days[0].date, endDate: days[days.length - 1].date } : {}),
+    ...(input.preferences || input.undated
+      ? {
+          travelContext: {
+            version: 1,
+            ...(input.undated ? { undated: true } : {}),
+            ...(input.preferences ? { preferences: input.preferences } : {}),
+          },
+        }
+      : {}),
     days,
     criticalReservations: [],
     shoppingItems: [],

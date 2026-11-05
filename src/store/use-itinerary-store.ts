@@ -44,6 +44,7 @@ import type {
 import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
 import { resolvePreferredCurrency, withTripCurrency } from "@/lib/trip-currency";
 import { tripTimeZone } from "@/lib/day-genius/context";
+import { consecutiveDates, isTripUndated, withoutUndatedFlag } from "@/lib/trip-undated";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 
@@ -147,6 +148,8 @@ type Store = {
   deleteTrip: (tripId: string) => Promise<void>;
   setTripFavorite: (tripId: string) => Promise<void>;
   saveTravelContext: (travelContext: TravelContext | null) => Promise<{ error?: string }>;
+  /** [Fijar fechas] of an undated trip: consecutive day dates from `startDate`; "offline" without a connection. */
+  setTripDates: (startDate: string) => Promise<{ error?: string }>;
   switchTrip: (tripId: string) => Promise<void>;
   clearData: () => void;
   addTripDay: (date: string, city: string, label: string) => Promise<void>;
@@ -568,7 +571,9 @@ export const useItineraryStore = create<Store>((set, get) => {
   };
 
   // The day that is today where the trip happens (its time zone, else the device's), not in UTC.
+  // An undated trip has no today: its day dates are placeholders.
   const findTripToday = (plan: TripPlan) => {
+    if (isTripUndated(plan)) return undefined;
     const today = getCurrentTripDateTime(new Date(), tripTimeZone(plan, Intl.DateTimeFormat().resolvedOptions().timeZone)).date;
     return plan.days.find((day) => day.date === today);
   };
@@ -1378,8 +1383,10 @@ export const useItineraryStore = create<Store>((set, get) => {
       const userId = session.user.id;
 
       set({ loading: true });
-      const finalStartDate = activeTrip.startDate || new Date().toISOString().split("T")[0];
-      const finalEndDate = activeTrip.endDate || finalStartDate;
+      // An undated trip (planned by number of days) is saved without a start or end.
+      const undated = isTripUndated(activeTrip);
+      const finalStartDate = undated ? null : activeTrip.startDate || new Date().toISOString().split("T")[0];
+      const finalEndDate = undated ? null : activeTrip.endDate || finalStartDate;
 
       const { data: newTrip, error } = await supabase
         .from("trips")
@@ -1600,6 +1607,51 @@ export const useItineraryStore = create<Store>((set, get) => {
         activeTrip: state.activeTrip?.id === activeTrip.id
           ? { ...state.activeTrip, travelContext: normalizedContext ?? undefined }
           : state.activeTrip,
+      }));
+      return {};
+    },
+
+    setTripDates: async (startDate) => {
+      const activeTrip = get().activeTrip;
+      const userId = getCurrentUserId();
+      if (!activeTrip) return { error: "No trip to date." };
+      const dates = consecutiveDates(startDate, activeTrip.days.length);
+      const startOfTrip = dates[0] ?? startDate;
+      const endOfTrip = dates.at(-1) ?? startDate;
+      const travelContext = withoutUndatedFlag(activeTrip.travelContext);
+      const dated = (plan: TripPlan): TripPlan => ({
+        ...plan,
+        startDate: startOfTrip,
+        endDate: endOfTrip,
+        travelContext: travelContext ?? undefined,
+        days: plan.days.map((day, index) => ({ ...day, date: dates[index] ?? day.date })),
+      });
+
+      // A draft lives only on this device until it is saved.
+      if (get().activeTripIsDraft) {
+        set((state) => ({ activeTrip: state.activeTrip?.id === activeTrip.id ? dated(state.activeTrip) : state.activeTrip }));
+        return {};
+      }
+      if (!userId || activeTrip.userId !== userId) return { error: "Only the trip owner can set its dates." };
+      // Every day changes at once, so it is not queued for later like a single edit.
+      if (!isOnline()) return { error: "offline" };
+
+      // Days first, in order: the trip only stops being undated once they all have their date.
+      const dayResults = await Promise.all(
+        activeTrip.days.map((day, index) => supabase.from("trip_days").update({ date: dates[index] }).eq("id", day.id)),
+      );
+      const dayError = dayResults.find((result) => result.error)?.error;
+      if (dayError) return { error: dayError.message };
+
+      const { error } = await supabase
+        .from("trips")
+        .update({ start_date: startOfTrip, end_date: endOfTrip, travel_context: travelContext })
+        .eq("id", activeTrip.id)
+        .eq("user_id", userId);
+      if (error) return { error: error.message };
+
+      await writeState((state) => ({
+        activeTrip: state.activeTrip?.id === activeTrip.id ? dated(state.activeTrip) : state.activeTrip,
       }));
       return {};
     },

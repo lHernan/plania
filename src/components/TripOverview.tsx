@@ -8,6 +8,7 @@ import { CalendarDays, CheckCircle2, Circle, Compass, MapPin, Share2, Users } fr
 import { useI18n } from "@/components/I18nProvider";
 import { tripSectionHref } from "@/components/TripSectionNav";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
+import { isTripUndated } from "@/lib/trip-undated";
 import type { TripPlan } from "@/lib/types";
 
 const TABS = ["summary", "packing", "shopping", "tools"] as const;
@@ -19,6 +20,8 @@ type TripOverviewProps = {
   canShare: boolean;
   onEditContext: () => void;
   onShare: () => void;
+  /** Opens [Fijar fechas] for an undated trip; omitted for those who cannot edit the trip. */
+  onSetDates?: () => void;
   // Blocks TripView already renders; this screen only places them in its tabs.
   budget: ReactNode;
   packing: ReactNode;
@@ -32,7 +35,7 @@ type TripOverviewProps = {
 };
 
 /** The trip section: summary and preparation, packing, shopping and travel tools as tabs. */
-export function TripOverview({ trip, canShare, onEditContext, onShare, budget, packing, shopping, tools, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
+export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDates, budget, packing, shopping, tools, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
   const { t } = useI18n();
   const [ownTab, setOwnTab] = useState<OverviewTab>("summary");
   const tab = controlledTab ?? ownTab;
@@ -97,7 +100,7 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, budget, p
       <div role="tabpanel" id={panelId(tab)} aria-labelledby={tabId(tab)} className="space-y-6">
         {tab === "summary" && (
           <>
-            <TripSummary trip={trip} canShare={canShare} onEditContext={onEditContext} onShare={onShare} />
+            <TripSummary trip={trip} canShare={canShare} onEditContext={onEditContext} onShare={onShare} onSetDates={onSetDates} />
             <PreparationChecklist trip={trip} />
             {budget}
             {tips}
@@ -111,12 +114,13 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, budget, p
   );
 }
 
-function TripSummary({ trip, canShare, onEditContext, onShare }: Pick<TripOverviewProps, "trip" | "canShare" | "onEditContext" | "onShare">) {
+function TripSummary({ trip, canShare, onEditContext, onShare, onSetDates }: Pick<TripOverviewProps, "trip" | "canShare" | "onEditContext" | "onShare" | "onSetDates">) {
   const { t, lang } = useI18n();
   const locale = lang === "es" ? es : enUS;
   const formatDate = (date: string) => format(parseISO(date), "d MMM yyyy", { locale });
 
-  const dates = trip.startDate
+  const undated = isTripUndated(trip);
+  const dates = trip.startDate && !undated
     ? [trip.startDate, trip.endDate].filter(Boolean).map((d) => formatDate(d as string)).join(" – ")
     : t("trip_overview_no_dates", { count: trip.days.length });
   const cities = [...new Set(trip.days.map((d) => d.city.trim()).filter((c) => !isPlaceholderCity(c)))];
@@ -129,6 +133,15 @@ function TripSummary({ trip, canShare, onEditContext, onShare }: Pick<TripOvervi
         <li className="flex items-center gap-2">
           <CalendarDays size={16} className="shrink-0 text-[var(--color-text-muted)]" />
           <span>{dates}</span>
+          {undated && onSetDates && (
+            <button
+              type="button"
+              onClick={onSetDates}
+              className="min-h-11 ml-auto inline-flex items-center rounded-xl bg-[var(--color-primary-subtle)] px-3 text-xs font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors"
+            >
+              {t("trip_set_dates")}
+            </button>
+          )}
         </li>
         {cities.length > 0 && (
           <li className="flex items-center gap-2">
@@ -175,9 +188,13 @@ function PreparationChecklist({ trip }: { trip: TripPlan }) {
   const pendingReservations = trip.criticalReservations.filter((r) => r.status === "pending").length;
   const emptyDays = trip.days.filter((d) => d.activities.length === 0);
   const headingId = useId();
+  const undated = isTripUndated(trip);
 
-  const dayName = (date: string, city: string) => {
-    const day = format(parseISO(date), "EEE d MMM", { locale });
+  // An undated trip's day dates are placeholders: its days go by number.
+  const dayName = (dayId: string, date: string, city: string) => {
+    const day = undated
+      ? t("trip_view_day_number", { number: trip.days.findIndex((d) => d.id === dayId) + 1 })
+      : format(parseISO(date), "EEE d MMM", { locale });
     return isPlaceholderCity(city) ? day : `${day} · ${city}`;
   };
 
@@ -197,7 +214,7 @@ function PreparationChecklist({ trip }: { trip: TripPlan }) {
         {emptyDays.length > 0 ? (
           emptyDays.map((d) => (
             <ChecklistLink key={d.id} href={tripSectionHref(trip.id, "itinerary", d.date)}>
-              {t("trip_overview_day_empty", { day: dayName(d.date, d.city) })}
+              {t("trip_overview_day_empty", { day: dayName(d.id, d.date, d.city) })}
             </ChecklistLink>
           ))
         ) : (

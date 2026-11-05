@@ -1,3 +1,4 @@
+import { isTripUndated } from "@/lib/trip-undated";
 import type { ActivityFile, BookingMoment, BookingType, TripPlan } from "@/lib/types";
 
 /** One confirmed booking of the trip, gathered from the activities that share its groupId. */
@@ -145,6 +146,8 @@ export function groupBookingsByType(bookings: WalletBooking[]): { kind: BookingG
 export function selectTripDocuments(trip: TripPlan): WalletDocument[] {
   const seen = new Set<string>();
   const documents: (WalletDocument & { order: number })[] = [];
+  // An undated trip's day dates are placeholders: its documents go by day order, without a date.
+  const undated = isTripUndated(trip);
 
   trip.days.forEach((day, dayIndex) => {
     for (const activity of day.activities) {
@@ -157,7 +160,7 @@ export function selectTripDocuments(trip: TripPlan): WalletDocument[] {
           activityTitle: activity.title,
           activityTime: activity.time,
           dayId: day.id,
-          dayDate: day.date,
+          dayDate: undated ? "" : day.date,
           bookingType: activity.origin === "booking" ? activity.booking?.type : undefined,
           order: dayIndex,
         });

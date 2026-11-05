@@ -22,13 +22,16 @@ export type TripContext = TripContextInput;
 
 export function buildTripContext(input: TripContextInput) {
   const canShareTravelContext = input.trip.travelContext?.shareWithAI === true;
+  // Planned by number of days: the day dates are placeholders, so the agent gets day numbers.
+  const undated = input.trip.travelContext?.undated === true;
 
   return {
     trip: {
       id: input.trip.id,
       name: input.trip.name,
-      startDate: input.trip.startDate,
-      endDate: input.trip.endDate,
+      startDate: undated ? null : input.trip.startDate,
+      endDate: undated ? null : input.trip.endDate,
+      ...(undated ? { undated: true as const } : {}),
     },
     travelContext: canShareTravelContext ? input.trip.travelContext : null,
     current: {
@@ -37,9 +40,10 @@ export function buildTripContext(input: TripContextInput) {
       timeZone: canShareTravelContext ? input.currentTimeZone ?? null : "UTC",
       timeZoneSource: canShareTravelContext ? input.currentTimeZoneSource ?? "unknown" : "utc_fallback",
     },
-    days: input.days.map((day) => ({
+    days: input.days.map((day, index) => ({
       id: day.id,
-      date: day.date,
+      date: undated ? null : day.date,
+      ...(undated ? { dayNumber: index + 1 } : {}),
       city: day.city,
       label: day.label,
       activities: day.activities.map((activity) => ({

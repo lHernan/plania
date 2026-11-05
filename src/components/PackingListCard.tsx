@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { authHeaders } from "@/lib/auth-headers";
+import { isTripUndated } from "@/lib/trip-undated";
 import { useAuthStore } from "@/store/use-auth-store";
 import { TachiAvatar } from "@/components/TachiAvatar";
 import type {
@@ -50,8 +51,9 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
   const [error, setError] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState("");
 
-  // Determine if trip has dates
-  const hasDates = days.length > 0 && days[0]?.date && days[days.length - 1]?.date;
+  // The list needs the trip dates (weather, duration); an undated trip only has placeholders.
+  const undated = isTripUndated({ travelContext });
+  const hasDates = !undated && days.length > 0 && days[0]?.date && days[days.length - 1]?.date;
   const cities = getUniqueCities(days);
 
   // Load from localStorage on mount
@@ -232,7 +234,7 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
             {/* No dates hint */}
             {!hasDates && (
               <p className="text-xs font-bold text-[var(--color-text-secondary)]">
-                {t("packing_no_dates")}
+                {t(undated ? "packing_no_dates_undated" : "packing_no_dates")}
               </p>
             )}
 

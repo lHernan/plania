@@ -154,3 +154,37 @@ describe("TripOverview preparation checklist", () => {
     expect(within(list).getByRole("link", { name: /Kyoto: no activities/ })).toBeTruthy();
   });
 });
+
+describe("TripOverview of an undated trip", () => {
+  const undated = () => trip({ startDate: undefined, endDate: undefined, travelContext: { version: 1, undated: true, travelerCount: 3 } });
+
+  it("shows \"N días, sin fechas\" with [Fijar fechas] for those who can edit", () => {
+    const onSetDates = vi.fn();
+    renderWithI18n(
+      <TripOverview trip={undated()} canShare {...callbacks} onSetDates={onSetDates} budget={null} packing={null} shopping={null} tools={null} />,
+    );
+    expect(screen.getByText("4 días, sin fechas")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Fijar fechas" }));
+    expect(onSetDates).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows only the label to viewers", () => {
+    renderOverview(undated(), { canShare: false });
+    expect(screen.getByText("4 días, sin fechas")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Fijar fechas" })).toBeNull();
+  });
+
+  it("names the empty days by number, without placeholder dates", () => {
+    renderOverview(undated());
+    expect(screen.getByText("Día 2 · Kyoto: sin actividades")).toBeTruthy();
+    expect(screen.queryByText(/27 oct/)).toBeNull();
+  });
+
+  it("keeps the dates and no [Fijar fechas] on a dated trip", () => {
+    renderWithI18n(
+      <TripOverview trip={trip()} canShare {...callbacks} onSetDates={vi.fn()} budget={null} packing={null} shopping={null} tools={null} />,
+    );
+    expect(screen.getByText("26 oct 2026 – 29 oct 2026")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Fijar fechas" })).toBeNull();
+  });
+});

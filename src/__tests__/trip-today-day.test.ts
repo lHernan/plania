@@ -88,4 +88,24 @@ describe("the day a trip opens on", () => {
     await useItineraryStore.getState().fetchActiveTrip("t1");
     expect(useItineraryStore.getState().activeDayId).toBe("d16");
   });
+
+  it("is the first day of an undated trip, even when a placeholder date is today", async () => {
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+    db.trips = [{ ...db.trips[0], start_date: null, end_date: null, travel_context: { version: 1, undated: true, arrival: { timeZone: "Europe/Madrid" } } }];
+    await useItineraryStore.getState().fetchActiveTrip("t1");
+    expect(useItineraryStore.getState().activeTrip?.travelContext?.undated).toBe(true);
+    expect(useItineraryStore.getState().activeDayId).toBe("d15");
+  });
+
+  it("never picks an undated trip by its placeholder dates when no trip is asked for", async () => {
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+    db.trips = [
+      { id: "t0", user_id: "u1", name: "Lisboa", start_date: null, end_date: null, created_at: "2026-11-01", is_favorite: true, travel_context: { version: 1, undated: true } },
+      ...db.trips,
+    ];
+    await useItineraryStore.getState().fetchActiveTrip();
+    expect(useItineraryStore.getState().activeTrip?.id).toBe("t1");
+    const summaries = useItineraryStore.getState().trips;
+    expect(summaries.find((trip) => trip.id === "t1")).toMatchObject({ startDate: "2026-11-15", endDate: "2026-11-17" });
+  });
 });

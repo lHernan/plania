@@ -1,14 +1,16 @@
-import type { Activity, TripDay, TripPlan } from "@/lib/types";
+import { isTripUndated } from "@/lib/trip-undated";
+import type { Activity, TravelContext, TripDay, TripPlan } from "@/lib/types";
 
 /** How the itinerary presents a trip relative to today. */
 export type TripMode = "planning" | "today" | "memory";
 
-type DatedTrip = Pick<TripPlan, "startDate" | "endDate" | "days">;
+type DatedTrip = Pick<TripPlan, "startDate" | "endDate" | "days"> & { travelContext?: TravelContext | null };
 
 const isDate = (value: string | undefined): value is string => !!value && /^\d{4}-\d{2}-\d{2}/.test(value);
 
-/** The trip's range: its own dates, else the first and last day dates. */
+/** The trip's range: its own dates, else the first and last day dates. An undated trip has none. */
 export function tripDateRange(trip: DatedTrip): { start?: string; end?: string } {
+  if (isTripUndated(trip)) return {};
   const dayDates = trip.days.map((day) => day.date).filter(isDate).sort();
   const start = isDate(trip.startDate) ? trip.startDate.slice(0, 10) : dayDates[0]?.slice(0, 10);
   const end = isDate(trip.endDate) ? trip.endDate.slice(0, 10) : dayDates.at(-1)?.slice(0, 10);

@@ -196,6 +196,9 @@ export function parseTravelContext(value: unknown): TravelContext | null {
     result.currency = currency;
   }
 
+  if (source.undated !== undefined && typeof source.undated !== "boolean") return null;
+  if (source.undated === true) result.undated = true;
+
   return Object.keys(result).length > 1 ? result : null;
 }
 
