@@ -50,13 +50,19 @@ describe("saving a draft", () => {
     useItineraryStore.getState().loadTemplate(draft(context) as never);
     await useItineraryStore.getState().saveDraft();
     const trip = db.inserts.find((insert) => insert.table === "trips")?.payload as Record<string, unknown>;
-    expect(trip).toMatchObject({ name: "Oporto", travel_context: context });
+    expect(trip).toMatchObject({ name: "Oporto", travel_context: { ...context, currency: "USD" } });
   });
 
-  it("sends no travel context when the draft has none, as before", async () => {
+  it("sends only the trip currency when the draft has no travel context", async () => {
     useItineraryStore.getState().loadTemplate(draft() as never);
     await useItineraryStore.getState().saveDraft();
     const trip = db.inserts.find((insert) => insert.table === "trips")?.payload as Record<string, unknown>;
-    expect(trip).toEqual({ name: "Oporto", user_id: "u1", start_date: "2026-12-01", end_date: "2026-12-02" });
+    expect(trip).toEqual({
+      name: "Oporto",
+      user_id: "u1",
+      start_date: "2026-12-01",
+      end_date: "2026-12-02",
+      travel_context: { version: 1, currency: "USD" },
+    });
   });
 });

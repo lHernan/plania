@@ -76,7 +76,7 @@
   "notes": "Notas",
   "notes_placeholder": "Cualquier detalle extra, enlaces o numeros de confirmacion...",
   "category": "Categoria",
-  "expected_cost": "Costo Esperado ($)",
+  "expected_cost": "Costo estimado",
   "maps_url": "URL de Maps",
   "reservation_url": "URL de Reserva",
   "save": "Guardar",
@@ -976,5 +976,14 @@
   "map_scope_label": "Alcance del mapa",
   "map_scope_day": "Día",
   "map_scope_trip": "Viaje completo",
-  "map_day_legend": "Colores por día"
+  "map_day_legend": "Colores por día",
+  "actual_cost": "Costo real",
+  "trip_budget_estimated": "Estimado",
+  "trip_budget_actual": "Real",
+  "trip_currency": "Moneda del viaje",
+  "trip_currency_error": "No se pudo cambiar la moneda del viaje.",
+  "profile_currency": "Moneda",
+  "profile_preferred_currency": "Moneda preferida",
+  "profile_currency_hint": "Por defecto en los viajes nuevos.",
+  "profile_currency_error": "No se pudo guardar la moneda en tu perfil."
 }

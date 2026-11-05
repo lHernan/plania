@@ -75,7 +75,7 @@
   "notes": "Notes",
   "notes_placeholder": "Any extra details, links, or confirmation numbers...",
   "category": "Category",
-  "expected_cost": "Expected Cost ($)",
+  "expected_cost": "Estimated cost",
   "maps_url": "Maps URL",
   "reservation_url": "Reservation URL",
   "save": "Save",
@@ -976,5 +976,14 @@
   "map_scope_label": "Map scope",
   "map_scope_day": "Day",
   "map_scope_trip": "Whole trip",
-  "map_day_legend": "Colors by day"
+  "map_day_legend": "Colors by day",
+  "actual_cost": "Actual cost",
+  "trip_budget_estimated": "Estimated",
+  "trip_budget_actual": "Actual",
+  "trip_currency": "Trip currency",
+  "trip_currency_error": "Could not change the trip currency.",
+  "profile_currency": "Currency",
+  "profile_preferred_currency": "Preferred currency",
+  "profile_currency_hint": "Default for new trips.",
+  "profile_currency_error": "Could not save the currency to your profile."
 }

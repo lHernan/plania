@@ -42,6 +42,7 @@ import type {
   TravelContext,
 } from "@/lib/types";
 import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
+import { resolvePreferredCurrency, withTripCurrency } from "@/lib/trip-currency";
 import { tripTimeZone } from "@/lib/day-genius/context";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useOfflineStore } from "@/store/use-offline-store";
@@ -73,6 +74,7 @@ type ActivityDb = {
   maps_url?: string | null;
   reservation_url?: string | null;
   expected_cost?: number | null;
+  actual_cost?: number | null;
   category: Activity["category"];
   priority: Activity["priority"];
   state: ActivityState;
@@ -215,6 +217,8 @@ export const mapActivityFromDb = (db: ActivityDb): Activity => ({
   mapsUrl: db.maps_url ?? undefined,
   reservationUrl: db.reservation_url ?? undefined,
   expectedCost: db.expected_cost ?? undefined,
+  // Undefined when the column is absent or empty; select("*") never fails over it.
+  actualCost: db.actual_cost ?? undefined,
   category: db.category,
   priority: db.priority,
   state: db.state,
@@ -249,6 +253,8 @@ const mapActivityToDb = (activity: Partial<Activity>) => ({
   // undefined origin would be sent as NULL (or as an unknown column before the migration).
   ...(activity.origin !== undefined ? { origin: activity.origin } : {}),
   ...(activity.booking !== undefined ? { booking: activity.booking } : {}),
+  // Only when the user set it (null clears it), for the same reason as origin.
+  ...(activity.actualCost !== undefined ? { actual_cost: activity.actualCost } : {}),
 });
 
 /**
@@ -435,6 +441,11 @@ function applyFavoritePlanState(plan: TripPlan | null, tripId: string, nextFavor
 
 function getCurrentUserId() {
   return useAuthStore.getState().user?.id ?? null;
+}
+
+/** The travel context a new trip is saved with: the given one, carrying a currency. */
+function newTripContext(context?: TravelContext) {
+  return withTripCurrency(context, resolvePreferredCurrency(useAuthStore.getState().user));
 }
 
 function isOnline() {
@@ -734,6 +745,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: startDate,
           end_date: endDate,
+          ...(payload.travelContext ? { travel_context: payload.travelContext } : {}),
         })
         .select()
         .single();
@@ -1158,6 +1170,7 @@ export const useItineraryStore = create<Store>((set, get) => {
 
       const finalStartDate = startDate || new Date().toISOString().split("T")[0];
       const finalEndDate = endDate || finalStartDate;
+      const travelContext = newTripContext();
 
       if (!isOnline()) {
         const tripId = createOfflineId("trip");
@@ -1170,6 +1183,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           endDate: finalEndDate,
           createdAt: new Date().toISOString(),
           isFavorite: false,
+          travelContext,
           days,
           criticalReservations: [],
           shoppingItems: [],
@@ -1190,6 +1204,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           name,
           startDate: finalStartDate,
           endDate: finalEndDate,
+          travelContext,
         });
         return;
       }
@@ -1202,6 +1217,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
+          travel_context: travelContext,
         })
         .select()
         .single();
@@ -1256,6 +1272,7 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
+          travel_context: newTripContext(template.travelContext?.currency ? { version: 1, currency: template.travelContext.currency } : undefined),
         })
         .select()
         .single();
@@ -1371,8 +1388,9 @@ export const useItineraryStore = create<Store>((set, get) => {
           user_id: userId,
           start_date: finalStartDate,
           end_date: finalEndDate,
-          // The style chosen while planning (travelers, preferences) stays with the saved trip.
-          ...(activeTrip.travelContext ? { travel_context: activeTrip.travelContext } : {}),
+          // The style chosen while planning (travelers, preferences) stays with the saved trip,
+          // which also takes the preferred currency unless the draft already has one.
+          travel_context: newTripContext(activeTrip.travelContext),
         })
         .select()
         .single();

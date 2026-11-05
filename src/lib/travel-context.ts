@@ -48,7 +48,7 @@ function optionalInteger(value: unknown, min: number, max: number) {
   return value;
 }
 
-function normalizeCurrency(value: unknown) {
+export function normalizeCurrency(value: unknown) {
   if (typeof value !== "string" || value.trim().length !== 3) return undefined;
   const code = value.trim().toUpperCase();
   const supported = typeof Intl.supportedValuesOf === "function"
@@ -188,6 +188,12 @@ export function parseTravelContext(value: unknown): TravelContext | null {
     const normalizedOptions = options as ArrivalOption[];
     if (new Set(normalizedOptions.map((option) => option.id)).size !== normalizedOptions.length) return null;
     if (normalizedOptions.length > 0) result.arrivalOptions = normalizedOptions;
+  }
+
+  if (source.currency !== undefined) {
+    const currency = normalizeCurrency(source.currency);
+    if (!currency) return null;
+    result.currency = currency;
   }
 
   return Object.keys(result).length > 1 ? result : null;

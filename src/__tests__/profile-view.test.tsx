@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { mockMatchMedia, renderWithI18n } from "./helpers/dom";
 
 const nav = vi.hoisted(() => ({ push: vi.fn() }));
+const auth = vi.hoisted(() => ({
+  updateUser: vi.fn(async (attrs: { data: Record<string, unknown> }) => ({
+    data: { user: { id: "u", email: "me@x.io", is_anonymous: false, user_metadata: attrs.data } },
+    error: null,
+  })),
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/me",
   useRouter: () => ({ push: nav.push, replace: vi.fn(), prefetch: vi.fn() }),
@@ -13,6 +19,7 @@ vi.mock("@/lib/supabase", () => ({
     auth: {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       getSession: async () => ({ data: { session: null } }),
+      updateUser: auth.updateUser,
     },
   },
 }));
@@ -34,6 +41,7 @@ beforeEach(() => {
   mockMatchMedia();
   nav.push.mockClear();
   signOut.mockClear();
+  auth.updateUser.mockClear();
   useItineraryStore.setState({ activeTrip: null, activeTripIsDraft: false });
   asUser({ email: "me@x.io", is_anonymous: false });
 });
@@ -45,7 +53,7 @@ describe("ProfileView", () => {
   it("shows the account, language, theme and shared trips to a registered user", () => {
     renderWithI18n(<ProfileView />);
     expect(screen.getByRole("heading", { level: 1, name: "Perfil" })).toBeTruthy();
-    expect(sectionTitles()).toEqual(["Cuenta", "Idioma", "Tema"]);
+    expect(sectionTitles()).toEqual(["Cuenta", "Idioma", "Tema", "Moneda"]);
     expect(screen.getByText("me@x.io")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Viajes compartidos conmigo" }).getAttribute("href")).toBe("/trips");
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
@@ -68,6 +76,33 @@ describe("ProfileView", () => {
     expect(window.localStorage.getItem("plania_theme")).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(screen.getByRole("radio", { name: "Oscuro" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("saves a registered user's preferred currency in the profile and on this device", async () => {
+    renderWithI18n(<ProfileView />);
+    const select = screen.getByRole("combobox", { name: "Moneda preferida" }) as HTMLSelectElement;
+    expect(select.value).toBe("USD");
+    expect(screen.getByText("Por defecto en los viajes nuevos.")).toBeTruthy();
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "EUR" } });
+    });
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { preferred_currency: "EUR" } });
+    expect(window.localStorage.getItem("plania_home_currency")).toBe("EUR");
+    expect(select.value).toBe("EUR");
+  });
+
+  it("keeps a guest's preferred currency on this device only", async () => {
+    asUser({ is_anonymous: true });
+    window.localStorage.setItem("plania_home_currency", "GBP");
+    renderWithI18n(<ProfileView />);
+    const select = screen.getByRole("combobox", { name: "Moneda preferida" }) as HTMLSelectElement;
+    expect(select.value).toBe("GBP");
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "JPY" } });
+    });
+    expect(auth.updateUser).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("plania_home_currency")).toBe("JPY");
+    expect(select.value).toBe("JPY");
   });
 
   it("switches the language", () => {

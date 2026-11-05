@@ -59,6 +59,8 @@ export type Activity = {
   reservationUrl?: string;
   transportNotes?: string;
   expectedCost?: number;
+  /** What it really cost, in the trip currency; null clears it, undefined leaves it untouched. */
+  actualCost?: number | null;
   category: ActivityCategory;
   priority: Priority;
   state: ActivityState;
@@ -224,6 +226,8 @@ export type TravelContext = {
     budgetLevel?: "low" | "medium" | "high";
   };
   arrivalOptions?: ArrivalOption[];
+  /** ISO 4217 code every budget amount of the trip is expressed in. */
+  currency?: string;
 };
 
 export type TripSummary = {
