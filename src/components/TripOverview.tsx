@@ -13,7 +13,7 @@ import { isTripUndated } from "@/lib/trip-undated";
 import { TRIP_COVER_ACCEPT } from "@/lib/trip-cover";
 import type { TripPlan } from "@/lib/types";
 
-const TABS = ["summary", "packing", "shopping", "tools"] as const;
+const TABS = ["summary", "packing", "shopping", "tools", "memories"] as const;
 export type OverviewTab = (typeof TABS)[number];
 
 type CoverResult = Promise<{ error?: string }>;
@@ -41,6 +41,8 @@ type TripOverviewProps = {
   packing: ReactNode;
   shopping: ReactNode;
   tools: ReactNode;
+  /** Viaje › Recuerdos, only for a trip that has ended; the tab is hidden without it. */
+  memories?: ReactNode;
   /** Schedule tips for the summary when Tachi cannot show them (guests). */
   tips?: ReactNode;
   /** Controlled tab, so Tachi can open the packing list; uncontrolled when omitted. */
@@ -49,10 +51,12 @@ type TripOverviewProps = {
 };
 
 /** The trip section: summary and preparation, packing, shopping and travel tools as tabs. */
-export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDates, coverEditor, budget, packing, shopping, tools, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
+export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDates, coverEditor, budget, packing, shopping, tools, memories, tips, tab: controlledTab, onTabChange }: TripOverviewProps) {
   const { t } = useI18n();
   const [ownTab, setOwnTab] = useState<OverviewTab>("summary");
-  const tab = controlledTab ?? ownTab;
+  const tabs: readonly OverviewTab[] = memories ? TABS : TABS.filter((key) => key !== "memories");
+  const requested = controlledTab ?? ownTab;
+  const tab = tabs.includes(requested) ? requested : "summary";
   const setTab = (next: OverviewTab) => {
     setOwnTab(next);
     onTabChange?.(next);
@@ -66,15 +70,16 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDate
     packing: t("trip_overview_tab_packing"),
     shopping: t("trip_overview_tab_shopping"),
     tools: t("trip_overview_tab_tools"),
+    memories: t("trip_overview_tab_memories"),
   };
 
   const selectByKey = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const index = TABS.indexOf(tab);
+    const index = tabs.indexOf(tab);
     const next =
-      event.key === "ArrowRight" ? TABS[(index + 1) % TABS.length]
-      : event.key === "ArrowLeft" ? TABS[(index - 1 + TABS.length) % TABS.length]
-      : event.key === "Home" ? TABS[0]
-      : event.key === "End" ? TABS[TABS.length - 1]
+      event.key === "ArrowRight" ? tabs[(index + 1) % tabs.length]
+      : event.key === "ArrowLeft" ? tabs[(index - 1 + tabs.length) % tabs.length]
+      : event.key === "Home" ? tabs[0]
+      : event.key === "End" ? tabs[tabs.length - 1]
       : null;
     if (!next) return;
     event.preventDefault();
@@ -89,7 +94,7 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDate
         aria-label={t("trip_overview_tabs_label")}
         className="flex gap-1 overflow-x-auto scrollbar-hide rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-1"
       >
-        {TABS.map((key) => (
+        {tabs.map((key) => (
           <button
             key={key}
             type="button"
@@ -123,6 +128,7 @@ export function TripOverview({ trip, canShare, onEditContext, onShare, onSetDate
         {tab === "packing" && packing}
         {tab === "shopping" && shopping}
         {tab === "tools" && tools}
+        {tab === "memories" && memories}
       </div>
     </div>
   );
