@@ -115,3 +115,26 @@ $$;
 DROP TRIGGER IF EXISTS packing_items_before_update ON packing_items;
 CREATE TRIGGER packing_items_before_update BEFORE UPDATE ON packing_items
   FOR EACH ROW EXECUTE FUNCTION packing_items_before_update();
+
+-- Someone removed from the trip can no longer be assigned, and the update policy re-checks
+-- assigned_to on every update: clear their assignments so those items stay editable.
+-- SECURITY DEFINER: the person removing the share may not be allowed to write those rows.
+CREATE OR REPLACE FUNCTION packing_items_unassign_removed_member()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE packing_items
+  SET assigned_to = NULL
+  WHERE trip_id = OLD.trip_id AND assigned_to = OLD.shared_with;
+  RETURN OLD;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION packing_items_unassign_removed_member() FROM PUBLIC, anon;
+
+DROP TRIGGER IF EXISTS packing_items_unassign_removed_member ON trip_shares;
+CREATE TRIGGER packing_items_unassign_removed_member AFTER DELETE ON trip_shares
+  FOR EACH ROW EXECUTE FUNCTION packing_items_unassign_removed_member();

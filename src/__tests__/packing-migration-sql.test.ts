@@ -76,6 +76,12 @@ describe("packing_items migration", () => {
     expect(sql).toContain("NEW.updated_at := NOW();");
   });
 
+  it("unassigns the shared items of someone removed from the trip, so those items stay editable", () => {
+    expect(sql).toContain("CREATE TRIGGER packing_items_unassign_removed_member AFTER DELETE ON trip_shares");
+    expect(sql).toMatch(/UPDATE packing_items\s+SET assigned_to = NULL\s+WHERE trip_id = OLD\.trip_id AND assigned_to = OLD\.shared_with/);
+    expect(sql).toMatch(/FUNCTION packing_items_unassign_removed_member\(\)[\s\S]*?SECURITY DEFINER\s+SET search_path = public/);
+  });
+
   it("touches no other table's policies", () => {
     const policies = [...sql.matchAll(/(?:CREATE|DROP) POLICY (?:IF EXISTS )?"[^"]+" ON (\w+)/g)].map((m) => m[1]);
     expect(new Set(policies)).toEqual(new Set(["packing_items"]));
