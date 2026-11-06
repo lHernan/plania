@@ -157,6 +157,27 @@ describe("TripView sections", () => {
     expect(nav.push).toHaveBeenCalledWith("/trips/t?day=2026-10-26");
   });
 
+  describe("a day picked in the date strip", () => {
+    const pickSecondDay = () => {
+      const strip = document.querySelector('[data-tour="day-strip"]') as HTMLElement;
+      fireEvent.click(within(strip).getByRole("button", { name: /27/ }));
+    };
+
+    it.each(["wallet", "overview"])("opens its activities on the itinerary from the %s, which do not depend on the day", async (section) => {
+      await renderAt(`/trips/t/${section}`);
+      pickSecondDay();
+      expect(useItineraryStore.getState().activeDayId).toBe("d2");
+      expect(nav.push).toHaveBeenCalledWith("/trips/t?day=2026-10-27");
+    });
+
+    it.each(["/trips/t", "/trips/t/map"])("stays on %s, which already shows the picked day", async (pathname) => {
+      await renderAt(pathname);
+      pickSecondDay();
+      expect(useItineraryStore.getState().activeDayId).toBe("d2");
+      expect(nav.push).not.toHaveBeenCalled();
+    });
+  });
+
   it("the map button in the day bar goes to the map section, for invitees too", async () => {
     await renderAt("/trips/t", "owner");
     const dayTools = document.querySelector('[data-tour="day-tools"]') as HTMLElement;
