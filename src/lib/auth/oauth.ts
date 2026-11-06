@@ -60,6 +60,23 @@ export async function startOAuthSignIn(provider: OAuthProvider, now = Date.now()
 
 export type OAuthReturn = { transferred: boolean; draft: TripPlan | null };
 
+/**
+ * The unsaved draft coming back from the provider, without consuming it: it is made active (and
+ * its page left alone) right away, before the transfer answers. completePendingOAuthTransfer
+ * consumes it afterwards.
+ */
+export function peekPendingOAuthDraft(now = Date.now()): TripPlan | null {
+  try {
+    const raw = localStorage.getItem(OAUTH_PENDING_KEY);
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as { at?: unknown; draft?: unknown };
+    if (typeof pending.at !== "number" || now - pending.at > PENDING_TTL_MS) return null;
+    return asDraft(pending.draft);
+  } catch {
+    return null;
+  }
+}
+
 /** A draft read back from storage: only something shaped like a trip is handed back. */
 function asDraft(value: unknown): TripPlan | null {
   const draft = value as Partial<TripPlan> | null;

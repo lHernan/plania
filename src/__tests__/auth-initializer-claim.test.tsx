@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase", () => ({
     from: () => ({}),
     rpc: async (fn: string, args: Record<string, unknown>) => {
       order.push(`rpc:${fn}:${String(args.p_anon_id)}->${String(args.p_new_id)}`);
+      if (rpcGate.hold) await new Promise(() => {});
       return { data: 1, error: null };
     },
     auth: {
@@ -23,6 +24,7 @@ const { useAuthStore } = await import("@/store/use-auth-store");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 
 const order = vi.hoisted(() => [] as string[]);
+const rpcGate = vi.hoisted(() => ({ hold: false }));
 const fetchMock = vi.fn(async (url: string) => {
   order.push(url);
   return new Response(JSON.stringify({ tripIds: ["t-shared"] }));
@@ -40,6 +42,7 @@ beforeEach(() => {
   session.token = "tok";
   fetchMock.mockClear();
   fetchActiveTrip.mockClear();
+  rpcGate.hold = false;
   fetchAllTrips.mockClear();
   window.localStorage.clear();
   vi.stubGlobal("fetch", fetchMock);
@@ -76,6 +79,18 @@ describe("AuthInitializer", () => {
     await waitFor(() => expect(useItineraryStore.getState().activeTripIsDraft).toBe(true));
     expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "draft-1", name: "Roma", userId: "u-new" });
     await waitFor(() => expect(fetchAllTrips).toHaveBeenCalled());
+    expect(fetchActiveTrip).not.toHaveBeenCalled();
+  });
+
+  it("makes the returning draft active right away, before the transfer answers", async () => {
+    rpcGate.hold = true;
+    const draft = { id: "draft-1", name: "Roma", days: [], criticalReservations: [], shoppingItems: [], ignoredShoppingSuggestionKeys: [] };
+    window.localStorage.setItem("tachao_oauth_pending", JSON.stringify({ anonId: "anon-1", at: Date.now(), draft }));
+    useAuthStore.setState({ initialized: true, user: { id: "u-new", is_anonymous: false } as never, initialize: vi.fn(async () => {}) });
+    render(<AuthInitializer />);
+    expect(useItineraryStore.getState().activeTripIsDraft).toBe(true);
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "draft-1", userId: "u-new" });
+    await waitFor(() => expect(order).toContain("rpc:transfer_anonymous_data:anon-1->u-new"));
     expect(fetchActiveTrip).not.toHaveBeenCalled();
   });
 

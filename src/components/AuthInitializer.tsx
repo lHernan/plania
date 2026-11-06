@@ -3,10 +3,9 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { completePendingOAuthTransfer } from "@/lib/auth/oauth";
+import { completePendingOAuthTransfer, peekPendingOAuthDraft } from "@/lib/auth/oauth";
 import { claimPendingInvitations } from "@/lib/share/claim-client";
 import { parseTripPath, tripPath } from "@/lib/trip-routes";
-import type { TripPlan } from "@/lib/types";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
@@ -71,18 +70,19 @@ export function AuthInitializer() {
 
     clearData();
     const isAnonymous = Boolean(user?.is_anonymous);
+    // Back from Google or Apple with an unsaved draft: it is active again right away, before any
+    // wait, so nothing loads or routes over it; TripView's auto-save then stores it.
+    const returnedDraft = !isAnonymous && !isOffline() ? peekPendingOAuthDraft() : null;
+    if (returnedDraft) loadTemplate(returnedDraft);
     void (async () => {
       // Invitations sent to this email become shared trips before the trips are loaded,
       // so an invitee with no trips of their own lands on the shared one.
-      let returnedDraft: TripPlan | null = null;
       if (!isAnonymous && !isOffline()) {
         // Back from Google or Apple: the guest's trips move to the account before anything loads.
-        returnedDraft = (await completePendingOAuthTransfer(currentUserId)).draft;
+        await completePendingOAuthTransfer(currentUserId);
         await claimPendingInvitations();
       }
       if (returnedDraft) {
-        // The draft taken to the provider is active again; TripView's auto-save stores it.
-        loadTemplate(returnedDraft);
         void fetchAllTrips();
         return;
       }

@@ -27,7 +27,7 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-const { completePendingOAuthTransfer, enabledOAuthProviders, startOAuthSignIn, OAUTH_PENDING_KEY } = await import("@/lib/auth/oauth");
+const { completePendingOAuthTransfer, enabledOAuthProviders, peekPendingOAuthDraft, startOAuthSignIn, OAUTH_PENDING_KEY } = await import("@/lib/auth/oauth");
 
 beforeEach(() => {
   auth.user = null;
@@ -116,6 +116,17 @@ describe("completePendingOAuthTransfer", () => {
     expect(JSON.parse(window.localStorage.getItem(OAUTH_PENDING_KEY)!)).toEqual({ anonId: "anon-1", at: 1000, draft });
     expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: true, draft });
     expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: false, draft: null });
+  });
+
+  it("peeks at the returning draft without consuming it, so it can be shown before the transfer", async () => {
+    const draft = { id: "draft-1", name: "Roma", days: [] };
+    expect(peekPendingOAuthDraft(2000)).toBeNull();
+    window.localStorage.setItem(OAUTH_PENDING_KEY, JSON.stringify({ anonId: "anon-1", at: 1000, draft }));
+    expect(peekPendingOAuthDraft(2000)).toEqual(draft);
+    expect(window.localStorage.getItem(OAUTH_PENDING_KEY)).not.toBeNull();
+    expect(peekPendingOAuthDraft(30 * 60 * 1000 + 1001)).toBeNull();
+    window.localStorage.setItem(OAUTH_PENDING_KEY, JSON.stringify({ at: 1000, draft: { id: 5 } }));
+    expect(peekPendingOAuthDraft(2000)).toBeNull();
   });
 
   it("keeps a draft even without a guest session, and drops a malformed one", async () => {

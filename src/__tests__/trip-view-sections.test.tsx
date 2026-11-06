@@ -113,6 +113,18 @@ afterEach(() => {
 });
 
 describe("TripView sections", () => {
+  it("does not look up in the database the draft coming back from Google or Apple on its own page", async () => {
+    const fetchActiveTrip = vi.fn(async () => {});
+    window.localStorage.setItem("tachao_oauth_pending", JSON.stringify({ anonId: "anon-1", at: Date.now(), draft: { id: "draft-1", name: "Roma", days: [] } }));
+    nav.pathname = "/trips/draft-1";
+    useItineraryStore.setState({ activeTrip: null, activeTripIsDraft: false, loading: false, hasFetched: false, fetchActiveTrip } as never);
+    useAuthStore.setState({ user: { id: "u-new", is_anonymous: false, email: "me@x.io" } } as never);
+    renderWithI18n(<TripView />);
+    await act(async () => {});
+    expect(fetchActiveTrip).not.toHaveBeenCalled();
+    window.localStorage.removeItem("tachao_oauth_pending");
+  });
+
   it("shows the timeline with the day's activities on the itinerary", async () => {
     await renderAt("/trips/t");
     const timeline = document.querySelector('[data-tour="timeline"]') as HTMLElement;

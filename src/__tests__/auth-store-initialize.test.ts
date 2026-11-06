@@ -43,6 +43,7 @@ beforeEach(() => {
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
   useAuthStore.setState({ user: null, session: null, loading: true, initialized: false });
   state.cached = { user: guest, session: session(guest), cachedAt: Date.now() };
+  state.releaseCache = null;
 });
 
 describe("useAuthStore.initialize", () => {
@@ -53,6 +54,17 @@ describe("useAuthStore.initialize", () => {
     state.releaseCache!();
     await pending;
     expect(useAuthStore.getState().user).toMatchObject({ id: "u-new" });
+  });
+
+  it("offline, still restores the cached session after supabase reported no session", async () => {
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    const pending = useAuthStore.getState().initialize();
+    await vi.waitFor(() => expect(state.releaseCache).toBeTruthy());
+    state.listener!("INITIAL_SESSION", null);
+    expect(useAuthStore.getState()).toMatchObject({ initialized: true, user: null });
+    state.releaseCache!();
+    await pending;
+    expect(useAuthStore.getState().user).toMatchObject({ id: "anon-1" });
   });
 
   it("still restores the cached session when nothing was reported yet", async () => {
