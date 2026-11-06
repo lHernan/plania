@@ -59,6 +59,7 @@ BEGIN
     WHEN 'day_genius' THEN 20
     WHEN 'summary' THEN 10
     WHEN 'caption' THEN 50
+    WHEN 'shopping' THEN 20
     ELSE NULL
   END;
   IF v_limit IS NULL THEN

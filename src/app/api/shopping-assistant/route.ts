@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
 import { extractJsonObject } from "@/lib/ai/json-response";
+import { consumeAiQuota } from "@/lib/ai/quota";
 import { runShoppingAssistant } from "@/lib/shopping-assistant";
 import {
   MAX_SHOPPING_TEXT,
@@ -11,10 +12,17 @@ import {
 import { getAuthClient } from "@/lib/supabase-server";
 import type { ShoppingAssistantRequest, ShoppingAssistantWishlistInput, ShoppingItem } from "@/lib/types";
 
-/** AI split for signed-in users (it spends credits); null means "use the rules". */
+/**
+ * AI split for signed-in users (it spends credits); null means "use the rules".
+ * Counts against the daily "shopping" quota; over the quota, or when it cannot be checked,
+ * the rules split the text instead, so adding to the list never fails.
+ */
 async function parseWithAi(request: Request, body: ShoppingAssistantWishlistInput): Promise<ShoppingItem[] | null> {
-  const { data, error } = await getAuthClient(request).auth.getUser();
+  const client = getAuthClient(request);
+  const { data, error } = await client.auth.getUser();
   if (error || !data?.user || data.user.is_anonymous) return null;
+  const quota = await consumeAiQuota(client, "shopping");
+  if (!quota.allowed) return null;
   try {
     const content = await runAiPrompt(
       buildShoppingParseSystemPrompt(body.lang === "es" ? "es" : "en"),
