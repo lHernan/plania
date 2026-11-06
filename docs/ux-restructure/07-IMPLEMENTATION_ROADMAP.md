@@ -129,7 +129,7 @@ Criterios de aceptación:
 
 ## TODO técnico pendiente de evaluar
 
-- [ ] **Redirección inicial en servidor (`proxy.ts`)** para eliminar el parpadeo de carga. Requiere sesión en cookies (hoy Supabase JS en cliente). Evaluar después de la Fase 2.
+- [x] **Redirección inicial en servidor (`proxy.ts`)** para eliminar el parpadeo de carga. **Descartada** el 2026-11-06 (ver Q13 en `08-OPEN_QUESTIONS.md`): exige migrar la sesión a cookies, la decisión depende de datos del cliente y el modo sin conexión necesita la redirección del cliente igual.
 - [x] **Política de acceso al compartir un viaje (seguridad).** La política RLS `trips_select_via_share_link` (`src/lib/trip_share_public_read_migration.sql`) no comprueba el usuario: cualquier usuario autenticado puede leer un viaje que tenga un enlace de compartir activo. Requiere una migración: limitar la lectura por enlace a la ruta pública con token (servidor) y dejar el acceso de usuarios solo a dueño y `trip_shares`. Registrado el 2026-11-05. **Resuelto** por `src/lib/trip_share_link_access_migration.sql` (Fase 5, T4): el enlace solo se valida en el servidor con la service role; RLS ya no concede lecturas por enlace.
 
 ## Dependencias entre fases

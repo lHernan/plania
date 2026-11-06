@@ -1,6 +1,6 @@
 # 08 · Decisiones y preguntas abiertas
 
-**Estado (2026-11-04):** todas las preguntas que bloqueaban la Fase 1 están resueltas. Solo queda abierta la navegación en tablet (se valida con prototipo) y un TODO técnico (redirección en servidor).
+**Estado (2026-11-04):** todas las preguntas que bloqueaban la Fase 1 están resueltas. Solo queda abierta la navegación en tablet (se valida con prototipo). La redirección en servidor (Q13) se descartó el 2026-11-06.
 
 ## Decisiones tomadas
 
@@ -17,6 +17,7 @@
 | Q9 | Nombre de la IA | **Tachi**, mascota de IA de Tachao: "¡Pregúntale a Tachi!". Day Genius pasa a ser la acción "Reorganizar el día" y el agente de viaje, la conversación con Tachi. | S11, Fase 3 (avatar e ilustraciones). |
 | Q11 | Moneda | **Moneda única por viaje, elegida por el usuario** (p. ej. Budapest en EUR; un usuario de UK puede elegir GBP). | Fase 4 (campo nuevo). |
 | Q12 | Viajes sin fechas | **Planificar con nº de días** ("Día 1…N") y fijar inicio y fin después, para activar calendario y seguimiento en vivo. Grupo "En planificación" en Mis viajes. | S5, S10, Fase 4 (cambio de modelo: hoy `trip_days.date` es obligatorio). |
+| Q13 | Redirección inicial en servidor (`proxy.ts`) | **Descartada** (2026-11-06): la sesión de Supabase vive en `localStorage` (el servidor no la ve) y migrarla a cookies (`@supabase/ssr`) toca todo el login; la decisión depende de datos del cliente (viaje seleccionado, si hay viajes, sin conexión, "abrir el viaje solo al entrar"); y el modo sin conexión (service worker) obliga a mantener la redirección del cliente igual, con dos lógicas que se pueden contradecir. La única ganancia, quitar el parpadeo de carga, se resuelve en el cliente con una pantalla de carga en `/` mientras se decide. | Ninguno; se mantiene `AuthInitializer`. |
 | Q14 | IA para visitantes | **No: IA solo para usuarios registrados.** El visitante ve a Tachi y el botón lleva al registro. | S2, S11, Fase 3. Hoy solo `api/day-genius` y `api/shopping-assistant` rechazan anónimos en servidor. |
 | Q16 | Moneda por defecto | **La del perfil del usuario**, editable en cada viaje. | S13 (preferencia de moneda), Fase 4. |
 
@@ -25,7 +26,6 @@
 | # | Pregunta | Cómo se resuelve | Bloquea |
 |---|----------|------------------|---------|
 | Q10 | ¿Navegación en tablet (`md`–`lg`): bottom nav o tabs en cabecera? | Validar con prototipo. | Diseño de la Fase 1 |
-| Q13 | ¿Mover la redirección inicial al servidor (`proxy.ts`)? | **TODO:** evaluar después de la Fase 2 (requiere sesión en cookies). Registrado en `07-IMPLEMENTATION_ROADMAP.md`. | — |
 | Q15 | En la maleta compartida, ¿cada viajero puede tener además ítems privados? | Decidir al diseñar la Fase 4. | Fase 4 |
 
 ---
