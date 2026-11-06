@@ -18,7 +18,6 @@ type ShareInfo = {
   startDate?: string;
   endDate?: string;
   role: "viewer" | "editor";
-  email: string | null;
   accepted: boolean;
 };
 
@@ -27,7 +26,6 @@ type TripData = {
   role: "viewer" | "editor";
   days: Array<{ id: string; date: string; city: string; label: string }>;
   activities: Array<{ id: string; day_id: string; title: string; time: string; duration_min?: number; location?: string; category?: string; state?: string }>;
-  reservations: Array<{ id: string; title: string; reservation_date?: string; booking_deadline?: string; status?: string }>;
   /** Only memories shared with the whole trip; absent when there are none. */
   memories?: PublicMemory[];
 };

@@ -59,6 +59,9 @@ const LINK = { id: "l1", token: "tok", trip_id: "t1", role: "viewer", email: nul
 const TRIP = { id: "t1", name: "La Palma", start_date: "2026-11-05", end_date: "2026-11-06", user_id: "u-owner", cover_path: null };
 const DAY = { id: "d1", trip_id: "t1", date: "2026-11-05", city: "Funchal", label: "Day 1" };
 const ACT = { id: "a1", trip_id: "t1", day_id: "d1", title: "Levada", time: "09:00", state: "completed", sort_order: 0 };
+// What the public page shows of a day and an activity; every other column stays private.
+const PUBLIC_DAY = { id: "d1", date: "2026-11-05", city: "Funchal", label: "Day 1" };
+const PUBLIC_ACT = { id: "a1", day_id: "d1", title: "Levada", time: "09:00", state: "completed" };
 const PHOTO_PATH = "t1/m-trip/11111111-1111-1111-1111-111111111111.webp";
 const SELECTED_PATH = "t1/m-sel/22222222-2222-2222-2222-222222222222.webp";
 const OTHER_TRIP_PATH = "t2/m-other/33333333-3333-3333-3333-333333333333.webp";
@@ -94,16 +97,29 @@ const addMemories = () => {
 };
 
 describe("GET /api/share/[token]/trip", () => {
-  it("returns the same payload as before for a valid token of a trip without public memories or cover", async () => {
+  it("returns only what the public page shows for a valid token of a trip without public memories or cover", async () => {
     const res = await call(getTrip);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       trip: { id: "t1", name: "La Palma", startDate: "2026-11-05", endDate: "2026-11-06" },
       role: "viewer",
-      days: [DAY],
-      activities: [ACT],
-      reservations: [],
+      days: [PUBLIC_DAY],
+      activities: [PUBLIC_ACT],
     });
+  });
+
+  it("never sends private columns of days and activities, nor the reservations", async () => {
+    db.tables.trip_days = [{ ...DAY, user_id: "u-owner", notes: "door code 1234" }];
+    db.tables.activities = [
+      { ...ACT, user_id: "u-owner", notes: "PIN 4321", booking: { confirmation: "ABC123" }, expected_cost: 20, actual_cost: 25, duration_min: 90, location: "Rabaçal", category: "nature" },
+    ];
+    db.tables.critical_reservations = [{ id: "r1", trip_id: "t1", title: "Hotel", confirmation_code: "XYZ789" }];
+    const body = await (await call(getTrip)).json();
+    expect(body.days).toEqual([PUBLIC_DAY]);
+    expect(body.activities).toEqual([{ ...PUBLIC_ACT, duration_min: 90, location: "Rabaçal", category: "nature" }]);
+    expect(body).not.toHaveProperty("reservations");
+    const text = JSON.stringify(body);
+    for (const secret of ["u-owner", "1234", "4321", "ABC123", "XYZ789"]) expect(text).not.toContain(secret);
   });
 
   it.each([
@@ -176,18 +192,12 @@ describe("GET /api/share/[token]/trip", () => {
 });
 
 describe("GET /api/share/[token]", () => {
-  it("returns the same link summary as before for a valid token", async () => {
-    expect(await (await call(getInfo)).json()).toEqual({
-      tripId: "t1",
-      tripName: "La Palma",
-      startDate: "2026-11-05",
-      endDate: "2026-11-06",
-      ownerId: "u-owner",
-      role: "viewer",
-      email: null,
-      accepted: false,
-      acceptedAt: null,
-    });
+  it("returns the link summary without the owner id, the invited email or when it was accepted", async () => {
+    db.tables.trip_share_links = [{ ...LINK, email: "friend@x.io", accepted_by: "u-friend", accepted_at: "2026-11-01T00:00:00Z" }];
+    const body = await (await call(getInfo)).json();
+    expect(body).toEqual({ tripId: "t1", tripName: "La Palma", startDate: "2026-11-05", endDate: "2026-11-06", role: "viewer", accepted: true });
+    const text = JSON.stringify(body);
+    for (const secret of ["u-owner", "friend@x.io", "u-friend"]) expect(text).not.toContain(secret);
   });
 
   it("refuses unknown, revoked and expired links", async () => {
