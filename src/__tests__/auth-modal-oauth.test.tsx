@@ -67,6 +67,18 @@ describe("social sign-in in the sign-in sheet", () => {
     expect(screen.getAllByRole("textbox").length).toBeGreaterThan(0);
   });
 
+  it("shows each provider's logo, which a loading spinner replaces while it opens", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTH_PROVIDERS", "google,apple");
+    renderModal();
+    const google = screen.getByRole("button", { name: "Continuar con Google" });
+    const apple = screen.getByRole("button", { name: "Continuar con Apple" });
+    expect(google.querySelector('svg[data-provider-logo="google"]')).toBeTruthy();
+    expect(apple.querySelector('svg[data-provider-logo="apple"]')).toBeTruthy();
+    fireEvent.click(google);
+    await waitFor(() => expect(google.querySelector('svg[data-provider-logo="google"]')).toBeNull());
+    expect(apple.querySelector('svg[data-provider-logo="apple"]')).toBeTruthy();
+  });
+
   it("starts the provider's sign-in", async () => {
     vi.stubEnv("NEXT_PUBLIC_AUTH_PROVIDERS", "google,apple");
     renderModal();
