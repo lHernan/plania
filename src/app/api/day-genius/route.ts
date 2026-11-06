@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { LONG_REPLY_TIMEOUT_MS, runAiPrompt } from "@/lib/ai/provider";
 import { extractJsonObject } from "@/lib/ai/json-response";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { getAuthClient } from "@/lib/supabase-server";
 import { buildGeniusSystemPrompt, buildGeniusUserPrompt, parseGeniusRequest } from "@/lib/day-genius/prompt";
 import { validateGeniusPlan } from "@/lib/day-genius/validate";
@@ -11,7 +12,8 @@ const GENIUS_MAX_TOKENS = 16000;
 
 export async function POST(req: Request) {
   // Spends AI credits and reads trip details: signed-in users only (not anonymous guests).
-  const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+  const supabase = getAuthClient(req);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData?.user || authData.user.is_anonymous) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -22,6 +24,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
   const { context, today, lang, weatherCoords } = request;
+
+  // Before the weather lookup: over the quota there is nothing to prepare.
+  const blocked = await enforceAiQuota(supabase, "day_genius");
+  if (blocked) return blocked;
 
   const weather = await fetchDayWeather({
     city: context.city,

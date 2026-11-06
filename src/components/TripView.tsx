@@ -107,6 +107,7 @@ import { canEditTripCover } from "@/lib/trip-cover";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
+import { AiQuotaExceededError, isAiQuotaExceeded, isAiQuotaExceededError } from "@/lib/ai/quota-client";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -883,6 +884,7 @@ export function TripView() {
         })
       });
       
+      if (await isAiQuotaExceeded(res)) throw new AiQuotaExceededError();
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: "Unknown server error" }));
         throw new Error(errBody.error || `Server error ${res.status}`);
@@ -912,7 +914,7 @@ export function TripView() {
       }
     } catch (e) {
       console.error("Error with AI Import", e);
-      showToast(t("error_ai_import"), "error");
+      showToast(isAiQuotaExceededError(e) ? t("ai_quota_exceeded") : t("error_ai_import"), "error");
     } finally {
       setIsImporting(false);
       setVoiceState("idle");

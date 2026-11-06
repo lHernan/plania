@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { geminiService } from "@/lib/services/gemini-service";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { getAuthClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   // Spends AI credits: registered users only (not anonymous guests).
-  const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+  const supabase = getAuthClient(req);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData?.user || authData.user.is_anonymous) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -15,6 +17,10 @@ export async function POST(req: NextRequest) {
     if (!imageUri) {
       return NextResponse.json({ error: "No image URI provided" }, { status: 400 });
     }
+
+    // Shares the "bookings" daily quota with booking extraction.
+    const blocked = await enforceAiQuota(supabase, "bookings");
+    if (blocked) return blocked;
 
     const regions = await geminiService.detectCodeRegions(imageUri);
     return NextResponse.json({ regions });

@@ -12,6 +12,8 @@ vi.mock("@/lib/supabase-server", () => ({
   getAuthClient: () => ({
     auth: { getUser: async () => ({ data: { user: auth.user }, error: auth.user ? null : { message: "no session" } }) },
     from: auth.from,
+    // Daily AI quota (consume_ai_quota): always allowed here.
+    rpc: async () => ({ data: [{ allowed: true, used: 1, remaining: 9 }], error: null }),
   }),
   getServiceRoleSupabase: () => ({ rpc: vi.fn(), from: auth.from }),
 }));

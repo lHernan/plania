@@ -4,6 +4,7 @@ import { type FormEvent, type KeyboardEvent, useEffect, useRef } from "react";
 import { Loader2, Send } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { TachiAvatar } from "@/components/TachiAvatar";
+import { AI_QUOTA_EXCEEDED } from "@/lib/ai/quota-client";
 import { useChatStore } from "@/store/use-chat-store";
 
 // i18n keys; the translated text is what gets filled into the input and sent to the agent.
@@ -84,7 +85,7 @@ export function ChatPanel({ tripId }: { tripId: string }) {
       {error ? (
         <p className="flex items-center gap-2 px-5 pb-2 text-xs font-medium text-[var(--color-danger)]">
           <TachiAvatar size={18} state="error" />
-          {error}
+          {error === AI_QUOTA_EXCEEDED ? t("ai_quota_exceeded") : error}
         </p>
       ) : null}
 

@@ -28,6 +28,7 @@ import {
   type StoredPlanner,
 } from "@/lib/planner/form";
 import { requestPlanning } from "@/lib/planner/plan-request";
+import { isAiQuotaExceededError } from "@/lib/ai/quota-client";
 import { tripPath } from "@/lib/trip-routes";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
@@ -73,7 +74,7 @@ export function Planner() {
   const [stepError, setStepError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<Proposal[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const [generateFailed, setGenerateFailed] = useState(false);
+  const [generateFailed, setGenerateFailed] = useState<false | "failed" | "quota">(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
@@ -142,8 +143,8 @@ export function Planner() {
       const { valid } = await requestPlanning({ context, request: plannerWishes(form), lang, headers: await authHeaders() });
       setProposals(valid);
       setStep(STEPS - 1);
-    } catch {
-      setGenerateFailed(true);
+    } catch (error) {
+      setGenerateFailed(isAiQuotaExceededError(error) ? "quota" : "failed");
     } finally {
       setBusy(false);
     }
@@ -310,7 +311,7 @@ export function Planner() {
           {generateFailed && (
             <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--color-danger)]/10 p-4">
               <TachiAvatar state="error" size={28} />
-              <p className="flex-1 text-sm font-bold text-[var(--color-danger)]">{t("planner_generate_failed")}</p>
+              <p className="flex-1 text-sm font-bold text-[var(--color-danger)]">{generateFailed === "quota" ? t("ai_quota_exceeded") : t("planner_generate_failed")}</p>
               <button
                 type="button"
                 onClick={() => void generate()}

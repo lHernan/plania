@@ -19,6 +19,7 @@ import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useAuthStore } from "@/store/use-auth-store";
 import { TachiAvatar } from "@/components/TachiAvatar";
 import { authHeaders } from "@/lib/auth-headers";
+import { isAiQuotaExceeded } from "@/lib/ai/quota-client";
 
 /** A code on a page: found on the device, by the AI, or marked by the traveler. */
 type PageCode = { page: number; kind: "qr" | "barcode"; value: string; box: CodeBox; source: "device" | "ai" | "manual" };
@@ -57,6 +58,7 @@ export function DocumentViewer({
   // The AI scan is for registered users only; guests can still mark the code by hand.
   const canUseAi = useAuthStore((state) => Boolean(state.user && !state.user.is_anonymous));
   const [aiFoundNothing, setAiFoundNothing] = useState(false);
+  const [aiQuotaExceeded, setAiQuotaExceeded] = useState(false);
   const [manual, setManual] = useState<FocusArea | null>(file.focusArea ?? null);
   const [marking, setMarking] = useState(false);
   const [draft, setDraft] = useState<FocusArea | null>(null);
@@ -181,6 +183,7 @@ export function DocumentViewer({
   const runAiScan = async () => {
     if (!pages?.[0]) return;
     setAiScanning(true);
+    setAiQuotaExceeded(false);
     try {
       const first = pages[0];
       const canvas = await first.render(AI_IMAGE_SIDE_PX / Math.max(first.width, first.height));
@@ -189,6 +192,10 @@ export function DocumentViewer({
         headers: await authHeaders(),
         body: JSON.stringify({ imageUri: canvas.toDataURL("image/jpeg", 0.85) }),
       });
+      if (await isAiQuotaExceeded(response)) {
+        setAiQuotaExceeded(true);
+        return;
+      }
       const data = (await response.json()) as { regions?: { type: string; x: number; y: number; width: number; height: number }[] };
       // The AI returns centers on a 0-100 scale.
       const fromAi: PageCode[] = (data.regions ?? []).map((region) => ({
@@ -391,6 +398,8 @@ export function DocumentViewer({
               >
                 <QrCode size={18} /> {t("doc_show_code", { count: codes.length })}
               </button>
+            ) : aiQuotaExceeded ? (
+              <p className="text-center text-[11px] text-white/70" role="status">{t("ai_quota_exceeded")}</p>
             ) : aiFoundNothing ? (
               <p className="text-center text-[11px] text-white/70" role="status">{t("doc_ai_found_nothing")}</p>
             ) : (

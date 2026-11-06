@@ -189,6 +189,7 @@ export function MemoryEditor({ tripId, activityId, currentUserId, memory, onClos
     });
     setSuggesting(false);
     if ("caption" in result) setNote((current) => (current.trim() ? current : result.caption));
+    else if (result.error === "quota_exceeded") setError(t("ai_quota_exceeded"));
     else setError(t(result.error === "offline" ? "memory_caption_offline" : "memory_caption_error"));
   };
 

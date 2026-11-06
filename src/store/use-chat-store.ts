@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { AI_QUOTA_EXCEEDED, isAiQuotaExceeded } from "@/lib/ai/quota-client";
 import { supabase } from "@/lib/supabase";
 import type { ChatMessage } from "@/lib/types";
 
@@ -83,6 +84,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         headers,
         body: JSON.stringify({ tripId, content: trimmedContent, lang }),
       });
+      // The panel translates this code into the "limit reached" message.
+      if (await isAiQuotaExceeded(response)) throw new Error(AI_QUOTA_EXCEEDED);
       const data = await response.json() as { message?: ChatMessage; error?: string };
       if (!response.ok || !data.message) throw new Error(data.error ?? "Unable to send message");
 

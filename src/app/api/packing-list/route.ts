@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
 import { extractJsonObject } from "@/lib/ai/json-response";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { getAuthClient } from "@/lib/supabase-server";
 import {
   buildPackingSystemPrompt,
@@ -18,13 +19,17 @@ type AiPackingResponse = {
 
 export async function POST(request: Request) {
   // Spends AI credits: registered users only (not anonymous guests).
-  const { data: authData, error: authError } = await getAuthClient(request).auth.getUser();
+  const supabase = getAuthClient(request);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData?.user || authData.user.is_anonymous) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   try {
     const input = (await request.json()) as PackingPromptInput;
+
+    const blocked = await enforceAiQuota(supabase, "packing");
+    if (blocked) return blocked;
 
     const systemPrompt = buildPackingSystemPrompt(input.lang || "en");
     const userPrompt = buildPackingUserPrompt(input);

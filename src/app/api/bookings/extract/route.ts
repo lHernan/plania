@@ -1,4 +1,5 @@
 import { getAuthClient } from "@/lib/supabase-server";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { resolveInferredYears } from "@/lib/bookings/year-inference";
 import { NextResponse } from "next/server";
 import { runAiPrompt, runAiVisionPages } from "@/lib/ai/provider";
@@ -70,7 +71,8 @@ function parseRequest(body: unknown): ExtractRequest | null {
 
 export async function POST(req: Request) {
   // Booking documents carry personal data and every call spends AI credits: registered users only.
-  const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+  const supabase = getAuthClient(req);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData?.user || authData.user.is_anonymous) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -89,6 +91,10 @@ export async function POST(req: Request) {
   if (!hasText && input.images.length === 0) {
     return NextResponse.json({ error: "no_text" }, { status: 422 });
   }
+
+  // Shares the "bookings" daily quota with code detection.
+  const blocked = await enforceAiQuota(supabase, "bookings");
+  if (blocked) return blocked;
 
   const warnings: string[] = [];
   const systemPrompt = buildExtractionSystemPrompt(input.lang);

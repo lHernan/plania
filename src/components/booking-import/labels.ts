@@ -44,8 +44,9 @@ export function warningLabel(t: T, code: string): string {
   }
 }
 
-export type FileErrorCode = "invalid" | "encrypted" | "too_large" | "no_text" | "extraction_failed" | "network" | "unauthorized";
+export type FileErrorCode = "invalid" | "encrypted" | "too_large" | "no_text" | "extraction_failed" | "network" | "unauthorized" | "quota";
 
 export function fileErrorLabel(t: T, code: FileErrorCode): string {
+  if (code === "quota") return t("ai_quota_exceeded");
   return t(`booking_import_error_${code}`);
 }

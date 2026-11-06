@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runAiPrompt } from "@/lib/ai/provider";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import {
   buildTripSummaryPrompts,
   cleanSummaryText,
@@ -32,6 +33,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
 
   const input = await loadTripSummaryInput(supabase, access.trip, lang);
   if (!input) return NextResponse.json({ error: "trip_unavailable" }, { status: 500 });
+
+  const blocked = await enforceAiQuota(supabase, "summary");
+  if (blocked) return blocked;
 
   let raw: string;
   try {
