@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useItineraryStore } from "@/store/use-itinerary-store";
 import { supabase } from "@/lib/supabase";
 import { useI18n } from "@/components/I18nProvider";
 import { X, Mail, Lock, Loader2, ArrowRight, KeyRound, Save } from "lucide-react";
 import { TachiAvatar } from "@/components/TachiAvatar";
+import { enabledOAuthProviders, startOAuthSignIn, type OAuthProvider } from "@/lib/auth/oauth";
 
 /** Why the account is asked for: the sheet says it in its own words. */
 export type AuthReason = "draft" | "tachi";
@@ -28,6 +30,20 @@ export function AuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { signIn, signUp, resetPassword, loading } = useAuthStore();
+  const providers = enabledOAuthProviders();
+  // The provider being opened: the browser leaves the app, so the button stays busy until then.
+  const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
+
+  const continueWith = async (provider: OAuthProvider) => {
+    setOauthBusy(provider);
+    // An unsaved draft lives only in memory: it goes along so it is saved once back.
+    const { activeTrip, activeTripIsDraft } = useItineraryStore.getState();
+    const { error } = await startOAuthSignIn(provider, undefined, activeTripIsDraft ? activeTrip : null);
+    if (error) {
+      setOauthBusy(null);
+      onShowToast(error);
+    }
+  };
 
   const syncFromForm = (form: HTMLFormElement) => {
     const fd = new FormData(form);
@@ -145,6 +161,28 @@ export function AuthModal({
             <h2 className="text-3xl font-black text-[var(--color-text)] mb-2 font-[family-name:var(--font-display)]">{title}</h2>
             <p className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-widest">{subtitle}</p>
           </div>
+
+          {!isReset && providers.length > 0 && (
+            <div className="mb-6 space-y-3">
+              {providers.map((provider) => (
+                <button
+                  key={provider}
+                  type="button"
+                  onClick={() => void continueWith(provider)}
+                  disabled={oauthBusy !== null}
+                  className="w-full min-h-12 inline-flex items-center justify-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm font-bold text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)] transition-colors disabled:opacity-60"
+                >
+                  {oauthBusy === provider ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : null}
+                  {t(provider === "google" ? "auth_continue_google" : "auth_continue_apple")}
+                </button>
+              ))}
+              <div className="flex items-center gap-3 pt-1" aria-hidden="true">
+                <span className="h-px flex-1 bg-[var(--color-border)]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)]">{t("auth_or_email")}</span>
+                <span className="h-px flex-1 bg-[var(--color-border)]" />
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">

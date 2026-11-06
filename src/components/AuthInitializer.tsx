@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { completePendingOAuthTransfer, peekPendingOAuthDraft } from "@/lib/auth/oauth";
 import { claimPendingInvitations } from "@/lib/share/claim-client";
 import { parseTripPath, tripPath } from "@/lib/trip-routes";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -29,6 +30,7 @@ export function AuthInitializer() {
   const fetchActiveTrip = useItineraryStore((s) => s.fetchActiveTrip);
   const clearData = useItineraryStore((s) => s.clearData);
   const syncPendingMutations = useItineraryStore((s) => s.syncPendingMutations);
+  const loadTemplate = useItineraryStore((s) => s.loadTemplate);
 
   useEffect(() => {
     void initialize();
@@ -68,16 +70,28 @@ export function AuthInitializer() {
 
     clearData();
     const isAnonymous = Boolean(user?.is_anonymous);
+    // Back from Google or Apple with an unsaved draft: it is active again right away, before any
+    // wait, so nothing loads or routes over it; TripView's auto-save then stores it.
+    const returnedDraft = !isAnonymous && !isOffline() ? peekPendingOAuthDraft() : null;
+    if (returnedDraft) loadTemplate(returnedDraft);
     void (async () => {
       // Invitations sent to this email become shared trips before the trips are loaded,
       // so an invitee with no trips of their own lands on the shared one.
-      if (!isAnonymous && !isOffline()) await claimPendingInvitations();
+      if (!isAnonymous && !isOffline()) {
+        // Back from Google or Apple: the guest's trips move to the account before anything loads.
+        await completePendingOAuthTransfer(currentUserId);
+        await claimPendingInvitations();
+      }
+      if (returnedDraft) {
+        void fetchAllTrips();
+        return;
+      }
       void fetchAllTrips();
       // A trip URL opens that trip; anywhere else the selection picks one.
       const urlTripId = parseTripPath(pathname)?.tripId;
       void (urlTripId ? fetchActiveTrip(urlTripId) : fetchActiveTrip());
     })();
-  }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, pathname, router, user?.id, user?.is_anonymous]);
+  }, [activeTripIsDraft, clearData, fetchActiveTrip, fetchAllTrips, initialized, loadTemplate, pathname, router, user?.id, user?.is_anonymous]);
 
   // The landing opens the selected trip; /trips is the trip list and stays put.
   useEffect(() => {

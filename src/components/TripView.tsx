@@ -47,6 +47,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
 import { useAuthStore } from "@/store/use-auth-store";
 import { authHeaders } from "@/lib/auth-headers";
+import { peekPendingOAuthDraft } from "@/lib/auth/oauth";
 import { AuthModal, type AuthReason } from "@/components/AuthModal";
 import { AccountMenu, applyTheme, readTheme } from "@/components/AccountMenu";
 import { optimizeDay } from "@/lib/ai/optimizer";
@@ -1019,6 +1020,8 @@ export function TripView() {
       }
       const { activeTrip: loadedTrip, loading: tripLoading } = useItineraryStore.getState();
       if (tripLoading || loadedTrip) return;
+      // A draft coming back from Google or Apple is not in the database: AuthInitializer restores it.
+      if (peekPendingOAuthDraft()?.id === mountTripId) return;
       fetchActiveTrip(mountTripId);
     }
   }, [isMounted, user?.id, fetchActiveTrip, mountTripId]);

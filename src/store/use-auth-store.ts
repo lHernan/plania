@@ -90,6 +90,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return;
       }
 
+      // Supabase may have reported a session meanwhile (e.g. back from Google or Apple with it in
+      // the URL): that one is newer than the cache and must not be replaced by it. An offline "no
+      // session" report still yields to the cache.
+      if (get().user) return;
+
       set({
         user: cachedAuth.user,
         session: cachedAuth.session,
