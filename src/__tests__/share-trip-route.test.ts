@@ -108,6 +108,17 @@ describe("GET /api/share/[token]/trip", () => {
     });
   });
 
+  it("marks a trip planned by number of days as undated, without sending the rest of its travel context", async () => {
+    db.tables.trips = [{
+      ...TRIP,
+      start_date: null,
+      end_date: null,
+      travel_context: { version: 1, undated: true, currency: "EUR", preferences: { pace: "relaxed" }, travelerCount: 4 },
+    }];
+    const body = await (await call(getTrip)).json();
+    expect(body.trip).toEqual({ id: "t1", name: "La Palma", startDate: null, endDate: null, undated: true });
+  });
+
   it("never sends private columns of days and activities, nor the reservations", async () => {
     db.tables.trip_days = [{ ...DAY, user_id: "u-owner", notes: "door code 1234" }];
     db.tables.activities = [

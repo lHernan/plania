@@ -18,6 +18,7 @@ import {
 import { proposalsToActivities } from "@/lib/bookings/import-session";
 import { requestPlanning } from "@/lib/planner/plan-request";
 import { isAiQuotaExceededError } from "@/lib/ai/quota-client";
+import { isTripUndated } from "@/lib/trip-undated";
 
 const DENSITIES: DayDensity[] = ["light", "balanced", "full"];
 
@@ -118,6 +119,14 @@ export function PlanStep({
     else setError(t("booking_import_accept_failed", { error: result.error }));
   };
 
+  // A trip planned by number of days names its days "Día N": its day dates are placeholders.
+  const tripDays = useItineraryStore((state) => state.activeTrip?.days);
+  const undated = useItineraryStore((state) => isTripUndated(state.activeTrip));
+  const dayName = (date: string) => {
+    const index = undated ? (tripDays ?? []).findIndex((day) => day.date === date) : -1;
+    return index >= 0 ? t("trip_view_day_number", { number: index + 1 }) : date;
+  };
+
   const byDay = useMemo(() => {
     const groups = new Map<string, DraftProposal[]>();
     for (const p of generated?.proposals ?? []) groups.set(p.date, [...(groups.get(p.date) ?? []), p]);
@@ -199,8 +208,8 @@ export function PlanStep({
           {byDay.length === 0 && <p className="text-sm text-[var(--color-text-secondary)]">{t("booking_import_no_proposals")}</p>}
 
           {byDay.map(([date, proposals]) => (
-            <section key={date} aria-label={date} data-testid={`proposals-${date}`} className="space-y-2">
-              <h5 className="text-xs font-black uppercase tracking-widest text-[var(--color-text-muted)]">{date}</h5>
+            <section key={date} aria-label={dayName(date)} data-testid={`proposals-${date}`} className="space-y-2">
+              <h5 className="text-xs font-black uppercase tracking-widest text-[var(--color-text-muted)]">{dayName(date)}</h5>
               <ul className="space-y-2">
                 {proposals.map((p) => {
                   const conflict = p.accepted && editConflicts.has(p.key);
@@ -254,12 +263,12 @@ export function PlanStep({
               <ul className="mt-2 space-y-1 text-xs text-[var(--color-text-secondary)]">
                 {generated.rejected.map(({ proposal, reason }, index) => (
                   <li key={`${proposal.date}-${proposal.time}-${index}`}>
-                    <span className="font-bold text-[var(--color-text)]">{proposal.title}</span> ({proposal.date} {proposal.time}) — {t(`booking_import_conflict_${reason}`)}
+                    <span className="font-bold text-[var(--color-text)]">{proposal.title}</span> ({dayName(proposal.date)} {proposal.time}) — {t(`booking_import_conflict_${reason}`)}
                   </li>
                 ))}
                 {generated.importerConflicts.map((c, index) => (
                   <li key={`importer-${index}`}>
-                    <span className="font-bold text-[var(--color-text)]">{c.date}</span> — {c.reason}
+                    <span className="font-bold text-[var(--color-text)]">{dayName(c.date)}</span> — {c.reason}
                   </li>
                 ))}
               </ul>

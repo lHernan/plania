@@ -413,6 +413,32 @@ describe("BookingImportModal", () => {
     expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/Destino Tachao/), "success");
   });
 
+  it("names the days of a trip planned by number of days by number in the proposals, never by their placeholder dates", async () => {
+    load({ ...makeTrip(), startDate: undefined, endDate: undefined, travelContext: { version: 1, undated: true } });
+    importerResponse = {
+      activities: [
+        { title: "Mirador del Time (fake)", category: "sightseeing", location: "Tijarafe", date: "2031-05-11", time: "10:00", duration_minutes: 90 },
+        { title: "Café junto al aeropuerto (fake)", category: "food", date: "2031-05-10", time: "07:30", duration_minutes: 60 },
+      ],
+      conflicts: [{ date: "2031-05-13", reason: "Día de vuelta con poco margen" }],
+    };
+    renderModal();
+    await selectFiles(["vuelos.pdf", "coche.pdf"]);
+    fireEvent.click(screen.getByRole("button", { name: "Revisar reservas" }));
+    fireEvent.click(confirmButton());
+    await screen.findByText("¡Reservas en su sitio!");
+    fireEvent.click(screen.getByRole("button", { name: "Generar itinerario" }));
+    await screen.findByText("Propuestas por día");
+
+    const day2 = screen.getByTestId("proposals-2031-05-11");
+    expect(within(day2).getByRole("heading", { name: "Día 2" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Día 2" })).toBe(day2);
+    const rejected = screen.getByTestId("rejected-proposals");
+    expect(rejected.textContent).toMatch(/\(Día 1 07:30\)/);
+    expect(rejected.textContent).toMatch(/Día 4 — Día de vuelta con poco margen/);
+    expect(document.body.textContent).not.toMatch(/2031-05/);
+  });
+
   it("an infeasible trip shows alternatives without calling the importer", async () => {
     const allDay = makeActivity("all-day", { time: "09:00", durationMin: 760, origin: "manual" });
     load(makeTrip({ d1: [allDay] }, ["2031-05-10"]));

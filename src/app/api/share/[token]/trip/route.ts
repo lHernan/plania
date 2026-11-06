@@ -49,7 +49,7 @@ export async function GET(
     const tripId = link.trip_id;
 
     const [{ data: trip }, { data: days }, { data: activities }] = await Promise.all([
-      supabase.from("trips").select("id, name, start_date, end_date").eq("id", tripId).single(),
+      supabase.from("trips").select("id, name, start_date, end_date, travel_context").eq("id", tripId).single(),
       supabase.from("trip_days").select(PUBLIC_DAY_COLUMNS).eq("trip_id", tripId).order("date", { ascending: true }),
       supabase.from("activities").select(PUBLIC_ACTIVITY_COLUMNS).eq("trip_id", tripId).order("sort_order", { ascending: true }),
     ]);
@@ -60,9 +60,20 @@ export async function GET(
 
     const [memories, coverUrl] = await Promise.all([readPublicMemories(supabase, tripId), readPublicCoverUrl(supabase, tripId)]);
 
-    // Memories and the cover are added only when the trip has them.
+    // Of the travel context only the "planned by number of days" flag is public: its day dates are
+    // placeholders the page must not show. Preferences, currency and the rest stay private.
+    const undated = (trip.travel_context as { undated?: unknown } | null)?.undated === true;
+
+    // Memories, the cover and the undated flag are added only when the trip has them.
     return NextResponse.json({
-      trip: { id: trip.id, name: trip.name, startDate: trip.start_date, endDate: trip.end_date, ...(coverUrl ? { coverUrl } : {}) },
+      trip: {
+        id: trip.id,
+        name: trip.name,
+        startDate: trip.start_date,
+        endDate: trip.end_date,
+        ...(undated ? { undated: true } : {}),
+        ...(coverUrl ? { coverUrl } : {}),
+      },
       role: link.role,
       // Mapped as well as selected: a column added later never reaches the public page by itself.
       days: ((days ?? []) as Record<string, unknown>[]).map(toPublicDay),
