@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { MemoryCard } from "@/components/memories/MemoryCard";
@@ -18,12 +18,26 @@ type MemoryListProps = {
   /** Accessible name of the list. */
   label: string;
   addLabel: string;
+  /** Told when the editor opens or closes, so a parent keeps this list mounted while it is open. */
+  onEditingChange?: (open: boolean) => void;
 };
 
 /** Memories of an activity (or of the trip) with [Añadir recuerdo]; only authors edit theirs. */
-export function MemoryList({ tripId, activityId, memories, currentUserId, label, addLabel }: MemoryListProps) {
+export function MemoryList({ tripId, activityId, memories, currentUserId, label, addLabel, onEditingChange }: MemoryListProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<{ memory?: Memory } | null>(null);
+  const isEditing = editing !== null;
+  // The latest callback, so a parent passing an inline function does not re-run the effect.
+  const onEditingChangeRef = useRef(onEditingChange);
+  useEffect(() => {
+    onEditingChangeRef.current = onEditingChange;
+  }, [onEditingChange]);
+  useEffect(() => {
+    if (!isEditing) return;
+    onEditingChangeRef.current?.(true);
+    // Closing the editor, or unmounting with it open, both end the editing.
+    return () => onEditingChangeRef.current?.(false);
+  }, [isEditing]);
   // Author names come from the member list, needed only when there is something to show.
   const { members } = useTripMembers(tripId, memories.length > 0);
 
