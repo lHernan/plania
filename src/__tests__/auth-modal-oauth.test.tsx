@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithI18n } from "./helpers/dom";
 
 // S2: "Continuar con Google / Apple" in the sign-in sheet, only for the configured providers.
-const oauth = vi.hoisted(() => ({ calls: [] as string[], error: null as string | null }));
+const oauth = vi.hoisted(() => ({ calls: [] as string[], drafts: [] as (string | null)[], error: null as string | null }));
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
@@ -17,13 +17,15 @@ vi.mock("@/lib/supabase", () => ({
 }));
 vi.mock("@/lib/auth/oauth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/auth/oauth")>()),
-  startOAuthSignIn: vi.fn(async (provider: string) => {
+  startOAuthSignIn: vi.fn(async (provider: string, _now?: number, draft?: { id: string } | null) => {
     oauth.calls.push(provider);
+    oauth.drafts.push(draft?.id ?? null);
     return { error: oauth.error };
   }),
 }));
 
 const { AuthModal } = await import("@/components/AuthModal");
+const { useItineraryStore } = await import("@/store/use-itinerary-store");
 const onShowToast = vi.fn();
 
 function renderModal(lang: "es" | "en" = "es") {
@@ -32,7 +34,9 @@ function renderModal(lang: "es" | "en" = "es") {
 
 beforeEach(() => {
   oauth.calls = [];
+  oauth.drafts = [];
   oauth.error = null;
+  useItineraryStore.setState({ activeTrip: null, activeTripIsDraft: false } as never);
   onShowToast.mockReset();
 });
 afterEach(() => {
@@ -69,6 +73,20 @@ describe("social sign-in in the sign-in sheet", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continuar con Apple" }));
     await waitFor(() => expect(oauth.calls).toEqual(["apple"]));
     expect(onShowToast).not.toHaveBeenCalled();
+  });
+
+  it("takes an unsaved draft along, so it is saved once back with the account", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTH_PROVIDERS", "google");
+    useItineraryStore.setState({ activeTrip: { id: "draft-1", name: "Roma", days: [] }, activeTripIsDraft: true } as never);
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar con Google" }));
+    await waitFor(() => expect(oauth.drafts).toEqual(["draft-1"]));
+    cleanup();
+
+    useItineraryStore.setState({ activeTrip: { id: "saved-1", name: "Roma", days: [] }, activeTripIsDraft: false } as never);
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar con Google" }));
+    await waitFor(() => expect(oauth.drafts).toEqual(["draft-1", null]));
   });
 
   it("shows the provider's error and lets the user try again", async () => {

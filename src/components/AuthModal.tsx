@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useItineraryStore } from "@/store/use-itinerary-store";
 import { supabase } from "@/lib/supabase";
 import { useI18n } from "@/components/I18nProvider";
 import { X, Mail, Lock, Loader2, ArrowRight, KeyRound, Save } from "lucide-react";
@@ -35,7 +36,9 @@ export function AuthModal({
 
   const continueWith = async (provider: OAuthProvider) => {
     setOauthBusy(provider);
-    const { error } = await startOAuthSignIn(provider);
+    // An unsaved draft lives only in memory: it goes along so it is saved once back.
+    const { activeTrip, activeTripIsDraft } = useItineraryStore.getState();
+    const { error } = await startOAuthSignIn(provider, undefined, activeTripIsDraft ? activeTrip : null);
     if (error) {
       setOauthBusy(null);
       onShowToast(error);

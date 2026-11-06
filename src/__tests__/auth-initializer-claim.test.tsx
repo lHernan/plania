@@ -39,6 +39,9 @@ beforeEach(() => {
   order.length = 0;
   session.token = "tok";
   fetchMock.mockClear();
+  fetchActiveTrip.mockClear();
+  fetchAllTrips.mockClear();
+  window.localStorage.clear();
   vi.stubGlobal("fetch", fetchMock);
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
   useItineraryStore.setState({
@@ -63,6 +66,17 @@ describe("AuthInitializer", () => {
     await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
     expect(order.slice(0, 4)).toEqual(["rpc:transfer_anonymous_data:anon-1->u-new", "/api/share/claim", "fetchAllTrips", "fetchActiveTrip"]);
     expect(window.localStorage.getItem("tachao_oauth_pending")).toBeNull();
+  });
+
+  it("brings back a draft taken to Google or Apple as the active draft, so it is saved to the account", async () => {
+    const draft = { id: "draft-1", name: "Roma", days: [{ id: "d1", date: "2027-05-10", city: "Roma", label: "", activities: [], userId: "anon-1" }], criticalReservations: [], shoppingItems: [], ignoredShoppingSuggestionKeys: [] };
+    window.localStorage.setItem("tachao_oauth_pending", JSON.stringify({ anonId: "anon-1", at: Date.now(), draft }));
+    useAuthStore.setState({ initialized: true, user: { id: "u-new", is_anonymous: false } as never, initialize: vi.fn(async () => {}) });
+    render(<AuthInitializer />);
+    await waitFor(() => expect(useItineraryStore.getState().activeTripIsDraft).toBe(true));
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "draft-1", name: "Roma", userId: "u-new" });
+    await waitFor(() => expect(fetchAllTrips).toHaveBeenCalled());
+    expect(fetchActiveTrip).not.toHaveBeenCalled();
   });
 
   it("does not claim for anonymous guests", async () => {

@@ -83,21 +83,22 @@ describe("completePendingOAuthTransfer", () => {
 
   it("moves the guest's trips to the account they came back with, once", async () => {
     pending("anon-1", 1000);
-    expect(await completePendingOAuthTransfer("u-new", 2000)).toBe(true);
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: true, draft: null });
     expect(auth.rpcCalls).toEqual([["transfer_anonymous_data", { p_anon_id: "anon-1", p_new_id: "u-new" }]]);
     expect(window.localStorage.getItem(OAUTH_PENDING_KEY)).toBeNull();
-    expect(await completePendingOAuthTransfer("u-new", 2000)).toBe(false);
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: false, draft: null });
     expect(auth.rpcCalls).toHaveLength(1);
   });
 
   it("does nothing without a pending sign-in, for the same id, or after 30 minutes", async () => {
-    expect(await completePendingOAuthTransfer("u-new", 2000)).toBe(false);
+    const nothing = { transferred: false, draft: null };
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual(nothing);
     pending("u-new", 1000);
-    expect(await completePendingOAuthTransfer("u-new", 2000)).toBe(false);
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual(nothing);
     pending("anon-1", 0);
-    expect(await completePendingOAuthTransfer("u-new", 30 * 60 * 1000 + 1)).toBe(false);
+    expect(await completePendingOAuthTransfer("u-new", 30 * 60 * 1000 + 1)).toEqual(nothing);
     window.localStorage.setItem(OAUTH_PENDING_KEY, "not json");
-    expect(await completePendingOAuthTransfer("u-new", 2000)).toBe(false);
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual(nothing);
     expect(auth.rpcCalls).toEqual([]);
     expect(window.localStorage.getItem(OAUTH_PENDING_KEY)).toBeNull();
   });
@@ -105,6 +106,24 @@ describe("completePendingOAuthTransfer", () => {
   it("reports a failed transfer", async () => {
     pending("anon-1", 1000);
     auth.rpcError = { message: "Unauthorized" };
-    expect(await completePendingOAuthTransfer("u-new", 2000)).toBe(false);
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: false, draft: null });
+  });
+
+  it("keeps an unsaved draft across the trip to the provider and hands it back once", async () => {
+    const draft = { id: "draft-1", name: "Roma", days: [{ id: "d1", date: "2027-05-10", city: "Roma", label: "Día 1", activities: [], userId: "anon-1" }], criticalReservations: [], shoppingItems: [], ignoredShoppingSuggestionKeys: [] };
+    auth.user = { id: "anon-1", is_anonymous: true };
+    await startOAuthSignIn("google", 1000, draft as never);
+    expect(JSON.parse(window.localStorage.getItem(OAUTH_PENDING_KEY)!)).toEqual({ anonId: "anon-1", at: 1000, draft });
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: true, draft });
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: false, draft: null });
+  });
+
+  it("keeps a draft even without a guest session, and drops a malformed one", async () => {
+    const draft = { id: "draft-1", name: "Roma", days: [] };
+    await startOAuthSignIn("google", 1000, draft as never);
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: false, draft });
+    expect(auth.rpcCalls).toEqual([]);
+    window.localStorage.setItem(OAUTH_PENDING_KEY, JSON.stringify({ at: 1000, draft: { id: 5 } }));
+    expect(await completePendingOAuthTransfer("u-new", 2000)).toEqual({ transferred: false, draft: null });
   });
 });
