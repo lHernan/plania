@@ -246,6 +246,17 @@ describe("AI routes enforce the daily quota", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ["a missing table", "42P01"],
+    ["no data found", "P0002"],
+  ])("a 404 for %s is not a missing function: it fails closed", async (_label, code) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    db.quota = { data: null, error: { code, message: "not found" }, status: 404 };
+    const res = await cases[5].call();
+    expect(res.status).toBe(503);
+    expect(runAiPrompt).not.toHaveBeenCalled();
+  });
+
   it("any other quota error fails closed with 503 and never calls the AI", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     db.quota = { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" }, status: 500 };

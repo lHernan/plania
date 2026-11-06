@@ -33,9 +33,13 @@ export type AiQuotaResult =
 
 let warnedMissingFunction = false;
 
-/** PostgREST "function not found" (PGRST202 / 404) or Postgres undefined_function (42883). */
-function isMissingFunction(error: NonNullable<RpcError>, status?: number): boolean {
-  return error.code === "PGRST202" || error.code === "42883" || status === 404 || error.status === 404;
+/**
+ * PostgREST "function not found" (PGRST202) or Postgres undefined_function (42883): the migration
+ * is not applied yet. Matched by code only: PostgREST also answers 404 for other errors (a missing
+ * table, no data found), and those must fail closed, not open.
+ */
+function isMissingFunction(error: NonNullable<RpcError>): boolean {
+  return error.code === "PGRST202" || error.code === "42883";
 }
 
 /**
@@ -57,9 +61,9 @@ export async function consumeAiQuota(client: RpcClient, bucket: AiQuotaBucket): 
     return { allowed: false, reason: "unavailable" };
   }
 
-  const { data, error, status } = result;
+  const { data, error } = result;
   if (error) {
-    if (isMissingFunction(error, status)) {
+    if (isMissingFunction(error)) {
       if (!warnedMissingFunction) {
         warnedMissingFunction = true;
         console.warn("AI quota disabled: consume_ai_quota is missing (run src/lib/ai_usage_migration.sql).");

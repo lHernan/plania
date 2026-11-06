@@ -14,7 +14,7 @@ export async function requestMemoryCaption(input: CaptionRequest): Promise<Capti
       body: JSON.stringify(input),
     });
     if (await isAiQuotaExceeded(response)) return { error: "quota_exceeded" };
-    const body =(await response.json().catch(() => null)) as { caption?: unknown } | null;
+    const body = (await response.json().catch(() => null)) as { caption?: unknown } | null;
     if (!response.ok || typeof body?.caption !== "string" || !body.caption) return { error: "failed" };
     return { caption: body.caption };
   } catch {

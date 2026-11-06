@@ -19,7 +19,7 @@ export async function requestTripSummary(tripId: string, lang: string): Promise<
       body: JSON.stringify({ lang }),
     });
     if (await isAiQuotaExceeded(response)) return { status: "quota_exceeded", summary: "" };
-    const body =(await response.json().catch(() => null)) as { summary?: unknown } | null;
+    const body = (await response.json().catch(() => null)) as { summary?: unknown } | null;
     if (!response.ok || typeof body?.summary !== "string" || !body.summary) return { status: "error", summary: "" };
     return { status: "done", summary: body.summary };
   } catch {
