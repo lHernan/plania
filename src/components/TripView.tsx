@@ -102,7 +102,7 @@ import { WalletView } from "@/components/WalletView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
-import { isTripUndated } from "@/lib/trip-undated";
+import { dayUrlParam, isTripUndated } from "@/lib/trip-undated";
 import { canEditTripCover } from "@/lib/trip-cover";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
@@ -1311,7 +1311,7 @@ export function TripView() {
   /** Moves to another section of this trip, keeping the selected day. */
   const goToSection = (target: TripSection) => {
     if (!activeTrip) return;
-    router.push(tripSectionHref(activeTrip.id, target, activeDay?.date));
+    router.push(tripSectionHref(activeTrip.id, target, dayUrlParam(activeTrip, activeDay)));
   };
 
   // From the wallet: the itinerary opens on the activity's day and scrolls to its card.
@@ -1322,7 +1322,7 @@ export function TripView() {
     if (!day) return;
     setActiveDay(dayId);
     setScrollToActivityId(activityId);
-    router.push(tripSectionHref(activeTrip.id, "itinerary", day.date));
+    router.push(tripSectionHref(activeTrip.id, "itinerary", dayUrlParam(activeTrip, day)));
   };
   useEffect(() => {
     if (!scrollToActivityId || section !== "itinerary") return;

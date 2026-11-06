@@ -3,7 +3,7 @@ import { buildTripContext } from "@/lib/ai/trip-context";
 import { buildDraftTrip } from "@/lib/planner/form";
 import { parseTravelContext } from "@/lib/travel-context";
 import { daysUntilStart, tripMode } from "@/lib/trip-mode";
-import { consecutiveDates, isTripUndated, withoutUndatedFlag } from "@/lib/trip-undated";
+import { consecutiveDates, isTripUndated, withoutUndatedFlag, dayUrlParam, findDayByUrlParam } from "@/lib/trip-undated";
 import { selectTripDocuments } from "@/lib/wallet";
 import type { ActivityFile, TravelContext } from "@/lib/types";
 import { makeActivity, makeDay, makeTrip } from "./helpers/dom";
@@ -117,5 +117,30 @@ describe("wallet documents of an undated trip", () => {
 
   it("keep the day date on a dated trip", () => {
     expect(selectTripDocuments(makeTrip(days))[0].dayDate).toBe("2026-11-05");
+  });
+});
+
+describe("day URL param", () => {
+  const days = [
+    { id: "d1", date: "2026-11-15" },
+    { id: "d2", date: "2026-11-16" },
+  ];
+  const dated = { travelContext: null, days };
+  const undated = { travelContext: { version: 1 as const, undated: true }, days };
+
+  it("is the date on a dated trip and the day number on an undated one", () => {
+    expect(dayUrlParam(dated, days[1])).toBe("2026-11-16");
+    expect(dayUrlParam(undated, days[1])).toBe("2");
+    expect(dayUrlParam(undated, undefined)).toBeNull();
+  });
+
+  it("finds the day by date on a dated trip and by number on an undated one, still accepting old date links", () => {
+    expect(findDayByUrlParam(dated, "2026-11-16")?.id).toBe("d2");
+    expect(findDayByUrlParam(dated, "2")).toBeUndefined();
+    expect(findDayByUrlParam(undated, "2")?.id).toBe("d2");
+    expect(findDayByUrlParam(undated, "2026-11-15")?.id).toBe("d1");
+    expect(findDayByUrlParam(undated, "3")).toBeUndefined();
+    expect(findDayByUrlParam(undated, "0")).toBeUndefined();
+    expect(findDayByUrlParam(undated, null)).toBeUndefined();
   });
 });

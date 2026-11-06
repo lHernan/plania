@@ -694,6 +694,7 @@
   "day_genius_changes": "Cambios propuestos",
   "day_genius_no_changes": "Tu día ya encaja: no hace falta cambiar nada.",
   "day_genius_move": "Pasa al {date} a las {time}",
+  "day_genius_day_number": "día {n}",
   "day_genius_add": "Nueva sugerencia a las {time} · {duration} min",
   "day_genius_replaces": "En lugar de «{title}»",
   "day_genius_unplaced": "No entra hoy. No se elimina nada: puedes moverla cuando quieras.",

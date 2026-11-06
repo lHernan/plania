@@ -694,6 +694,7 @@
   "day_genius_changes": "Proposed changes",
   "day_genius_no_changes": "Your day already fits: nothing to change.",
   "day_genius_move": "Moves to {date} at {time}",
+  "day_genius_day_number": "day {n}",
   "day_genius_add": "New suggestion at {time} · {duration} min",
   "day_genius_replaces": "Instead of “{title}”",
   "day_genius_unplaced": "Doesn't fit today. Nothing is deleted: you can move it whenever you want.",

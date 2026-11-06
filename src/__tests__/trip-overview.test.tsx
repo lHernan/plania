@@ -178,6 +178,7 @@ describe("TripOverview of an undated trip", () => {
     renderOverview(undated());
     expect(screen.getByText("Día 2 · Kyoto: sin actividades")).toBeTruthy();
     expect(screen.queryByText(/27 oct/)).toBeNull();
+    expect(screen.getByRole("link", { name: /Día 2 · Kyoto: sin actividades/ }).getAttribute("href")).toBe("/trips/t?day=2");
   });
 
   it("keeps the dates and no [Fijar fechas] on a dated trip", () => {

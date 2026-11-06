@@ -121,4 +121,22 @@ describe("TripRouteSync", () => {
     act(() => useItineraryStore.setState({ activeDayId: "t1-d2" }));
     await waitFor(() => expect(window.location.search).toBe("?day=2026-11-16"));
   });
+
+  it("names the days of an undated trip by number in the URL, never by their placeholder dates", async () => {
+    useItineraryStore.setState({ activeTrip: { ...trip("t1"), travelContext: { version: 1, undated: true } } as never, activeDayId: "t1-d1" });
+    nav.search = "day=2";
+    window.history.replaceState(null, "", "/trips/t1?day=2");
+    render(<TripRouteSync />);
+    await waitFor(() => expect(useItineraryStore.getState().activeDayId).toBe("t1-d2"));
+    act(() => useItineraryStore.setState({ activeDayId: "t1-d1" }));
+    await waitFor(() => expect(window.location.search).toBe("?day=1"));
+  });
+
+  it("still opens an undated trip's day from an old link with its placeholder date", async () => {
+    useItineraryStore.setState({ activeTrip: { ...trip("t1"), travelContext: { version: 1, undated: true } } as never, activeDayId: "t1-d1" });
+    nav.search = "day=2026-11-16";
+    render(<TripRouteSync />);
+    await waitFor(() => expect(useItineraryStore.getState().activeDayId).toBe("t1-d2"));
+    await waitFor(() => expect(window.location.search).toBe("?day=2"));
+  });
 });
