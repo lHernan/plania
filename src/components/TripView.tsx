@@ -1314,6 +1314,15 @@ export function TripView() {
     router.push(tripSectionHref(activeTrip.id, target, dayUrlParam(activeTrip, activeDay)));
   };
 
+  // The date strip: the itinerary and the map show the picked day where they are; the wallet and
+  // the overview do not depend on the day, so picking one there opens its activities.
+  const pickDay = (dayId: string) => {
+    setActiveDay(dayId);
+    if (!activeTrip || (section !== "wallet" && section !== "overview")) return;
+    const day = activeTrip.days.find((d) => d.id === dayId);
+    router.push(tripSectionHref(activeTrip.id, "itinerary", dayUrlParam(activeTrip, day)));
+  };
+
   // From the wallet: the itinerary opens on the activity's day and scrolls to its card.
   const [scrollToActivityId, setScrollToActivityId] = useState<string | null>(null);
   const showActivityInItinerary = (dayId: string, activityId: string) => {
@@ -1804,7 +1813,7 @@ export function TripView() {
             return (
               <button
                 key={day.id}
-                onClick={() => setActiveDay(day.id)}
+                onClick={() => pickDay(day.id)}
                 className={`snap-center flex flex-col items-center min-w-[52px] py-2.5 px-1.5 rounded-2xl transition-colors duration-150 relative border flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40 focus-visible:ring-offset-2 ${
                   isActive
                     ? "bg-[#246B57] text-white border-[#246B57]"
