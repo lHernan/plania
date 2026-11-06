@@ -1113,5 +1113,6 @@
   "share_story_title": "La historia del viaje",
   "share_story_cover_alt": "Portada de {name}",
   "share_link_story_note": "El enlace también muestra la historia del viaje con los recuerdos compartidos con todo el viaje (nunca los de solo algunas personas).",
-  "ai_quota_exceeded": "Has alcanzado el límite de uso de hoy. Inténtalo de nuevo mañana."
+  "ai_quota_exceeded": "Has alcanzado el límite de uso de hoy. Inténtalo de nuevo mañana.",
+  "privacy_link": "Privacidad"
 }

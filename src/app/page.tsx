@@ -197,6 +197,15 @@ export default function Home() {
             </p>
           </div>
         )}
+
+        <footer className="flex justify-center pb-2">
+          <Link
+            href="/privacidad"
+            className="text-xs font-bold text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+          >
+            {t("privacy_link")}
+          </Link>
+        </footer>
       </div>
 
       {/* Quick start modal */}

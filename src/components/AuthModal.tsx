@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
@@ -274,6 +275,18 @@ export function AuthModal({
               </button>
             </div>
           )}
+
+          {/* A new tab: the sheet and an unsaved draft (kept only in memory) stay where they are. */}
+          <div className="mt-4 text-center">
+            <Link
+              href="/privacidad"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-bold text-[var(--color-text-muted)] hover:text-[var(--color-primary)] underline underline-offset-2 transition-colors"
+            >
+              {t("privacy_link")}
+            </Link>
+          </div>
         </div>
       </motion.div>
     </div>
