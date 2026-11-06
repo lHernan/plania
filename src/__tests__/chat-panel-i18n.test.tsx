@@ -4,7 +4,13 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { mockMatchMedia, renderWithI18n } from "./helpers/dom";
 
 vi.mock("@/lib/supabase", () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
+  supabase: {
+    auth: {
+      // The panel's proposal card reads the itinerary store, which loads the auth store.
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      getSession: async () => ({ data: { session: null } }),
+    },
+  },
 }));
 
 import { ChatPanel } from "@/components/ChatPanel";

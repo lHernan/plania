@@ -276,17 +276,20 @@ async function authorizeTrip(request: Request, tripId: string) {
     .maybeSingle();
   if (tripError || !trip) throw new Response("Viaje no encontrado", { status: 404 });
 
-  if (trip.user_id !== caller.id) {
+  // The owner and shared editors may receive change proposals; viewers keep a read-only Tachi.
+  let canWrite = trip.user_id === caller.id;
+  if (!canWrite) {
     const { data: share } = await supabase
       .from("trip_shares")
-      .select("trip_id")
+      .select("trip_id, role")
       .eq("trip_id", tripId)
       .eq("shared_with", caller.id)
       .maybeSingle();
     if (!share) throw new Response("No tienes acceso a este viaje", { status: 403 });
+    canWrite = share.role === "editor";
   }
 
-  return { supabase, caller, trip };
+  return { supabase, caller, trip, canWrite };
 }
 
 async function loadTripContext(access: Awaited<ReturnType<typeof authorizeTrip>>) {
@@ -362,7 +365,27 @@ async function loadTripContext(access: Awaited<ReturnType<typeof authorizeTrip>>
   return context;
 }
 
-function systemPrompt(context: TripContext, lang?: string) {
+const ACTION_SCHEMA = `{"type":"add_activity","payload":{"dayId":"string","title":"string","time":"HH:mm","durationMin":60,"location":"string?","notes":"string?","expectedCost":0,"category":"${ACTIVITY_CATEGORIES.join("|")}","priority":"${PRIORITIES.join("|")}"}}
+{"type":"patch_activity","payload":{"dayId":"string","activityId":"string","patch":{"title":"string?","time":"HH:mm?","durationMin":60,"location":"string?","notes":"string?","expectedCost":0,"category":"string?","priority":"string?"}}}
+{"type":"update_activity_state","payload":{"dayId":"string","activityId":"string","state":"${ACTIVITY_STATES.join("|")}"}}
+{"type":"reorder_activities","payload":{"dayId":"string","orderedActivityIds":["every activity id of that day, in the new order"]}}
+{"type":"add_reservation","payload":{"title":"string","bookingDeadline":"yyyy-MM-dd","reservationDate":"yyyy-MM-dd","bookingLink":"string?","urgency":"${RESERVATION_URGENCIES.join("|")}","status":"${RESERVATION_STATUSES.join("|")}","price":0}}`;
+
+/** What the model may return: proposals for owners and editors, nothing for viewers. */
+function actionRules(canWrite: boolean) {
+  if (!canWrite) {
+    return `- This assistant is currently read-only. Never return actions that modify the itinerary or reservations.
+- Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}`;
+  }
+  return `- When the traveler asks to change the itinerary or reservations, you may return actions. They are PROPOSALS: nothing changes until the traveler confirms them in the app, so present them in "reply" as suggestions, never as done.
+- Propose only what the traveler asked for, with at most 3 actions. Return an empty "actions" array for questions.
+- Use only day and activity ids that appear in the trip context; never invent ids. When the trip is undated, days have a dayNumber instead of a date: refer to them by their day id.
+- Allowed actions, one JSON object each (fields marked "?" are optional):
+${ACTION_SCHEMA}
+- Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}`;
+}
+
+function systemPrompt(context: TripContext, lang: string | undefined, canWrite: boolean) {
   const paymentGuides = Array.from(new Set(context.days.map((day) => day.city)))
     .map((city) => findCityPaymentGuide(city))
     .filter((guide) => guide !== undefined);
@@ -383,9 +406,8 @@ Rules:
 - Give concise, useful answers grounded in this trip. Do not invent bookings, opening hours, prices, or live facts.
 - If information is missing, say so and make a clearly labeled suggestion.
 - For contactless payment, tickets, validation, transfers, cash, or group purchase questions, use only a matching verified payment-guide entry above. If there is no matching city/topic entry, state that Tachao has no verified guide for it and do not answer from general model knowledge.
-- This assistant is currently read-only. Never return actions that modify the itinerary or reservations.
 ${langRule}
-- Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}
+${actionRules(canWrite)}
 `;
 }
 
@@ -421,7 +443,7 @@ export async function POST(request: Request) {
     if (!tripId || !content) return NextResponse.json({ error: "tripId and content are required" }, { status: 400 });
 
     const access = await authorizeTrip(request, tripId);
-    const { supabase, caller } = access;
+    const { supabase, caller, canWrite } = access;
     const admin = getServiceRoleSupabase();
     const { data: allowed, error: rateLimitError } = await admin.rpc("consume_trip_chat_request", {
       p_user_id: caller.id,
@@ -453,11 +475,12 @@ export async function POST(request: Request) {
       .slice(-20)
       .map((message) => `${message.role}: ${message.content}`)
       .join("\n");
-    const raw = await runAiPrompt(systemPrompt(context, lang), `${historyPrompt}\nuser: ${content}`);
+    const raw = await runAiPrompt(systemPrompt(context, lang, canWrite), `${historyPrompt}\nuser: ${content}`);
     const parsed = extractJsonObject<{ reply?: unknown; actions?: unknown[] }>(raw);
-    const result = normalizeAgentResponse(parsed, context, false);
+    const result = normalizeAgentResponse(parsed, context, canWrite);
 
-    // Chat rows are server-authored; user sessions can only read the shared history.
+    // Chat rows are server-authored; user sessions can only read the shared history. The stored
+    // actions are proposals: the client applies them only after the user confirms.
     const { data: assistantMessage, error: assistantMessageError } = await admin
       .from("trip_messages")
       .insert({
@@ -465,7 +488,7 @@ export async function POST(request: Request) {
         user_id: caller.id,
         role: "assistant",
         content: result.reply,
-        actions: [],
+        actions: result.actions,
       })
       .select("id, trip_id, user_id, role, content, actions, created_at")
       .single();

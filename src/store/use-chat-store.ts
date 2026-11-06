@@ -3,11 +3,14 @@
 import { create } from "zustand";
 import { AI_QUOTA_EXCEEDED, isAiQuotaExceeded } from "@/lib/ai/quota-client";
 import { supabase } from "@/lib/supabase";
+import type { ProposalStatus } from "@/lib/chat/proposals";
 import type { ChatMessage } from "@/lib/types";
 
 type ChatStore = {
   isOpen: boolean;
   messages: ChatMessage[];
+  /** Status of the proposals received in this session, by assistant message id; history has none. */
+  proposals: Record<string, ProposalStatus>;
   loadedTripId: string | null;
   loadingHistory: boolean;
   sending: boolean;
@@ -19,6 +22,7 @@ type ChatStore = {
   loadMessages: (tripId: string) => Promise<void>;
   sendMessage: (tripId: string, content: string, lang?: string) => Promise<void>;
   setDraft: (draft: string) => void;
+  setProposalStatus: (messageId: string, status: ProposalStatus) => void;
   clear: () => void;
 };
 
@@ -32,6 +36,7 @@ async function authHeaders() {
 export const useChatStore = create<ChatStore>((set, get) => ({
   isOpen: false,
   messages: [],
+  proposals: {},
   loadedTripId: null,
   loadingHistory: false,
   sending: false,
@@ -43,7 +48,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   loadMessages: async (tripId) => {
     if (get().loadedTripId === tripId || get().loadingHistory) return;
-    set({ loadingHistory: true, error: null, messages: [], loadedTripId: tripId });
+    set({ loadingHistory: true, error: null, messages: [], proposals: {}, loadedTripId: tripId });
 
     try {
       const headers = await authHeaders();
@@ -89,8 +94,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const data = await response.json() as { message?: ChatMessage; error?: string };
       if (!response.ok || !data.message) throw new Error(data.error ?? "Unable to send message");
 
+      const reply = data.message;
       set((state) => ({
-        messages: [...state.messages, data.message!],
+        messages: [...state.messages, reply],
+        // Only a reply received now can be applied; nothing changes until the user confirms it.
+        proposals: reply.actions?.length ? { ...state.proposals, [reply.id]: "pending" } : state.proposals,
         error: null,
       }));
     } catch (error) {
@@ -102,5 +110,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   setDraft: (draft) => set({ draft }),
 
-  clear: () => set({ messages: [], loadedTripId: null, error: null }),
+  setProposalStatus: (messageId, status) => set((state) => ({ proposals: { ...state.proposals, [messageId]: status } })),
+
+  clear: () => set({ messages: [], proposals: {}, loadedTripId: null, error: null }),
 }));

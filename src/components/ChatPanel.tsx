@@ -4,6 +4,7 @@ import { type FormEvent, type KeyboardEvent, useEffect, useRef } from "react";
 import { Loader2, Send } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { TachiAvatar } from "@/components/TachiAvatar";
+import { ProposalCard } from "@/components/chat/ProposalCard";
 import { AI_QUOTA_EXCEEDED } from "@/lib/ai/quota-client";
 import { useChatStore } from "@/store/use-chat-store";
 
@@ -15,12 +16,16 @@ const QUICK_PROMPT_KEYS = [
   "chat_quick_prompt_missing",
 ];
 
-/** The conversation with Tachi (history in trip_messages). It lives inside the Tachi sheet. */
-export function ChatPanel({ tripId }: { tripId: string }) {
+/**
+ * The conversation with Tachi (history in trip_messages). It lives inside the Tachi sheet.
+ * `canEdit` (owner or editor) lets the user apply the changes Tachi proposes in this session.
+ */
+export function ChatPanel({ tripId, canEdit = false }: { tripId: string; canEdit?: boolean }) {
   const { lang, t } = useI18n();
   const endRef = useRef<HTMLDivElement>(null);
   const {
     messages,
+    proposals,
     loadedTripId,
     loadingHistory,
     sending,
@@ -63,9 +68,13 @@ export function ChatPanel({ tripId }: { tripId: string }) {
               <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-[var(--color-primary)] text-white" : "rounded-bl-md bg-[var(--color-surface-subtle)] text-[var(--color-text)]"}`}>
                 {message.content}
                 {message.actions && message.actions.length > 0 ? (
-                  <div className="mt-2 border-t border-current/10 pt-2 text-[10px] font-bold uppercase tracking-wider opacity-70">
-                    {t("agent_actions_applied", { count: message.actions.length })}
-                  </div>
+                  canEdit && proposals[message.id] ? (
+                    <ProposalCard tripId={tripId} messageId={message.id} actions={message.actions} status={proposals[message.id]} />
+                  ) : (
+                    <div className="mt-2 border-t border-current/10 pt-2 text-[10px] font-bold uppercase tracking-wider opacity-70">
+                      {t("agent_actions_proposed", { count: message.actions.length })}
+                    </div>
+                  )
                 ) : null}
               </div>
             </div>
