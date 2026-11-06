@@ -189,6 +189,17 @@ describe("planner for a registered user", () => {
     expect(day1?.activities.map((a) => [a.title, a.time, a.origin])).toEqual([["Fushimi Inari", "10:00", "suggested"]]);
   });
 
+  it("tells the user when today's AI limit is used up", async () => {
+    signedIn(true);
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({ error: "ai_quota_exceeded", bucket: "import", limit: 20 }), { status: 429 }));
+    await renderPlanner(KYOTO);
+    next();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Generar con Tachi" }));
+    expect(await screen.findByText("Has alcanzado el límite de uso de hoy. Inténtalo de nuevo mañana.")).toBeTruthy();
+    expect(screen.queryByText("Tachi no ha podido responder a tiempo. Inténtalo de nuevo.")).toBeNull();
+  });
+
   it("shows a message and a retry when the model does not answer in time", async () => {
     signedIn(true);
     fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({ error: "timeout" }), { status: 500 }));

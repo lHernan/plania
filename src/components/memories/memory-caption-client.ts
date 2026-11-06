@@ -1,7 +1,8 @@
+import { isAiQuotaExceeded } from "@/lib/ai/quota-client";
 import { authHeaders } from "@/lib/auth-headers";
 
 export type CaptionRequest = { tripId: string; activityTitle?: string; city?: string; note?: string; lang: string };
-export type CaptionResult = { caption: string } | { error: "offline" | "failed" };
+export type CaptionResult = { caption: string } | { error: "offline" | "failed" | "quota_exceeded" };
 
 /** Asks the caption route for a text-only suggestion (registered users only). */
 export async function requestMemoryCaption(input: CaptionRequest): Promise<CaptionResult> {
@@ -12,7 +13,8 @@ export async function requestMemoryCaption(input: CaptionRequest): Promise<Capti
       headers: await authHeaders(),
       body: JSON.stringify(input),
     });
-    const body = (await response.json().catch(() => null)) as { caption?: unknown } | null;
+    if (await isAiQuotaExceeded(response)) return { error: "quota_exceeded" };
+    const body =(await response.json().catch(() => null)) as { caption?: unknown } | null;
     if (!response.ok || typeof body?.caption !== "string" || !body.caption) return { error: "failed" };
     return { caption: body.caption };
   } catch {

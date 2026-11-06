@@ -17,6 +17,7 @@ import {
 } from "@/lib/bookings/plan";
 import { proposalsToActivities } from "@/lib/bookings/import-session";
 import { requestPlanning } from "@/lib/planner/plan-request";
+import { isAiQuotaExceededError } from "@/lib/ai/quota-client";
 
 const DENSITIES: DayDensity[] = ["light", "balanced", "full"];
 
@@ -80,8 +81,8 @@ export function PlanStep({
         importerConflicts,
         skippedDays: feasibility.blockedDays,
       });
-    } catch {
-      setError(t("booking_import_generate_failed"));
+    } catch (caught) {
+      setError(isAiQuotaExceededError(caught) ? t("ai_quota_exceeded") : t("booking_import_generate_failed"));
     } finally {
       setBusy(false);
     }

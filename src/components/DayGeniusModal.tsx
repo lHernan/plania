@@ -22,6 +22,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { OriginBadge } from "@/components/OriginBadge";
 import { useGeocodeCache } from "@/hooks/use-geocode-cache";
 import { authHeaders } from "@/lib/auth-headers";
+import { isAiQuotaExceeded } from "@/lib/ai/quota-client";
 import { getCurrentTripDateTime } from "@/lib/travel-context";
 import { buildGeniusContext, tripTimeZone, type Coords, type GeniusContext, type GeniusUnavailableReason } from "@/lib/day-genius/context";
 import { isTripUndated } from "@/lib/trip-undated";
@@ -60,7 +61,7 @@ type GeniusResult = { summary: string; changes: GeniusChange[]; rejected: Genius
 type Status =
   | { kind: "loading" }
   | { kind: "unavailable"; reason: GeniusUnavailableReason | "offline" }
-  | { kind: "failed" }
+  | { kind: "failed"; quotaExceeded?: boolean }
   | { kind: "ready"; context: GeniusContext; result: GeniusResult };
 
 export function DayGeniusModal({
@@ -138,6 +139,10 @@ export function DayGeniusModal({
           ...(weatherCoords ? { weatherCoords } : {}),
         }),
       });
+      if (await isAiQuotaExceeded(response)) {
+        if (isCurrent()) setStatus({ kind: "failed", quotaExceeded: true });
+        return;
+      }
       if (!response.ok) throw new Error(`status ${response.status}`);
       const result = (await response.json()) as GeniusResult;
       if (!isCurrent()) return;
@@ -262,7 +267,9 @@ export function DayGeniusModal({
 
           {status.kind === "failed" && (
             <div className="space-y-3 py-6">
-              <p className="text-sm text-[var(--color-danger)]" role="alert">{t("day_genius_failed")}</p>
+              <p className="text-sm text-[var(--color-danger)]" role="alert">
+                {status.quotaExceeded ? t("ai_quota_exceeded") : t("day_genius_failed")}
+              </p>
               <button type="button" onClick={() => void run()} className="rounded-xl bg-[var(--color-surface-subtle)] px-4 py-2 text-xs font-bold">
                 {t("day_genius_retry")}
               </button>

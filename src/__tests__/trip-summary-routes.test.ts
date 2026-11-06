@@ -47,6 +47,8 @@ vi.mock("@/lib/supabase-server", () => ({
   getAuthClient: (request: Request) => {
     const client = {
       auth: { getUser: async () => ({ data: { user: db.user }, error: db.user ? null : { message: "no session" } }) },
+      // Daily AI quota (consume_ai_quota): always allowed here.
+      rpc: async () => ({ data: [{ allowed: true, used: 1, remaining: 9 }], error: null }),
       from: (table: string) => {
         db.queried.push(table);
         return query(table);

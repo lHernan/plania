@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildCaptionPrompts, captionContext, cleanCaption, hasCaptionContext } from "@/lib/ai/memory-caption";
 import { runAiPrompt } from "@/lib/ai/provider";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { readTripForCaller, summaryLang } from "@/lib/ai/trip-summary";
 import { MEMORIES_TABLE } from "@/lib/memories-sync";
 import { getAuthClient } from "@/lib/supabase-server";
@@ -47,6 +48,9 @@ export async function POST(request: Request) {
     }
   }
   if (!hasCaptionContext(context)) return NextResponse.json({ error: "nothing_to_describe" }, { status: 400 });
+
+  const blocked = await enforceAiQuota(supabase, "caption");
+  if (blocked) return blocked;
 
   let raw: string;
   try {

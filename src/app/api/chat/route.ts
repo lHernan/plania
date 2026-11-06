@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractJsonObject } from "@/lib/ai/json-response";
 import { runAiPrompt } from "@/lib/ai/provider";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { buildTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
 import { findCityPaymentGuide } from "@/lib/city-payment-guides";
@@ -432,6 +433,9 @@ export async function POST(request: Request) {
     if (allowed !== true) {
       return NextResponse.json({ error: "Please wait before sending another travel chat message." }, { status: 429 });
     }
+    // Daily quota, counted with the caller's own client before the message is stored.
+    const blocked = await enforceAiQuota(supabase, "chat");
+    if (blocked) return blocked;
 
     const context = await loadTripContext(access);
     const { error: userMessageError } = await admin.from("trip_messages").insert({

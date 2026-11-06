@@ -35,6 +35,9 @@ export function TripSummaryPanel({ tripId }: { tripId: string }) {
       {status === "offline" && (
         <p role="alert" className="text-sm font-semibold text-[var(--color-text-secondary)]">{t("trip_summary_offline")}</p>
       )}
+      {status === "quota_exceeded" && (
+        <p role="alert" className="text-sm font-semibold text-[var(--color-danger)]">{t("ai_quota_exceeded")}</p>
+      )}
       {status === "error" && (
         <p role="alert" className="text-sm font-semibold text-[var(--color-danger)]">{t("trip_summary_error")}</p>
       )}

@@ -21,6 +21,7 @@ import { FileRow, type FileEntry } from "@/components/booking-import/FileRow";
 import { BookingReviewCard } from "@/components/booking-import/BookingReviewCard";
 import { PlanStep } from "@/components/booking-import/PlanStep";
 import type { FileErrorCode } from "@/components/booking-import/labels";
+import { isAiQuotaExceeded } from "@/lib/ai/quota-client";
 
 /** Three at once: a trip often brings one document per traveler, and the AI answer takes many seconds. */
 const CONCURRENCY = 3;
@@ -136,6 +137,10 @@ export function BookingImportModal({ onClose, onToast }: { onClose: () => void; 
       });
     } catch {
       fail("network");
+      return;
+    }
+    if (await isAiQuotaExceeded(response)) {
+      fail("quota");
       return;
     }
     if (!response.ok) {

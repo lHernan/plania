@@ -217,6 +217,16 @@ describe("BookingImportModal", () => {
     expect(screen.getByText(/se leen en este navegador/)).toBeTruthy();
   });
 
+  it("tells the user when today's AI limit is used up instead of a generic extraction error", async () => {
+    fetchMock.mockImplementationOnce(async () => {
+      pdf.inFlight -= 1;
+      return new Response(JSON.stringify({ error: "ai_quota_exceeded", bucket: "bookings", limit: 30 }), { status: 429 });
+    });
+    renderModal();
+    fireEvent.change(screen.getByLabelText("Documentos PDF de tus reservas"), { target: { files: [pdfFile("vuelos.pdf")] } });
+    expect(await within(await screen.findByTestId("file-row-vuelos.pdf")).findByText("Has alcanzado el límite de uso de hoy. Inténtalo de nuevo mañana.")).toBeTruthy();
+  });
+
   it("processes several PDFs, reports the unreadable one and lets it be retried", async () => {
     pdf.failing.add("roto.pdf");
     renderModal();

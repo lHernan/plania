@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { authHeaders } from "@/lib/auth-headers";
+import { isAiQuotaExceeded } from "@/lib/ai/quota-client";
 import { isTripUndated } from "@/lib/trip-undated";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
@@ -179,6 +180,10 @@ export function PackingListCard({ tripId, tripName, days, travelContext, onRequi
         body: JSON.stringify(input),
       });
 
+      if (await isAiQuotaExceeded(res)) {
+        setError(t("ai_quota_exceeded"));
+        return;
+      }
       if (!res.ok) throw new Error("API error");
 
       const data = (await res.json()) as { categories: PackingCategory[] };

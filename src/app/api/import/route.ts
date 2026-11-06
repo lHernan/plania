@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { LONG_REPLY_TIMEOUT_MS, runAiPrompt } from "@/lib/ai/provider";
+import { enforceAiQuota } from "@/lib/ai/quota";
 import { getAuthClient } from "@/lib/supabase-server";
 import { extractJsonObject } from "@/lib/ai/json-response";
 import { buildPlanningAddendum, buildPlanningUserPrompt, parsePlanningInput } from "@/lib/bookings/planning-prompt";
@@ -72,7 +73,8 @@ function buildSystemPrompt(lang: string) {
 export async function POST(req: Request) {
   try {
     // Both modes spend AI credits: registered users only (not anonymous guests).
-    const { data: authData, error: authError } = await getAuthClient(req).auth.getUser();
+    const supabase = getAuthClient(req);
+    const { data: authData, error: authError } = await supabase.auth.getUser();
     if (authError || !authData?.user || authData.user.is_anonymous) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
@@ -86,6 +88,9 @@ export async function POST(req: Request) {
       if (!planning) {
         return NextResponse.json({ error: "invalid_request" }, { status: 400 });
       }
+      // Planning and the text import share the "import" daily quota.
+      const blocked = await enforceAiQuota(supabase, "import");
+      if (blocked) return blocked;
       const resolvedLang = lang || "en";
       const content = await runAiPrompt(
         buildSystemPrompt(resolvedLang) + "\n\n" + buildPlanningAddendum(resolvedLang),
@@ -102,6 +107,9 @@ export async function POST(req: Request) {
     if (!text) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
+
+    const blocked = await enforceAiQuota(supabase, "import");
+    if (blocked) return blocked;
 
     const content = await runAiPrompt(
       buildSystemPrompt(lang || "en"),
