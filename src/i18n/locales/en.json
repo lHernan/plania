@@ -854,6 +854,7 @@
   "trip_overview_travelers": "{count} travelers",
   "trip_overview_context_empty": "Tell us how many of you are traveling and with what luggage to fine-tune the suggestions.",
   "trip_overview_edit_context": "Edit trip context",
+  "trip_overview_add_to_calendar": "Add to calendar",
   "trip_overview_preparation": "Preparation",
   "trip_overview_reservations_pending": "{count} bookings to make",
   "trip_overview_reservations_done": "Bookings up to date",

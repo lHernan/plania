@@ -4,10 +4,11 @@ import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "rea
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { enUS, es } from "date-fns/locale";
-import { CalendarDays, CheckCircle2, Circle, Compass, ImageOff, ImagePlus, MapPin, Share2, Users } from "lucide-react";
+import { CalendarDays, CalendarPlus, CheckCircle2, Circle, Compass, ImageOff, ImagePlus, MapPin, Share2, Users } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { TripCover } from "@/components/TripCover";
 import { tripSectionHref } from "@/components/TripSectionNav";
+import { buildTripIcs, icsFileName } from "@/lib/calendar/ics";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
 import { dayUrlParam, isTripUndated } from "@/lib/trip-undated";
 import { TRIP_COVER_ACCEPT } from "@/lib/trip-cover";
@@ -146,6 +147,18 @@ function TripSummary({ trip, canShare, onEditContext, onShare, onSetDates, cover
   const cities = [...new Set(trip.days.map((d) => d.city.trim()).filter((c) => !isPlaceholderCity(c)))];
   const travelers = trip.travelContext?.travelerCount;
 
+  // The activities as a calendar file (.ics) for Google, Apple or Outlook; built on the device.
+  const exportCalendar = () => {
+    const ics = buildTripIcs(trip, { now: new Date(), deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    if (!ics) return;
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = icsFileName(trip.name);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <section className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
       {/* The uploaded cover, or the default placeholder until the curated photo set exists. */}
@@ -190,6 +203,16 @@ function TripSummary({ trip, canShare, onEditContext, onShare, onSetDates, cover
             <Compass size={16} />
             {t("trip_overview_edit_context")}
           </button>
+          {!undated && (
+            <button
+              type="button"
+              onClick={exportCalendar}
+              className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[var(--color-surface-subtle)] px-4 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)] transition-colors"
+            >
+              <CalendarPlus size={16} />
+              {t("trip_overview_add_to_calendar")}
+            </button>
+          )}
           {canShare && (
             <button
               type="button"
