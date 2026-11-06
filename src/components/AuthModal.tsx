@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useI18n } from "@/components/I18nProvider";
 import { X, Mail, Lock, Loader2, ArrowRight, KeyRound, Save } from "lucide-react";
 import { TachiAvatar } from "@/components/TachiAvatar";
+import { ProviderLogo } from "@/components/auth/ProviderLogo";
 import { enabledOAuthProviders, startOAuthSignIn, type OAuthProvider } from "@/lib/auth/oauth";
 
 /** Why the account is asked for: the sheet says it in its own words. */
@@ -172,7 +173,7 @@ export function AuthModal({
                   disabled={oauthBusy !== null}
                   className="w-full min-h-12 inline-flex items-center justify-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm font-bold text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)] transition-colors disabled:opacity-60"
                 >
-                  {oauthBusy === provider ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : null}
+                  {oauthBusy === provider ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <ProviderLogo provider={provider} />}
                   {t(provider === "google" ? "auth_continue_google" : "auth_continue_apple")}
                 </button>
               ))}
