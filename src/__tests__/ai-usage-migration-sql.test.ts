@@ -55,6 +55,6 @@ describe("ai_usage migration", () => {
   it("holds exactly the same bucket limits as AI_QUOTA_LIMITS", () => {
     const inSql = Object.fromEntries([...sql.matchAll(/WHEN '(\w+)' THEN (\d+)/g)].map((m) => [m[1], Number(m[2])]));
     expect(inSql).toEqual(AI_QUOTA_LIMITS);
-    expect(AI_QUOTA_LIMITS).toEqual({ chat: 100, import: 20, bookings: 30, packing: 20, day_genius: 20, summary: 10, caption: 50 });
+    expect(AI_QUOTA_LIMITS).toEqual({ chat: 100, import: 20, bookings: 30, packing: 20, day_genius: 20, summary: 10, caption: 50, shopping: 20 });
   });
 });

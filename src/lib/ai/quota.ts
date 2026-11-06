@@ -6,7 +6,8 @@ import { NextResponse } from "next/server";
  * Single source of truth on the app side. src/lib/ai_usage_migration.sql keeps the same
  * numbers inside consume_ai_quota() (the limit is never sent by the client) and a test fails
  * when the two drift apart. Text import and planning share "import"; booking extraction and
- * code detection share "bookings". The day resets at 00:00 UTC.
+ * code detection share "bookings". The day resets at 00:00 UTC. "shopping" (the AI split of a
+ * shopping wishlist) never answers 429: over its quota the route falls back to the rules.
  */
 export const AI_QUOTA_LIMITS = {
   chat: 100,
@@ -16,6 +17,7 @@ export const AI_QUOTA_LIMITS = {
   day_genius: 20,
   summary: 10,
   caption: 50,
+  shopping: 20,
 } as const;
 
 export type AiQuotaBucket = keyof typeof AI_QUOTA_LIMITS;
