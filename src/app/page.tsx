@@ -62,9 +62,11 @@ export default function Home() {
     if (user && !user.is_anonymous) {
       void createTrip(name, quickTripStart || undefined, quickTripEnd || undefined);
     } else {
+      // Without a start date the draft is planned by number of days (one to begin with).
+      const undated = !quickTripStart;
       const startDate = quickTripStart || today;
-      const dates = plannedDates({ ...defaultPlannerForm(), mode: "dates", startDate, endDate: quickTripEnd || startDate });
-      loadTemplate(buildDraftTrip({ id: newDraftId(), name, destinations: [], dates, userId: user?.id }));
+      const dates = undated ? [today] : plannedDates({ ...defaultPlannerForm(), mode: "dates", startDate, endDate: quickTripEnd || startDate });
+      loadTemplate(buildDraftTrip({ id: newDraftId(), name, destinations: [], dates, userId: user?.id, undated }));
     }
     setShowQuickStart(false);
   };
