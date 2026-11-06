@@ -114,12 +114,14 @@ describe("landing for visitors", () => {
 });
 
 describe("create from scratch", () => {
-  function quickStart(name: string) {
+  function quickStart(name: string, withDates = true) {
     fireEvent.click(screen.getByRole("button", { name: "Crear desde cero" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.change(dialog.getByPlaceholderText("Ej. Mi escapada a Japon 2026"), { target: { value: name } });
-    fireEvent.change(dialog.getByLabelText("Fecha de inicio"), { target: { value: "2027-05-10" } });
-    fireEvent.change(dialog.getByLabelText("Fecha de fin"), { target: { value: "2027-05-12" } });
+    if (withDates) {
+      fireEvent.change(dialog.getByLabelText("Fecha de inicio"), { target: { value: "2027-05-10" } });
+      fireEvent.change(dialog.getByLabelText("Fecha de fin"), { target: { value: "2027-05-12" } });
+    }
     fireEvent.click(dialog.getByRole("button", { name: "Crear aventura" }));
   }
 
@@ -132,6 +134,23 @@ describe("create from scratch", () => {
     expect(activeTripIsDraft).toBe(true);
     expect(activeTrip?.name).toBe("Roma");
     expect(activeTrip?.days.map((d) => d.date)).toEqual(["2027-05-10", "2027-05-11", "2027-05-12"]);
+  });
+
+  it("for a visitor without dates becomes a draft planned by number of days, not dated from today", async () => {
+    await renderHome("guest");
+    quickStart("Islandia", false);
+    const { activeTrip, activeTripIsDraft } = useItineraryStore.getState();
+    expect(activeTripIsDraft).toBe(true);
+    expect(activeTrip?.travelContext).toMatchObject({ undated: true });
+    expect(activeTrip?.startDate).toBeUndefined();
+    expect(activeTrip?.endDate).toBeUndefined();
+    expect(activeTrip?.days).toHaveLength(1);
+  });
+
+  it("for a registered user without dates leaves the dates to the store", async () => {
+    await renderHome("registered");
+    quickStart("Islandia", false);
+    expect(createTrip).toHaveBeenCalledWith("Islandia", undefined, undefined);
   });
 
   it("for a registered user still creates a real trip", async () => {

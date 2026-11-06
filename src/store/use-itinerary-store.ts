@@ -961,8 +961,10 @@ export const useItineraryStore = create<Store>((set, get) => {
 
     if (entry.target === "trip" && entry.operation === "create") {
       const name = String(payload.name ?? "");
-      const startDate = String(payload.startDate ?? new Date().toISOString().split("T")[0]);
-      const endDate = String(payload.endDate ?? startDate);
+      // A trip planned by number of days is created without a start or end.
+      const undated = (payload.travelContext as TravelContext | undefined)?.undated === true;
+      const startDate = undated ? null : String(payload.startDate ?? new Date().toISOString().split("T")[0]);
+      const endDate = undated ? null : String(payload.endDate ?? startDate);
       const userId = entry.userId;
       const { data: newTrip, error } = await supabase
         .from("trips")
@@ -1400,19 +1402,23 @@ export const useItineraryStore = create<Store>((set, get) => {
       const userId = getCurrentUserId();
       if (!userId) return;
 
-      const finalStartDate = startDate || new Date().toISOString().split("T")[0];
-      const finalEndDate = endDate || finalStartDate;
-      const travelContext = newTripContext();
+      // Without a start date the trip is planned by number of days (one to begin with): its
+      // day gets a placeholder date and the trip itself has no start or end.
+      const undated = !startDate;
+      const seedStartDate = startDate || new Date().toISOString().split("T")[0];
+      const seedEndDate = (!undated && endDate) || seedStartDate;
+      const finalStartDate = undated ? null : seedStartDate;
+      const finalEndDate = undated ? null : seedEndDate;
+      const travelContext: TravelContext = undated ? { ...newTripContext(), undated: true } : newTripContext();
 
       if (!isOnline()) {
         const tripId = createOfflineId("trip");
-        const days = buildSeedDays(tripId, userId, finalStartDate, finalEndDate);
+        const days = buildSeedDays(tripId, userId, seedStartDate, seedEndDate);
         const tripPlan: TripPlan = {
           id: tripId,
           name,
           userId,
-          startDate: finalStartDate,
-          endDate: finalEndDate,
+          ...(undated ? {} : { startDate: seedStartDate, endDate: seedEndDate }),
           createdAt: new Date().toISOString(),
           isFavorite: false,
           travelContext,
@@ -1459,7 +1465,7 @@ export const useItineraryStore = create<Store>((set, get) => {
         return;
       }
 
-      const daysToCreate = buildSeedDays(String(newTrip.id), userId, finalStartDate, finalEndDate).map((day) => ({
+      const daysToCreate = buildSeedDays(String(newTrip.id), userId, seedStartDate, seedEndDate).map((day) => ({
         trip_id: String(newTrip.id),
         user_id: userId,
         date: day.date,
