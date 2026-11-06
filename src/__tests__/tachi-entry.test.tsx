@@ -235,3 +235,34 @@ describe("Tachi, the single AI entry point", () => {
     expect(names).not.toContain("Importar reservas");
   });
 });
+
+// S3 (odd/tasks/growth-quick-wins.md): the trip view tells Tachi whether the user may apply proposals.
+describe("Tachi proposals in the trip view", () => {
+  const proposal = {
+    id: "m1",
+    tripId: "t",
+    userId: "me",
+    role: "assistant" as const,
+    content: "Te propongo esto",
+    actions: [{ type: "update_activity_state" as const, payload: { dayId: "d1", activityId: "a1", state: "completed" as const } }],
+    createdAt: "2026-11-06T10:00:00Z",
+  };
+
+  async function openWithProposal(who: Who) {
+    await renderAt("/trips/t", who);
+    useChatStore.setState({ messages: [proposal], proposals: { m1: "pending" }, loadedTripId: "t" });
+    return openTachi();
+  }
+
+  it("lets the owner apply or dismiss them", async () => {
+    const sheet = await openWithProposal("owner");
+    expect(within(sheet).getByRole("button", { name: "Aplicar" })).toBeTruthy();
+    expect(within(sheet).getByRole("button", { name: "Descartar" })).toBeTruthy();
+  });
+
+  it("keeps a viewer's Tachi read-only", async () => {
+    const sheet = await openWithProposal("invitee");
+    expect(within(sheet).getByText("Te propongo esto")).toBeTruthy();
+    expect(within(sheet).queryByRole("button", { name: "Aplicar" })).toBeNull();
+  });
+});

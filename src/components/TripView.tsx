@@ -104,7 +104,7 @@ import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
 import { dayUrlParam, isTripUndated } from "@/lib/trip-undated";
-import { canEditTripCover } from "@/lib/trip-cover";
+import { canEditTrip, canEditTripCover } from "@/lib/trip-cover";
 import { parseTripPath, type TripSection } from "@/lib/trip-routes";
 import { CATEGORY_STYLES, SortableActivityCard } from "@/components/SortableActivityCard";
 import { findNextPendingDayId, isDayComplete, isTripComplete } from "@/lib/trip-progress";
@@ -2282,6 +2282,7 @@ export function TripView() {
               actions={tachiActions}
               panelId={tachiPanelId}
               onPanelChange={setTachiPanelId}
+              canEdit={canEditTrip(activeTrip, user?.id)}
             >
               {section === "itinerary" ? renderScheduleTips() : null}
             </TachiSheet>

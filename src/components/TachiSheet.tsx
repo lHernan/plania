@@ -32,6 +32,7 @@ export function TachiSheet({
   actions,
   panelId: controlledPanelId,
   onPanelChange,
+  canEdit = false,
   children,
 }: {
   tripId: string;
@@ -46,6 +47,8 @@ export function TachiSheet({
    */
   panelId?: string | null;
   onPanelChange?: (panelId: string | null) => void;
+  /** Owner or editor: may apply the changes Tachi proposes. Viewers keep a read-only Tachi. */
+  canEdit?: boolean;
   /** Extra hints for this context (e.g. schedule fixes for the day). */
   children?: ReactNode;
 }) {
@@ -155,7 +158,7 @@ export function TachiSheet({
                     </div>
                   )}
                   {children ? <div className="px-5 pt-4">{children}</div> : null}
-                  <ChatPanel tripId={tripId} />
+                  <ChatPanel tripId={tripId} canEdit={canEdit} />
                 </>
               )}
             </div>

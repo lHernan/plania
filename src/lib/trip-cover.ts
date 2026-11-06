@@ -28,17 +28,21 @@ export function tripCoverObjectPath(tripId: string, type: string, id: string = c
   return `${tripId}/${id}.${TRIP_COVER_TYPES[type] ?? "jpg"}`;
 }
 
+type TripAccess = { userId?: string | null; packing?: { role: PackingRole } } | null | undefined;
+
 /**
- * The owner and shared editors change the cover; viewers only see it. The role of a shared
- * trip is the one the packing load resolved (trip_shares.role); unknown means viewer.
+ * Whether the user may change the trip: the owner and shared editors; viewers only see it. The
+ * role of a shared trip is the one the packing load resolved (trip_shares.role); unknown means viewer.
  */
-export function canEditTripCover(
-  trip: { userId?: string | null; packing?: { role: PackingRole } } | null | undefined,
-  userId: string | null | undefined,
-): boolean {
+export function canEditTrip(trip: TripAccess, userId: string | null | undefined): boolean {
   if (!trip || !userId) return false;
   if (trip.userId === userId) return true;
   return trip.packing?.role === "editor";
+}
+
+/** The owner and shared editors change the cover; viewers only see it. */
+export function canEditTripCover(trip: TripAccess, userId: string | null | undefined): boolean {
+  return canEditTrip(trip, userId);
 }
 
 const coverUrls = createSignedUrlCache(TRIP_COVERS_BUCKET, TRIP_COVER_URL_SECONDS);
