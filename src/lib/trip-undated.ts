@@ -23,3 +23,24 @@ export function withoutUndatedFlag(context: TravelContext | null | undefined): T
   delete rest.undated;
   return Object.keys(rest).length > 1 ? rest : null;
 }
+
+type DayRef = { id: string; date: string };
+type TripDays<Day extends DayRef> = { travelContext?: TravelContext | null; days: Day[] };
+
+/**
+ * The `?day=` value of a day: its date on a dated trip, its number ("1".."N") on an undated one,
+ * whose placeholder dates are never shown.
+ */
+export function dayUrlParam<Day extends DayRef>(trip: TripDays<Day>, day: DayRef | null | undefined): string | null {
+  if (!day) return null;
+  if (!isTripUndated(trip)) return day.date;
+  const index = trip.days.findIndex((entry) => entry.id === day.id);
+  return index >= 0 ? String(index + 1) : null;
+}
+
+/** The day a `?day=` value names. An undated trip also accepts older links with a placeholder date. */
+export function findDayByUrlParam<Day extends DayRef>(trip: TripDays<Day>, param: string | null | undefined): Day | undefined {
+  if (!param) return undefined;
+  if (isTripUndated(trip) && /^\d+$/.test(param)) return trip.days[Number(param) - 1];
+  return trip.days.find((day) => day.date === param);
+}

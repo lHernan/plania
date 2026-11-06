@@ -9,7 +9,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { TripCover } from "@/components/TripCover";
 import { tripSectionHref } from "@/components/TripSectionNav";
 import { isPlaceholderCity } from "@/lib/day-genius/context";
-import { isTripUndated } from "@/lib/trip-undated";
+import { dayUrlParam, isTripUndated } from "@/lib/trip-undated";
 import { TRIP_COVER_ACCEPT } from "@/lib/trip-cover";
 import type { TripPlan } from "@/lib/types";
 
@@ -313,7 +313,7 @@ function PreparationChecklist({ trip }: { trip: TripPlan }) {
         )}
         {emptyDays.length > 0 ? (
           emptyDays.map((d) => (
-            <ChecklistLink key={d.id} href={tripSectionHref(trip.id, "itinerary", d.date)}>
+            <ChecklistLink key={d.id} href={tripSectionHref(trip.id, "itinerary", dayUrlParam(trip, d))}>
               {t("trip_overview_day_empty", { day: dayName(d.id, d.date, d.city) })}
             </ChecklistLink>
           ))

@@ -198,8 +198,16 @@ export function DayGeniusModal({
     }
   };
 
-  const formatDate = (date: string) =>
-    new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+  // An undated trip names its days by number: its placeholder dates are never shown.
+  const activeTrip = useItineraryStore((state) => state.activeTrip);
+  const undated = isTripUndated(activeTrip);
+  const formatDate = (date: string) => {
+    if (undated && activeTrip) {
+      const index = activeTrip.days.findIndex((day) => day.date === date);
+      if (index >= 0) return t("day_genius_day_number", { n: index + 1 });
+    }
+    return new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+  };
   const titleOf = (activityId: string) =>
     status.kind === "ready" ? status.context.movable.find((m) => m.id === activityId)?.title ?? "" : "";
 

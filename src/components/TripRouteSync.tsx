@@ -3,13 +3,15 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { parseTripPath, tripPath } from "@/lib/trip-routes";
+import { dayUrlParam, findDayByUrlParam } from "@/lib/trip-undated";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
 /**
  * Keeps the URL and the active trip in step once the trip is loaded (AuthInitializer loads
  * the first one from the URL): a new trip id in the URL opens that trip, and a trip opened
  * from inside the app (the trip switcher) moves the URL to it, keeping the section.
- * `?day=YYYY-MM-DD` selects that day whenever it changes, and the URL follows the selected day.
+ * `?day=YYYY-MM-DD` (`?day=N` on an undated trip) selects that day whenever it changes, and the
+ * URL follows the selected day.
  */
 export function TripRouteSync() {
   const router = useRouter();
@@ -77,17 +79,17 @@ export function TripRouteSync() {
 
   useEffect(() => {
     if (!activeTrip || appliedDayKey.current !== dayKey) return;
-    const date = activeTrip.days.find((d) => d.id === activeDayId)?.date;
-    if (!date || date === dayParam) return;
+    const value = dayUrlParam(activeTrip, activeTrip.days.find((d) => d.id === activeDayId));
+    if (!value || value === dayParam) return;
     const url = new URL(window.location.href);
-    url.searchParams.set("day", date);
+    url.searchParams.set("day", value);
     window.history.replaceState(window.history.state, "", url.toString());
   }, [activeDayId, activeTrip, dayKey, dayParam]);
 
   useEffect(() => {
     if (!activeTrip || activeTrip.id !== urlTripId || appliedDayKey.current === dayKey) return;
     appliedDayKey.current = dayKey;
-    const day = dayParam ? activeTrip.days.find((d) => d.date === dayParam) : undefined;
+    const day = findDayByUrlParam(activeTrip, dayParam);
     if (day) setActiveDay(day.id);
   }, [activeTrip, dayKey, dayParam, setActiveDay, urlTripId]);
 

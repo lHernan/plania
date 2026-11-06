@@ -219,6 +219,21 @@ describe("DayGeniusModal", () => {
     expect(geniusBody().context.travel).toEqual([]);
   });
 
+  it("names the days of a dated trip by their date", async () => {
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    expect(await screen.findByText("Museo Insular")).toBeTruthy();
+    expect(screen.getByText(/Pasa al .*3.*nov.* a las 10:00/)).toBeTruthy();
+  });
+
+  it("names the days of an undated trip by number, never by their placeholder dates", async () => {
+    useItineraryStore.setState({ activeTrip: { ...trip, travelContext: { version: 1, undated: true } } });
+    renderWithI18n(<DayGeniusModal dayId="d2" onClose={onClose} onToast={onToast} />);
+    expect(await screen.findByText("Museo Insular")).toBeTruthy();
+    expect(screen.getByText("Reorganizamos el día 1")).toBeTruthy();
+    expect(screen.getByText("Pasa al día 2 a las 10:00")).toBeTruthy();
+    expect(screen.queryByText(/nov/)).toBeNull();
+  });
+
   it("suggests plans for a day that only has a flight and a check-in", async () => {
     const flight = makeActivity("flight", {
       dayId: "d2", title: "Vuelo MAD → SPC", category: "transport", origin: "booking", location: "Madrid Barajas", time: "08:00", durationMin: 165, sort_order: 0,
