@@ -75,12 +75,19 @@ describe("share link page", () => {
         throw new Error(url);
       });
 
-    it("names the days of a trip without dates by number", async () => {
+    it("names the days of a trip planned by number of days by number", async () => {
       useAuthStore.setState({ user: null });
-      withTrip({});
+      withTrip({ undated: true });
       renderWithI18n(<SharePage />);
       expect(await screen.findByText("Día 2 · Funchal")).toBeTruthy();
       expect(screen.queryByText(/2026-11-05/)).toBeNull();
+    });
+
+    it("keeps the day dates of an older trip that has no start or end but is not planned by days", async () => {
+      useAuthStore.setState({ user: null });
+      withTrip({});
+      renderWithI18n(<SharePage />);
+      expect(await screen.findByText("2026-11-06 · Funchal")).toBeTruthy();
     });
 
     it("keeps the day dates of a dated trip", async () => {

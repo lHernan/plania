@@ -22,7 +22,7 @@ type ShareInfo = {
 };
 
 type TripData = {
-  trip: { id: string; name: string; startDate?: string; endDate?: string; coverUrl?: string };
+  trip: { id: string; name: string; startDate?: string; endDate?: string; coverUrl?: string; undated?: boolean };
   role: "viewer" | "editor";
   days: Array<{ id: string; date: string; city: string; label: string }>;
   activities: Array<{ id: string; day_id: string; title: string; time: string; duration_min?: number; location?: string; category?: string; state?: string }>;
@@ -128,9 +128,9 @@ export default function SharePage() {
     );
   }
 
-  // A trip without dates (planned by number of days) only has placeholder day dates.
+  // A trip planned by number of days only has placeholder day dates.
   const dayTitle = (day: TripData["days"][number], index: number) =>
-    tripData && (tripData.trip.startDate || tripData.trip.endDate) ? day.date : t("trip_view_day_number", { number: index + 1 });
+    tripData?.trip.undated ? t("trip_view_day_number", { number: index + 1 }) : day.date;
 
   const activitiesByDay = new Map<string, TripData["activities"]>();
   if (tripData) {
