@@ -127,6 +127,47 @@ describe("TripOverview summary", () => {
   });
 });
 
+describe("TripOverview calendar export", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("downloads the trip as a calendar file named after it", async () => {
+    let blob: Blob | null = null;
+    const createObjectURL = vi.fn((value: Blob) => {
+      blob = value;
+      return "blob:ics";
+    });
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const clicked: { href: string; download: string }[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clicked.push({ href: this.href, download: this.download });
+    });
+
+    renderOverview(trip({ name: "Japón 2026" }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir al calendario" }));
+
+    expect(clicked).toEqual([{ href: "blob:ics", download: "japon-2026.ics" }]);
+    expect(blob!.type).toBe("text/calendar;charset=utf-8");
+    // jsdom's Blob has no text(): read it as a browser without it would.
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(blob!);
+    });
+    expect(text).toContain("BEGIN:VCALENDAR");
+    expect(text).toContain("BEGIN:VEVENT");
+  });
+
+  it("is not offered for a trip planned by number of days", () => {
+    renderOverview(trip({ startDate: undefined, endDate: undefined, travelContext: { version: 1, undated: true } }));
+    expect(screen.queryByRole("button", { name: "Añadir al calendario" })).toBeNull();
+  });
+
+  it("is offered to viewers too: it only reads the trip", () => {
+    renderOverview(trip(), { canShare: false });
+    expect(screen.getByRole("button", { name: "Añadir al calendario" })).toBeTruthy();
+  });
+});
+
 describe("TripOverview preparation checklist", () => {
   it("links pending reservations to the wallet and empty days to the itinerary on that day", () => {
     renderOverview();

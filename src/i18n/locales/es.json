@@ -854,6 +854,7 @@
   "trip_overview_travelers": "{count} viajeros",
   "trip_overview_context_empty": "Cuéntanos cuántos viajan y con qué equipaje para afinar las sugerencias.",
   "trip_overview_edit_context": "Editar contexto del viaje",
+  "trip_overview_add_to_calendar": "Añadir al calendario",
   "trip_overview_preparation": "Preparación",
   "trip_overview_reservations_pending": "{count} reservas por hacer",
   "trip_overview_reservations_done": "Reservas al día",
