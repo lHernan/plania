@@ -1236,11 +1236,18 @@ export function TripView() {
   // A template draft keeps the template's own dates, so its mode would say nothing true.
   const itineraryMode = activeTrip && tripNow && !activeTripIsDraft ? tripMode(activeTrip, tripNow.date) : null;
   const tripMemories = activeTrip?.memories ?? [];
+  // The activity whose memory editor is open: its list stays mounted (and the draft kept) even
+  // when another activity is ticked meanwhile.
+  const [memoryEditorActivityId, setMemoryEditorActivityId] = useState<string | null>(null);
+  const onMemoryEditing = useCallback((activityId: string, open: boolean) => {
+    setMemoryEditorActivityId((current) => (open ? activityId : current === activityId ? null : current));
+  }, []);
   // Recuerdo mode: every completed activity shows its memories. Today: the activity just ticked
   // offers [Añadir recuerdo] (non-blocking), and completed ones keep the memories they have.
   const showActivityMemories = (activity: Activity) =>
     itineraryMode === "memory" ||
-    (itineraryMode === "today" && (activity.id === justCompletedId || tripMemories.some((memory) => memory.activityId === activity.id)));
+    (itineraryMode === "today" &&
+      (activity.id === justCompletedId || activity.id === memoryEditorActivityId || tripMemories.some((memory) => memory.activityId === activity.id)));
   const nowAndNext = useMemo(
     () => (activeDay && tripNow && !undated && activeDay.date === tripNow.date ? nowNext(activeDay, tripNow.time) : null),
     [activeDay, tripNow, undated],
@@ -2118,6 +2125,7 @@ export function TripView() {
                                      currentUserId={user?.id ?? null}
                                      label={t("memories_activity_list", { title: activity.title })}
                                      addLabel={t("memory_add")}
+                                     onEditingChange={(open) => onMemoryEditing(activity.id, open)}
                                    />
                                  </div>
                                )}

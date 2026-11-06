@@ -139,6 +139,57 @@ describe("memories in the itinerary", () => {
     expect(within(timeline()).getByText("Lunch")).toBeTruthy();
   });
 
+  it("in Today mode, ticking another activity keeps an open memory editor and its draft", async () => {
+    await show("/trips/t", "2026-10-26", [], (activities) => activities.map((a) => ({ ...a, state: "pending" as const })));
+    const markCompleted = (id: string) => async () => {
+      useItineraryStore.setState((s) => ({
+        activeTrip: s.activeTrip && {
+          ...s.activeTrip,
+          days: s.activeTrip.days.map((d) => ({ ...d, activities: d.activities.map((a) => (a.id === id ? { ...a, state: "completed" as const } : a)) })),
+        },
+      }));
+      return true;
+    };
+    updateActivityState.mockImplementationOnce(markCompleted("a1"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Marcar «Museum» como hecha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Añadir recuerdo" }));
+    const editor = screen.getByRole("dialog", { name: "Nuevo recuerdo" });
+    fireEvent.change(within(editor).getByRole("textbox"), { target: { value: "Draft about the museum" } });
+
+    // The editor is modal, but the keyboard can still reach the checkboxes behind it.
+    updateActivityState.mockImplementationOnce(markCompleted("a3"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Marcar «Lunch» como hecha" }));
+    await waitFor(() => expect(updateActivityState).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+
+    const still = screen.getByRole("dialog", { name: "Nuevo recuerdo" });
+    expect((within(still).getByRole("textbox") as HTMLTextAreaElement).value).toBe("Draft about the museum");
+    expect(screen.getByRole("region", { name: "Recuerdos de «Museum»" })).toBeTruthy();
+  });
+
+  it("in Today mode, closing the editor of an activity without memories stops offering it once another one is ticked", async () => {
+    await show("/trips/t", "2026-10-26", [], (activities) => activities.map((a) => ({ ...a, state: "pending" as const })));
+    const markCompleted = (id: string) => async () => {
+      useItineraryStore.setState((s) => ({
+        activeTrip: s.activeTrip && {
+          ...s.activeTrip,
+          days: s.activeTrip.days.map((d) => ({ ...d, activities: d.activities.map((a) => (a.id === id ? { ...a, state: "completed" as const } : a)) })),
+        },
+      }));
+      return true;
+    };
+    updateActivityState.mockImplementationOnce(markCompleted("a1"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Marcar «Museum» como hecha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Añadir recuerdo" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Nuevo recuerdo" })).toBeNull();
+
+    updateActivityState.mockImplementationOnce(markCompleted("a3"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Marcar «Lunch» como hecha" }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "Recuerdos de «Lunch»" })).toBeTruthy());
+    expect(screen.queryByRole("region", { name: "Recuerdos de «Museum»" })).toBeNull();
+  });
+
   it("a trip in planning mode renders the itinerary and the overview without any memories UI", async () => {
     await show("/trips/t", "2026-10-01", [memory("m1", { activityId: "a1" })]);
     expect(within(timeline()).getByText("Museum")).toBeTruthy();
