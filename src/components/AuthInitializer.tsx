@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { completePendingOAuthTransfer } from "@/lib/auth/oauth";
 import { claimPendingInvitations } from "@/lib/share/claim-client";
 import { parseTripPath, tripPath } from "@/lib/trip-routes";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -71,7 +72,11 @@ export function AuthInitializer() {
     void (async () => {
       // Invitations sent to this email become shared trips before the trips are loaded,
       // so an invitee with no trips of their own lands on the shared one.
-      if (!isAnonymous && !isOffline()) await claimPendingInvitations();
+      if (!isAnonymous && !isOffline()) {
+        // Back from Google or Apple: the guest's trips move to the account before anything loads.
+        await completePendingOAuthTransfer(currentUserId);
+        await claimPendingInvitations();
+      }
       void fetchAllTrips();
       // A trip URL opens that trip; anywhere else the selection picks one.
       const urlTripId = parseTripPath(pathname)?.tripId;

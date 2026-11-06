@@ -7,6 +7,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePat
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: () => ({}),
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      order.push(`rpc:${fn}:${String(args.p_anon_id)}->${String(args.p_new_id)}`);
+      return { data: 1, error: null };
+    },
     auth: {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       getSession: async () => ({ data: { session: session.token ? { access_token: session.token } : null } }),
@@ -18,7 +22,7 @@ const { AuthInitializer } = await import("@/components/AuthInitializer");
 const { useAuthStore } = await import("@/store/use-auth-store");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 
-const order: string[] = [];
+const order = vi.hoisted(() => [] as string[]);
 const fetchMock = vi.fn(async (url: string) => {
   order.push(url);
   return new Response(JSON.stringify({ tripIds: ["t-shared"] }));
@@ -50,6 +54,15 @@ describe("AuthInitializer", () => {
     await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
     expect(order.slice(0, 3)).toEqual(["/api/share/claim", "fetchAllTrips", "fetchActiveTrip"]);
     expect((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers).toMatchObject({ Authorization: "Bearer tok" });
+  });
+
+  it("moves a guest's trips to the account they came back with from Google or Apple, before claiming and loading", async () => {
+    window.localStorage.setItem("tachao_oauth_pending", JSON.stringify({ anonId: "anon-1", at: Date.now() }));
+    useAuthStore.setState({ initialized: true, user: { id: "u-new", is_anonymous: false } as never, initialize: vi.fn(async () => {}) });
+    render(<AuthInitializer />);
+    await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
+    expect(order.slice(0, 4)).toEqual(["rpc:transfer_anonymous_data:anon-1->u-new", "/api/share/claim", "fetchAllTrips", "fetchActiveTrip"]);
+    expect(window.localStorage.getItem("tachao_oauth_pending")).toBeNull();
   });
 
   it("does not claim for anonymous guests", async () => {
