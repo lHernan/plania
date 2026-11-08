@@ -377,7 +377,8 @@ function actionRules(canWrite: boolean) {
     return `- This assistant is currently read-only. Never return actions that modify the itinerary or reservations.
 - Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}`;
   }
-  return `- When the traveler asks to change the itinerary or reservations, you may return actions. They are PROPOSALS: nothing changes until the traveler confirms them in the app, so present them in "reply" as suggestions, never as done.
+  return `- You can propose changes for this traveler. Earlier assistant replies in the conversation that said you cannot change the trip no longer apply: never repeat them.
+- When the traveler asks to change the itinerary or reservations, you may return actions. They are PROPOSALS: nothing changes until the traveler confirms them in the app, so present them in "reply" as suggestions, never as done.
 - Propose only what the traveler asked for, with at most 3 actions. Return an empty "actions" array for questions.
 - Use only day and activity ids that appear in the trip context; never invent ids. When the trip is undated, days have a dayNumber instead of a date: refer to them by their day id.
 - Allowed actions, one JSON object each (fields marked "?" are optional):
@@ -411,13 +412,14 @@ ${actionRules(canWrite)}
 `;
 }
 
-async function getMessages(supabase: ReturnType<typeof getAuthClient>, tripId: string) {
-  const { data, error } = await supabase
+/** The trip's shared chat, or only one traveler's own conversation when `userId` is given. */
+async function getMessages(supabase: ReturnType<typeof getAuthClient>, tripId: string, userId?: string) {
+  let query = supabase
     .from("trip_messages")
     .select("id, trip_id, user_id, role, content, actions, created_at")
-    .eq("trip_id", tripId)
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .eq("trip_id", tripId);
+  if (userId) query = query.eq("user_id", userId);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
   if (error) throw error;
   return ((data ?? []) as MessageRow[]).map(toChatMessage).reverse();
 }
@@ -469,7 +471,9 @@ export async function POST(request: Request) {
     });
     if (userMessageError) throw userMessageError;
 
-    const history = await getMessages(supabase, tripId);
+    // The model sees only the caller's own conversation: other travelers' turns, answered under
+    // their own role, must not shape this caller's replies.
+    const history = await getMessages(supabase, tripId, caller.id);
     const historyPrompt = history
       .slice(0, -1)
       .slice(-20)
