@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Music,
   Plane,
+  ReceiptText,
   ShoppingBag,
   Utensils,
 } from "lucide-react";
@@ -58,7 +59,10 @@ export function SortableActivityCard({
   onOpenBooking,
   justCompleted = false,
   people = [],
+  spentLabel,
 }: {
+  /** What its linked expenses cost ("120,00 €", one total per currency); no chip without any. */
+  spentLabel?: string;
   /** Who it is assigned to; empty = shared with the whole trip (no indicator). */
   people?: TripMember[];
   activity: Activity;
@@ -217,7 +221,7 @@ export function SortableActivityCard({
           </div>
 
           {/* CHIPS: the booking (to the wallet) and its documents (a single one opens straight away) */}
-          {((onOpenBooking && activity.origin === "booking") || (onOpenFile && pass)) && (
+          {((onOpenBooking && activity.origin === "booking") || (onOpenFile && pass) || spentLabel) && (
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {onOpenBooking && activity.origin === "booking" && (() => {
                 const BookingIcon = BOOKING_TYPE_ICONS[activity.booking?.type ?? "other"] ?? FileText;
@@ -262,6 +266,16 @@ export function SortableActivityCard({
                   <FileText size={11} aria-hidden="true" />
                   <span className="tabular-nums">{files.length}</span>
                 </button>
+              )}
+              {spentLabel && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-black tabular-nums text-[var(--color-text-secondary)]"
+                  title={t("activity_spent", { amount: spentLabel })}
+                >
+                  <ReceiptText size={11} aria-hidden="true" />
+                  <span className="sr-only">{t("activity_spent", { amount: "" })}</span>
+                  <span data-testid="activity-spent">{spentLabel}</span>
+                </span>
               )}
             </div>
           )}

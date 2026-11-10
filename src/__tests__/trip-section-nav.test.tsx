@@ -23,10 +23,11 @@ function links() {
 }
 
 describe("TripSectionNav", () => {
-  it.each(["bar", "tabs"] as const)("links the four sections of the trip (%s)", (variant) => {
+  it.each(["bar", "tabs"] as const)("links the five sections of the trip, the itinerary first (%s)", (variant) => {
     renderWithI18n(<TripSectionNav tripId="t1" variant={variant} />);
     expect(links().map((a) => a.getAttribute("href"))).toEqual([
       "/trips/t1",
+      "/trips/t1/expenses",
       "/trips/t1/map",
       "/trips/t1/wallet",
       "/trips/t1/overview",
@@ -38,6 +39,7 @@ describe("TripSectionNav", () => {
     renderWithI18n(<TripSectionNav tripId="t1" variant="bar" />);
     expect(links().map((a) => a.getAttribute("href"))).toEqual([
       "/trips/t1?day=2026-10-26",
+      "/trips/t1/expenses?day=2026-10-26",
       "/trips/t1/map?day=2026-10-26",
       "/trips/t1/wallet?day=2026-10-26",
       "/trips/t1/overview?day=2026-10-26",
@@ -59,13 +61,13 @@ describe("TripSectionNav", () => {
 
   it("shows visible labels in Spanish", () => {
     renderWithI18n(<TripSectionNav tripId="t1" variant="bar" />, "es");
-    expect(links().map((a) => a.textContent)).toEqual(["Itinerario", "Mapa", "Cartera", "Viaje"]);
+    expect(links().map((a) => a.textContent)).toEqual(["Itinerario", "Gastos", "Mapa", "Cartera", "Viaje"]);
     expect(screen.getByRole("navigation").getAttribute("aria-label")).toBe("Secciones del viaje");
   });
 
   it("shows visible labels in English", () => {
     renderWithI18n(<TripSectionNav tripId="t1" variant="tabs" />, "en");
-    expect(links().map((a) => a.textContent)).toEqual(["Itinerary", "Map", "Wallet", "Trip"]);
+    expect(links().map((a) => a.textContent)).toEqual(["Itinerary", "Expenses", "Map", "Wallet", "Trip"]);
     expect(screen.getByRole("navigation").getAttribute("aria-label")).toBe("Trip sections");
   });
 
