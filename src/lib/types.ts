@@ -72,6 +72,8 @@ export type Activity = {
   origin?: ActivityOrigin;
   /** Structured details when origin is "booking". */
   booking?: BookingDetails;
+  /** Trip members it is assigned to (activity_participants); empty or absent = shared with everyone. */
+  participantIds?: string[];
 };
 
 export type ActivityOrigin = "manual" | "booking" | "suggested";
@@ -539,4 +541,7 @@ export type TripMember = {
   userId: string;
   email: string | null;
   isOwner: boolean;
+  /** Name and picture from the sign-in profile, when the provider gives them. */
+  displayName?: string;
+  avatarUrl?: string;
 };

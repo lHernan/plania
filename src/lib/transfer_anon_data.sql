@@ -69,6 +69,15 @@ BEGIN
   UPDATE trips               SET user_id = p_new_id WHERE user_id = p_anon_id;
   GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
 
+  -- Activity assignments (activity_participants_migration.sql): after the trips move, because
+  -- its trigger requires the new account to be a member of the trip already.
+  IF to_regclass('public.activity_participants') IS NOT NULL THEN
+    UPDATE activity_participants a SET user_id = p_new_id
+    WHERE a.user_id = p_anon_id
+      AND NOT EXISTS (SELECT 1 FROM activity_participants b WHERE b.activity_id = a.activity_id AND b.user_id = p_new_id);
+    DELETE FROM activity_participants WHERE user_id = p_anon_id;
+  END IF;
+
   RETURN total;
 END;
 $$;

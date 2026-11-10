@@ -126,6 +126,16 @@ describe("fetchTripMembers", () => {
     expect(fake.rpcCalls).toEqual([["trip_members", { p_trip_id: TRIP }]]);
   });
 
+  it("adds the profile name and picture when trip_members returns them", async () => {
+    const fake = fakeClient({}, {
+      data: [{ user_id: "u1", email: "me@example.com", is_owner: true, display_name: "Hernán", avatar_url: "https://img/a.png" }],
+      error: null,
+    });
+    expect(await fetchTripMembers(fake.client as never, TRIP)).toEqual({
+      members: [{ userId: "u1", email: "me@example.com", isOwner: true, displayName: "Hernán", avatarUrl: "https://img/a.png" }],
+    });
+  });
+
   it("reports unavailable when the function is missing and failed on other errors", async () => {
     const missing = fakeClient({}, { data: null, error: { code: "PGRST202", message: "Could not find the function public.trip_members" } });
     expect(await fetchTripMembers(missing.client as never, TRIP)).toEqual({ members: [], error: "unavailable" });
