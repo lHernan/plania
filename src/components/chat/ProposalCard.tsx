@@ -3,8 +3,13 @@
 import { useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { useTripMembers } from "@/components/memories/use-trip-members";
+import { refreshTripExpenses } from "@/hooks/use-trip-expenses";
 import { applyChatActions, describeChatAction, type ProposalStatus } from "@/lib/chat/proposals";
-import type { ChatAction } from "@/lib/types";
+import { saveExpense, type ExpensesClient } from "@/lib/expenses/sync";
+import { supabase } from "@/lib/supabase";
+import { memberShortName } from "@/lib/trip-people";
+import type { ChatAction, ChatExpensePayload } from "@/lib/types";
 import { useChatStore } from "@/store/use-chat-store";
 import { useItineraryStore } from "@/store/use-itinerary-store";
 
@@ -24,6 +29,19 @@ export function ProposalCard({ tripId, messageId, actions, status }: ProposalCar
   const [failed, setFailed] = useState(false);
   const [skipped, setSkipped] = useState(0);
   const trip = activeTrip?.id === tripId ? activeTrip : { days: [], travelContext: undefined };
+  const hasExpense = actions.some((action) => action.type === "add_expense");
+  const { members } = useTripMembers(tripId, hasExpense);
+  const nameOf = (userId: string) => {
+    const member = members.find((entry) => entry.userId === userId);
+    return member ? memberShortName(member) : t("expenses_former_member");
+  };
+  // Expenses go through the same save_expense RPC as the manual form, then every view reloads.
+  const saveProposedExpense = async (expense: ChatExpensePayload) => {
+    const saved = await saveExpense(supabase as unknown as ExpensesClient, { ...expense, tripId });
+    if (saved.error) return false;
+    refreshTripExpenses(tripId);
+    return true;
+  };
 
   const apply = async () => {
     setApplying(true);
@@ -33,7 +51,7 @@ export function ProposalCard({ tripId, messageId, actions, status }: ProposalCar
       const result = await applyChatActions(actions, () => {
         const current = useItineraryStore.getState().activeTrip;
         return current?.id === tripId ? current : null;
-      }, store);
+      }, { ...store, saveExpense: saveProposedExpense });
       if (result.applied === 0) {
         setFailed(true);
         return;
@@ -54,7 +72,7 @@ export function ProposalCard({ tripId, messageId, actions, status }: ProposalCar
       </p>
       <ul className="mt-2 space-y-1.5 text-xs font-medium text-[var(--color-text)]">
         {actions.map((action, index) => (
-          <li key={index}>{describeChatAction(action, trip, t, lang)}</li>
+          <li key={index}>{describeChatAction(action, trip, t, lang, nameOf)}</li>
         ))}
       </ul>
       {failed ? (

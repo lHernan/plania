@@ -1230,5 +1230,6 @@
   "expenses_payers_equal": "Equally",
   "expenses_payers_exact": "Amounts",
   "expenses_paid_amount_of": "Amount {name} paid",
-  "expenses_payers_mode": "How they paid"
+  "expenses_payers_mode": "How they paid",
+  "chat_proposal_add_expense": "Add expense “{title}” · {amount} · {payers} · split between {people}"
 }

@@ -68,7 +68,8 @@ export function ChatPanel({ tripId, canEdit = false }: { tripId: string; canEdit
               <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-[var(--color-primary)] text-white" : "rounded-bl-md bg-[var(--color-surface-subtle)] text-[var(--color-text)]"}`}>
                 {message.content}
                 {message.actions && message.actions.length > 0 ? (
-                  canEdit && proposals[message.id] ? (
+                  // Any member records expenses, so a viewer may apply a proposal made only of expenses.
+                  (canEdit || message.actions.every((action) => action.type === "add_expense")) && proposals[message.id] ? (
                     <ProposalCard tripId={tripId} messageId={message.id} actions={message.actions} status={proposals[message.id]} />
                   ) : (
                     <div className="mt-2 border-t border-current/10 pt-2 text-[10px] font-bold uppercase tracking-wider opacity-70">

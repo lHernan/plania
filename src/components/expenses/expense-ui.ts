@@ -93,12 +93,4 @@ export function expensesIntentHref(tripId: string, intent: { newForActivity: str
   return `${tripPath(tripId, "expenses")}?${key}=${encodeURIComponent(value)}`;
 }
 
-type Translate = (key: string, variables?: Record<string, string | number>) => string;
-
-/** "Pagó Ana", "Pagaron Ana y Jack", "Pagaron Ana y 2 más". */
-export function payersLabel(payerIds: string[], people: PersonNamer, t: Translate): string {
-  const [first, second] = payerIds.map((id) => people.name(id));
-  if (payerIds.length <= 1) return t("expenses_paid_by", { name: first ?? people.name("") });
-  if (payerIds.length === 2) return t("expenses_paid_by_two", { first, second });
-  return t("expenses_paid_by_many", { first, count: payerIds.length - 1 });
-}
+export { payersLabel } from "@/lib/expenses/labels";
