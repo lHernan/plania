@@ -14,8 +14,21 @@ const cache = new Map<string, Promise<TripExpensesData>>();
 // Mounted hooks per trip, told to load again after a write or a realtime change.
 const listeners = new Map<string, Set<() => void>>();
 
+// The last successful load per trip, so realtime can tell whether a deleted row was this trip's.
+const loaded = new Map<string, TripExpensesData>();
+
 export function clearTripExpensesCache() {
   cache.clear();
+  loaded.clear();
+}
+
+/** Whether an expense or settlement is one of the trip's; undefined while nothing is loaded. */
+export function tripExpensesHas(tripId: string, row: { expenseId?: string; settlementId?: string }): boolean | undefined {
+  const data = loaded.get(tripId);
+  if (!data) return undefined;
+  if (row.expenseId) return data.expenses.some((expense) => expense.id === row.expenseId);
+  if (row.settlementId) return data.settlements.some((settlement) => settlement.id === row.settlementId);
+  return undefined;
 }
 
 /** Drops the trip's cached expenses and makes every mounted view load them again. */
@@ -38,6 +51,7 @@ function loadShared(tripId: string): Promise<TripExpensesData> {
     .catch((): TripExpensesData => ({ expenses: [], settlements: [], error: "failed" }))
     .then((result) => {
       if (result.error && cache.get(tripId) === request) cache.delete(tripId);
+      if (!result.error) loaded.set(tripId, result);
       return result;
     });
   cache.set(tripId, request);

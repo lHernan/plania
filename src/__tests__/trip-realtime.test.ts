@@ -8,7 +8,7 @@ type Binding = { event: string; config: Record<string, string>; handler: Handler
 
 /** A fake realtime client: every channel records its bindings and whether it was removed. */
 const rt = vi.hoisted(() => ({
-  channels: [] as { name: string; bindings: Binding[]; subscribed: boolean; removed: boolean }[],
+  channels: [] as { name: string; bindings: Binding[]; subscribed: boolean; removed: boolean; onStatus?: (status: string) => void }[],
   enabled: true,
   participants: { data: [] as unknown[] | null, error: null as { message: string } | null },
 }));
@@ -32,7 +32,7 @@ vi.mock("@/lib/supabase", () => {
     get: () =>
       rt.enabled
         ? (name: string) => {
-            const record = { name, bindings: [] as Binding[], subscribed: false, removed: false };
+            const record = { name, bindings: [] as Binding[], subscribed: false, removed: false } as (typeof rt.channels)[number];
             rt.channels.push(record);
             const channel = {
               record,
@@ -40,8 +40,9 @@ vi.mock("@/lib/supabase", () => {
                 record.bindings.push({ event, config, handler });
                 return channel;
               },
-              subscribe() {
+              subscribe(onStatus?: (status: string) => void) {
                 record.subscribed = true;
+                record.onStatus = onStatus;
                 return channel;
               },
             };
@@ -53,7 +54,15 @@ vi.mock("@/lib/supabase", () => {
 });
 
 const refresh = vi.hoisted(() => vi.fn());
-vi.mock("@/hooks/use-trip-expenses", () => ({ refreshTripExpenses: refresh }));
+const known = vi.hoisted(() => ({ expenses: null as string[] | null, settlements: null as string[] | null }));
+vi.mock("@/hooks/use-trip-expenses", () => ({
+  refreshTripExpenses: refresh,
+  // null = nothing loaded yet for the trip.
+  tripExpensesHas: (_tripId: string, row: { expenseId?: string; settlementId?: string }) => {
+    const list = row.expenseId ? known.expenses : known.settlements;
+    return list === null ? undefined : list.includes((row.expenseId ?? row.settlementId)!);
+  },
+}));
 
 const { useTripRealtime } = await import("@/hooks/use-trip-realtime");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
@@ -65,12 +74,20 @@ const fire = (table: string) => {
   const binding = rt.channels.at(-1)!.bindings.find((entry) => entry.config.table === table)!;
   binding.handler({ eventType: "INSERT" });
 };
+/** A DELETE as Supabase sends it: unfiltered, with only the primary key in old. */
+const fireDelete = (table: string, old: Record<string, string>) => {
+  const binding = rt.channels.at(-1)!.bindings.find((entry) => entry.config.table === table && entry.config.event === "DELETE")
+    ?? rt.channels.at(-1)!.bindings.find((entry) => entry.config.table === table)!;
+  binding.handler({ eventType: "DELETE", old });
+};
 
 beforeEach(() => {
   vi.useFakeTimers();
   rt.channels = [];
   rt.enabled = true;
   refresh.mockReset();
+  known.expenses = null;
+  known.settlements = null;
   refreshParticipants.mockClear();
   useItineraryStore.setState({ refreshActivityParticipants: refreshParticipants } as never);
   useOfflineStore.setState({ isOnline: true } as never);
@@ -129,6 +146,43 @@ describe("useTripRealtime", () => {
     expect(refresh).not.toHaveBeenCalled();
     unmount();
     expect(rt.channels[1].removed).toBe(true);
+  });
+
+  it("catches up once subscribed, so a reopened trip or a reconnection never shows stale data", () => {
+    renderHook(() => useTripRealtime("t1", true));
+    act(() => rt.channels[0].onStatus?.("SUBSCRIBED"));
+    act(() => vi.advanceTimersByTime(300));
+    expect(refresh).toHaveBeenCalledWith("t1");
+    expect(refreshParticipants).toHaveBeenCalledWith("t1");
+  });
+
+  it("ignores unfiltered deletes that belong to other trips", () => {
+    useItineraryStore.setState({ activeTrip: { ...makeTrip([makeDay("d1", [makeActivity("walk")])]), id: "t1" } } as never);
+    known.expenses = ["e1"];
+    known.settlements = ["s1"];
+    renderHook(() => useTripRealtime("t1", true));
+    fireDelete("expense_splits", { expense_id: "other-trip-expense", user_id: "u" });
+    fireDelete("expense_settlements", { id: "other-trip-settlement" });
+    fireDelete("activity_participants", { activity_id: "other-trip-activity", user_id: "u" });
+    act(() => vi.advanceTimersByTime(300));
+    expect(refresh).not.toHaveBeenCalled();
+    expect(refreshParticipants).not.toHaveBeenCalled();
+
+    fireDelete("expense_splits", { expense_id: "e1", user_id: "u" });
+    fireDelete("activity_participants", { activity_id: "walk", user_id: "u" });
+    act(() => vi.advanceTimersByTime(300));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(refreshParticipants).toHaveBeenCalledTimes(1);
+    fireDelete("expense_settlements", { id: "s1" });
+    act(() => vi.advanceTimersByTime(300));
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("reloads on a delete it cannot place (nothing loaded yet or no key)", () => {
+    renderHook(() => useTripRealtime("t1", true));
+    fireDelete("expense_settlements", {});
+    act(() => vi.advanceTimersByTime(300));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing for a draft, offline or without realtime", () => {
