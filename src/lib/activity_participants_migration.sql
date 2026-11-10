@@ -106,8 +106,11 @@ BEGIN
     RAISE EXCEPTION 'set_activity_participants: not allowed' USING ERRCODE = '42501';
   END IF;
   DELETE FROM activity_participants WHERE activity_id = p_activity_id AND NOT (user_id = ANY(v_ids));
+  -- Only the new ones: the trigger runs before ON CONFLICT, so re-sending a former member who is
+  -- still assigned would fail its membership check.
   INSERT INTO activity_participants (activity_id, user_id, trip_id)
     SELECT p_activity_id, id, v_trip FROM unnest(v_ids) AS id
+    WHERE NOT EXISTS (SELECT 1 FROM activity_participants p WHERE p.activity_id = p_activity_id AND p.user_id = id)
     ON CONFLICT (activity_id, user_id) DO NOTHING;
 END;
 $$;

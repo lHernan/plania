@@ -54,6 +54,8 @@ describe("activity_participants migration", () => {
     expect(body).toMatch(/IF NOT \(is_trip_owner\(v_trip\) OR is_trip_editor\(v_trip\)\) THEN RAISE EXCEPTION .*? USING ERRCODE = '42501'/);
     expect(body).toContain("DELETE FROM activity_participants WHERE activity_id = p_activity_id AND NOT (user_id = ANY(v_ids))");
     expect(body).toContain("ON CONFLICT (activity_id, user_id) DO NOTHING");
+    // Existing rows (a former member still assigned) are never re-inserted through the trigger.
+    expect(body).toContain("WHERE NOT EXISTS (SELECT 1 FROM activity_participants p WHERE p.activity_id = p_activity_id AND p.user_id = id)");
     expect(sql).toContain("REVOKE ALL ON FUNCTION set_activity_participants(UUID, UUID[]) FROM PUBLIC, anon;");
     expect(sql).toContain("GRANT EXECUTE ON FUNCTION set_activity_participants(UUID, UUID[]) TO authenticated;");
   });
@@ -75,5 +77,10 @@ describe("activity_participants migration", () => {
     const transfer = read("transfer_anon_data.sql");
     expect(transfer).toContain("IF to_regclass('public.activity_participants') IS NOT NULL THEN");
     expect(transfer).toContain("UPDATE activity_participants a SET user_id = p_new_id");
+    // Only on trips the new account belongs to, so the membership trigger never aborts the transfer.
+    expect(transfer).toContain("EXISTS (SELECT 1 FROM trips t WHERE t.id = a.trip_id AND t.user_id = p_new_id)");
+    expect(transfer).toContain("EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = a.trip_id AND s.shared_with = p_new_id)");
+    expect(transfer).toContain("DELETE FROM activity_participants WHERE user_id = p_anon_id;");
+    expect(transfer.indexOf("UPDATE activity_participants")).toBeGreaterThan(transfer.indexOf("UPDATE trips SET user_id = p_new_id"));
   });
 });
