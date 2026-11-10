@@ -129,7 +129,7 @@ describe("TripView header cover", () => {
   it("shows each section tab as its own pill over the photo instead of a band", async () => {
     await renderTrip({ coverPath: "t/header.jpg" });
     const tabs = within(within(screen.getByRole("banner")).getByRole("navigation", { name: "Secciones del viaje" })).getAllByRole("link");
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
     tabs.forEach((tab) => expect(tab.className).toMatch(/rounded-full[\s\S]*backdrop-blur/));
   });
 

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { CalendarDays, Luggage, Map as MapIcon, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, Luggage, Map as MapIcon, Receipt, Wallet, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { OVER_COVER_SURFACE } from "@/components/TripCover";
 import { parseTripPath, tripPath, TRIP_SECTIONS, type TripSection } from "@/lib/trip-routes";
 
 const SECTION_ICONS: Record<TripSection, LucideIcon> = {
   itinerary: CalendarDays,
+  expenses: Receipt,
   map: MapIcon,
   wallet: Wallet,
   overview: Luggage,
@@ -27,7 +28,7 @@ export function tripSectionHref(tripId: string, section: TripSection, day?: stri
 }
 
 /**
- * The four sections of a trip. `bar` is the fixed bottom bar on mobile; `tabs` is the row
+ * The sections of a trip. `bar` is the fixed bottom bar on mobile; `tabs` is the row
  * inside the header on desktop. Both are links, so each section has its own address.
  * Over a trip cover (`overCover`) the tabs become separate frosted pills so they read on any photo.
  */
@@ -40,6 +41,7 @@ export function TripSectionNav({ tripId, variant, overCover = false }: { tripId:
   const isBar = variant === "bar";
   const labels: Record<TripSection, string> = {
     itinerary: t("section_itinerary"),
+    expenses: t("section_expenses"),
     map: t("section_map"),
     wallet: t("section_wallet"),
     overview: t("section_overview"),
@@ -55,7 +57,7 @@ export function TripSectionNav({ tripId, variant, overCover = false }: { tripId:
           : "hidden md:flex items-center gap-1 px-4 max-w-7xl mx-auto"
       }
     >
-      <ul className={isBar ? "grid grid-cols-4" : overCover ? "flex items-center gap-2 py-1.5" : "flex items-center gap-1"}>
+      <ul className={isBar ? "grid grid-cols-5" : overCover ? "flex items-center gap-2 py-1.5" : "flex items-center gap-1"}>
         {TRIP_SECTIONS.map((section) => {
           const Icon = SECTION_ICONS[section];
           const active = section === current;

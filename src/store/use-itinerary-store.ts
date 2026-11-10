@@ -233,6 +233,8 @@ type Store = {
    * false when the remote write fails. Queued offline and while the activity is not synced yet.
    */
   setActivityParticipants: (dayId: string, activityId: string, userIds: string[]) => Promise<boolean>;
+  /** Reloads who each activity of the open trip is for (another member changed it); keeps the rest. */
+  refreshActivityParticipants: (tripId: string) => Promise<void>;
   removeActivity: (dayId: string, activityId: string) => Promise<void>;
   reorderActivities: (dayId: string, sourceId: string, targetId: string) => Promise<void>;
   reorderActivitiesToOrder: (dayId: string, orderedActivityIds: string[]) => Promise<void>;
@@ -2372,6 +2374,23 @@ export const useItineraryStore = create<Store>((set, get) => {
         return false;
       }
       return true;
+    },
+
+    refreshActivityParticipants: async (tripId) => {
+      if (get().activeTrip?.id !== tripId) return;
+      const participants = await loadActivityParticipants(supabase as never, tripId);
+      // A failed read keeps what is on screen; another trip opened meanwhile is left alone.
+      if (!participants || get().activeTrip?.id !== tripId) return;
+      await writeState((current) => {
+        if (!current.activeTrip || current.activeTrip.id !== tripId) return {};
+        // Activities created offline are not on the server yet: their queued assignment stays.
+        const offline = new Map<string, string[]>();
+        for (const day of current.activeTrip.days) {
+          for (const activity of day.activities) if (isOfflineId(activity.id)) offline.set(activity.id, activity.participantIds ?? []);
+        }
+        for (const [activityId, userIds] of offline) participants.set(activityId, userIds);
+        return { activeTrip: { ...current.activeTrip, days: withParticipants(current.activeTrip.days, participants) } };
+      });
     },
 
     removeActivity: async (dayId, activityId) => {
