@@ -5,7 +5,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { MemberAvatar } from "@/components/members/MemberAvatar";
 import { formatCents } from "@/lib/expenses/money";
 import type { Expense } from "@/lib/expenses/types";
-import { CATEGORY_ICONS, CATEGORY_KEYS, cardClass, formatDay, sectionTitleClass, type PersonNamer } from "./expense-ui";
+import { CATEGORY_ICONS, CATEGORY_KEYS, cardClass, formatDay, payersLabel, sectionTitleClass, type PersonNamer } from "./expense-ui";
 
 /** Newest day first; inside a day, the latest recorded first. */
 export function sortExpenses(expenses: Expense[]): Expense[] {
@@ -63,9 +63,9 @@ export function ExpenseList({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-[var(--color-text)]">{expense.title}</span>
                       <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-text-secondary)]">
-                        <MemberAvatar member={people.member(expense.paidBy)} size="xs" />
+                        <MemberAvatar member={people.member(expense.payers[0]?.userId ?? "")} size="xs" />
                         <span className="truncate">
-                          {t("expenses_paid_by", { name: people.name(expense.paidBy) })} · {split}
+                          {payersLabel(expense.payers.map((payer) => payer.userId), people, t)} · {split}
                         </span>
                         {expense.receiptPath && (
                           <>

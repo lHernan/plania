@@ -76,6 +76,7 @@ const MEMBERS: TripMember[] = [
 ];
 
 function expenseRow(id: string, overrides: Record<string, unknown>) {
+  const { paid_by = "me", ...rest } = overrides as Record<string, unknown> & { paid_by?: string };
   return {
     id,
     trip_id: "t",
@@ -85,7 +86,6 @@ function expenseRow(id: string, overrides: Record<string, unknown>) {
     currency: "EUR",
     spent_on: "2026-10-26",
     category: "other",
-    paid_by: "me",
     split_method: "equal",
     notes: null,
     receipt_path: null,
@@ -96,7 +96,9 @@ function expenseRow(id: string, overrides: Record<string, unknown>) {
       { user_id: "me", share_cents: 0, percent_bp: null },
       { user_id: "maria", share_cents: 0, percent_bp: null },
     ],
-    ...overrides,
+    ...rest,
+    // One payer of the whole amount unless the test gives the payers.
+    expense_payers: rest.expense_payers ?? [{ user_id: paid_by, paid_cents: rest.amount_cents ?? 0 }],
   };
 }
 

@@ -1224,5 +1224,11 @@
   "expenses_linked_activity": "Actividad:",
   "activity_spent": "Gastado: {amount}",
   "activity_expenses_region": "Gastos de la actividad",
-  "activity_expenses_empty": "Todavía no hay gastos asociados."
+  "activity_expenses_empty": "Todavía no hay gastos asociados.",
+  "expenses_paid_by_two": "Pagaron {first} y {second}",
+  "expenses_paid_by_many": "Pagaron {first} y {count} más",
+  "expenses_payers_equal": "A partes iguales",
+  "expenses_payers_exact": "Importes",
+  "expenses_paid_amount_of": "Importe que pagó {name}",
+  "expenses_payers_mode": "Cómo pagaron"
 }

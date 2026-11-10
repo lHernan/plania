@@ -289,7 +289,8 @@ describe("transfer_anonymous_data: expenses", () => {
   it("re-points expenses only on trips the new account belongs to, with the creator flag", () => {
     expect(transfer).toContain("IF to_regclass('public.expenses') IS NOT NULL THEN");
     after("PERFORM set_config('plania.expenses_transfer', 'on', true);");
-    after(`UPDATE expenses e SET paid_by = p_new_id WHERE e.paid_by = p_anon_id AND (${MEMBER("e.trip_id")});`);
+    // expenses.paid_by is gone (expense_payers_migration.sql): payers move with their own table.
+    expect(transfer).not.toContain("paid_by");
     after(`UPDATE expenses e SET created_by = p_new_id WHERE e.created_by = p_anon_id AND (${MEMBER("e.trip_id")});`);
     expect(transfer.indexOf("set_config('plania.expenses_transfer', 'on', true)")).toBeLessThan(
       transfer.indexOf("UPDATE expenses e SET created_by")
@@ -297,6 +298,12 @@ describe("transfer_anonymous_data: expenses", () => {
     expect(transfer.indexOf("set_config('plania.expenses_transfer', 'off', true)")).toBeGreaterThan(
       transfer.indexOf("UPDATE expenses e SET created_by")
     );
+  });
+
+  it("re-points payers without colliding with an existing payer of the new account", () => {
+    expect(transfer).toContain("IF to_regclass('public.expense_payers') IS NOT NULL THEN");
+    after("UPDATE expense_payers x SET user_id = p_new_id WHERE x.user_id = p_anon_id");
+    expect(transfer).toContain("NOT EXISTS (SELECT 1 FROM expense_payers b WHERE b.expense_id = x.expense_id AND b.user_id = p_new_id)");
   });
 
   it("re-points splits without colliding with an existing split of the new account", () => {
@@ -314,6 +321,6 @@ describe("transfer_anonymous_data: expenses", () => {
   });
 
   it("never deletes money rows", () => {
-    expect(transfer).not.toMatch(/DELETE FROM (expenses|expense_splits|expense_settlements)\b/);
+    expect(transfer).not.toMatch(/DELETE FROM (expenses|expense_payers|expense_splits|expense_settlements)\b/);
   });
 });
