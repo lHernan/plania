@@ -44,6 +44,7 @@ vi.mock("@/lib/supabase", () => {
 
 const { ExpensesView } = await import("@/components/expenses/ExpensesView");
 const { clearTripMembersCache } = await import("@/components/memories/use-trip-members");
+const { clearTripExpensesCache } = await import("@/hooks/use-trip-expenses");
 const { useItineraryStore } = await import("@/store/use-itinerary-store");
 const { useAuthStore } = await import("@/store/use-auth-store");
 const { useOfflineStore } = await import("@/store/use-offline-store");
@@ -121,6 +122,7 @@ const rpcCalls = (fn: string) => db.log.filter((entry) => entry[0] === "rpc" && 
 beforeEach(() => {
   mockMatchMedia();
   clearTripMembersCache();
+  clearTripExpensesCache();
   window.localStorage.clear();
   db.tables = {};
   db.rpc = { save_expense: { data: "new-id", error: null } };

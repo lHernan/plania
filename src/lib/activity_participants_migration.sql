@@ -16,6 +16,7 @@
 --     (an empty array makes the activity shared again).
 --   - trip_members(trip) also returns display_name and avatar_url (sign-in profile metadata),
 --     for the avatars. The return type changes, so the function is dropped and recreated.
+--   - activity_participants joins the supabase_realtime publication (live assignment changes).
 --   - Someone removed from a trip keeps their assignment rows: their flight stays theirs instead
 --     of becoming shared with everyone. The app shows them as a former member.
 -- Every policy applies to signed-in users only; nothing is granted to the anon role.
@@ -150,3 +151,19 @@ $$;
 
 REVOKE ALL ON FUNCTION trip_members(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION trip_members(UUID) TO authenticated;
+
+-- 6. Realtime -------------------------------------------------------------------------------
+
+-- Publish the table once, so every member's itinerary follows assignment changes live; skip
+-- silently where the publication does not exist.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
+                 WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'activity_participants') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_participants;
+  END IF;
+END;
+$$;

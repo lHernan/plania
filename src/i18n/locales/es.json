@@ -1217,5 +1217,12 @@
   "expenses_category_food": "Comida",
   "expenses_category_activities": "Actividades",
   "expenses_category_shopping": "Compras",
-  "expenses_category_other": "Otros"
+  "expenses_category_other": "Otros",
+  "expenses_field_activity": "Actividad",
+  "expenses_activity_none": "Ninguna",
+  "expenses_activity_missing": "Actividad que ya no está en el viaje",
+  "expenses_linked_activity": "Actividad:",
+  "activity_spent": "Gastado: {amount}",
+  "activity_expenses_region": "Gastos de la actividad",
+  "activity_expenses_empty": "Todavía no hay gastos asociados."
 }

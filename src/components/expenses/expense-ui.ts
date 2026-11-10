@@ -3,6 +3,7 @@ import type { ExpenseError } from "@/lib/expenses/sync";
 import type { ExpenseCategory, SplitMethod } from "@/lib/expenses/types";
 import type { SplitError } from "@/lib/expenses/splits";
 import { memberShortName } from "@/lib/trip-people";
+import { tripPath } from "@/lib/trip-routes";
 import type { TripMember } from "@/lib/types";
 
 export const CATEGORY_ICONS: Record<ExpenseCategory, LucideIcon> = {
@@ -81,3 +82,13 @@ export const sectionTitleClass = "text-xs font-black uppercase tracking-wider te
 /** Positive balances (they are owed) in green, negative (they owe) in the warning tone. */
 export const balanceTone = (cents: number) =>
   cents > 0 ? "text-[var(--color-success)]" : cents < 0 ? "text-[var(--color-danger)]" : "text-[var(--color-text-secondary)]";
+
+/** Search params of the Expenses section: `new` opens a new expense for that activity, `expense` opens one. */
+export const EXPENSE_NEW_PARAM = "new";
+export const EXPENSE_OPEN_PARAM = "expense";
+
+/** The Expenses section opening a new expense for an activity, or an existing expense. */
+export function expensesIntentHref(tripId: string, intent: { newForActivity: string } | { expenseId: string }): string {
+  const [key, value] = "newForActivity" in intent ? [EXPENSE_NEW_PARAM, intent.newForActivity] : [EXPENSE_OPEN_PARAM, intent.expenseId];
+  return `${tripPath(tripId, "expenses")}?${key}=${encodeURIComponent(value)}`;
+}

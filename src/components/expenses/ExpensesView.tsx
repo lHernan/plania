@@ -1,22 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { HandCoins, Plus, RotateCw, WifiOff } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { useTripMembers } from "@/components/memories/use-trip-members";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
+import { useTripExpenses } from "@/hooks/use-trip-expenses";
+import { activityOptionGroups, categoryForActivity } from "@/lib/expenses/activity-link";
 import { simplifyDebts, summarizeTrip } from "@/lib/expenses/balances";
 import { formatCents } from "@/lib/expenses/money";
-import { addSettlement, deleteSettlement, loadExpenses, loadSettlements, type ExpenseError, type ExpensesClient } from "@/lib/expenses/sync";
-import type { Expense, Settlement, Transfer } from "@/lib/expenses/types";
+import { addSettlement, deleteSettlement, type ExpenseError, type ExpensesClient } from "@/lib/expenses/sync";
+import type { Expense, ExpenseCategory, Settlement, Transfer } from "@/lib/expenses/types";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { ExpenseList } from "./ExpenseList";
 import { BalancesTable, DebtsCard, ExpensesTotals } from "./ExpensesSummary";
 import { SettlementHistory } from "./SettlementHistory";
-import { ERROR_KEYS, cardClass, personNamer, todayIso } from "./expense-ui";
+import { ERROR_KEYS, EXPENSE_NEW_PARAM, EXPENSE_OPEN_PARAM, cardClass, personNamer, todayIso } from "./expense-ui";
 
 type ExpensesViewProps = {
   tripId: string;
@@ -28,13 +32,14 @@ type ExpensesViewProps = {
   isDraft?: boolean;
 };
 
+type EditorState = { expense?: Expense; prefill?: { activityId: string; title: string; category: ExpenseCategory } };
+
 type LoadState =
   | { status: "loading" }
   | { status: "ready"; expenses: Expense[]; settlements: Settlement[] }
   | { status: "error"; error: ExpenseError };
 
 const client = supabase as unknown as ExpensesClient;
-const LOADING: LoadState = { status: "loading" };
 
 const primaryButton =
   "min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 text-sm font-black text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:pointer-events-none";
@@ -46,31 +51,50 @@ export function ExpensesView({ tripId, ownerId, currency, isDraft = false }: Exp
   const isOnline = useOfflineStore((state) => state.isOnline);
   const { members, loading: membersLoading } = useTripMembers(tripId, Boolean(tripId) && !isDraft);
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
-  const [state, setState] = useState<{ tripId: string; load: LoadState } | null>(null);
-  const [editor, setEditor] = useState<{ expense?: Expense } | null>(null);
+  const { data, refresh: reload } = useTripExpenses(tripId, Boolean(tripId) && !isDraft);
+  const [editor, setEditor] = useState<EditorState | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
 
-  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+  const load = useMemo<LoadState>(
+    () => (!data ? { status: "loading" } : data.error ? { status: "error", error: data.error } : { status: "ready", expenses: data.expenses, settlements: data.settlements }),
+    [data],
+  );
 
+  // The trip activities an expense can be linked to (only while this trip is the open one).
+  const activeTrip = useItineraryStore((store) => store.activeTrip);
+  const days = activeTrip?.id === tripId ? activeTrip.days : undefined;
+  const activityGroups = useMemo(() => activityOptionGroups(days ?? []), [days]);
+  const activityTitles = useMemo(
+    () => new Map(activityGroups.flatMap((group) => group.options.map((option) => [option.id, option.activity.title] as const))),
+    [activityGroups],
+  );
+
+  // ?new=<activity> opens a new expense for it; ?expense=<id> opens that expense. Each once.
+  const searchParams = useSearchParams();
+  const newFor = searchParams?.get(EXPENSE_NEW_PARAM) ?? null;
+  const openId = searchParams?.get(EXPENSE_OPEN_PARAM) ?? null;
+  const intent = newFor ? `new:${newFor}` : openId ? `open:${openId}` : null;
+  const [handledIntent, setHandledIntent] = useState<string | null>(null);
+  if (!intent && handledIntent) setHandledIntent(null);
+  if (intent && intent !== handledIntent && load.status === "ready" && !membersLoading) {
+    setHandledIntent(intent);
+    if (newFor) {
+      const activity = activityGroups.flatMap((group) => group.options).find((option) => option.id === newFor)?.activity;
+      if (activity) setEditor({ prefill: { activityId: activity.id, title: activity.title, category: categoryForActivity(activity) } });
+    } else {
+      const expense = load.expenses.find((entry) => entry.id === openId);
+      if (expense) setEditor({ expense });
+    }
+  }
+  // The address drops the consumed request, so a reload or going back does not reopen it.
   useEffect(() => {
-    if (!tripId || isDraft) return;
-    let cancelled = false;
-    void Promise.all([loadExpenses(client, tripId), loadSettlements(client, tripId)]).then(([loaded, history]) => {
-      if (cancelled) return;
-      const error = loaded.error ?? (history.error === "unavailable" ? "unavailable" : undefined);
-      setState((current) => {
-        // A failed refresh keeps what is already on screen.
-        if (error && current?.tripId === tripId && current.load.status === "ready" && error !== "unavailable") return current;
-        return { tripId, load: error ? { status: "error", error } : { status: "ready", expenses: loaded.expenses, settlements: history.settlements } };
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [tripId, isDraft, reloadKey]);
-
-  const load: LoadState = state?.tripId === tripId ? state.load : LOADING;
+    if (!handledIntent || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(EXPENSE_NEW_PARAM) && !url.searchParams.has(EXPENSE_OPEN_PARAM)) return;
+    url.searchParams.delete(EXPENSE_NEW_PARAM);
+    url.searchParams.delete(EXPENSE_OPEN_PARAM);
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, [handledIntent]);
   const isOwner = Boolean(userId) && userId === ownerId;
   const canWrite = isOnline;
   const people = personNamer(members, t("expenses_former_member"));
@@ -208,7 +232,7 @@ export function ExpensesView({ tripId, ownerId, currency, isDraft = false }: Exp
         <>
           <ExpensesTotals summary={summary} currentUserId={userId} />
           <DebtsCard transfers={transfers} people={people} canWrite={canWrite} onSettle={(transfer) => void settle(transfer)} />
-          <ExpenseList expenses={expenses} people={people} onOpen={(expense) => setEditor({ expense })} />
+          <ExpenseList expenses={expenses} people={people} onOpen={(expense) => setEditor({ expense })} activityTitle={(id) => activityTitles.get(id)} />
           <BalancesTable summary={summary} people={people} />
         </>
       )}
@@ -224,13 +248,15 @@ export function ExpensesView({ tripId, ownerId, currency, isDraft = false }: Exp
 
       {editor && (
         <ExpenseEditor
-          key={editor.expense?.id ?? "new"}
+          key={editor.expense?.id ?? `new:${editor.prefill?.activityId ?? ""}`}
           client={client}
           tripId={tripId}
           currency={currency}
           members={members}
           currentUserId={userId}
           expense={editor.expense}
+          activityGroups={activityGroups}
+          prefill={editor.prefill}
           canEdit={!editor.expense || canEditRow(editor.expense.createdBy)}
           online={isOnline}
           onSaved={reload}

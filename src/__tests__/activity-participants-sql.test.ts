@@ -84,3 +84,12 @@ describe("activity_participants migration", () => {
     expect(transfer.indexOf("UPDATE activity_participants")).toBeGreaterThan(transfer.indexOf("UPDATE trips SET user_id = p_new_id"));
   });
 });
+
+describe("activity_participants migration: realtime", () => {
+  it("publishes the table once, skipping a missing publication", () => {
+    expect(sql).toContain("IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN RETURN;");
+    expect(sql).toContain(
+      "IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'activity_participants') THEN ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_participants;"
+    );
+  });
+});

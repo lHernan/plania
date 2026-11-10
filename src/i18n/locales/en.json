@@ -1217,5 +1217,12 @@
   "expenses_category_food": "Food",
   "expenses_category_activities": "Activities",
   "expenses_category_shopping": "Shopping",
-  "expenses_category_other": "Other"
+  "expenses_category_other": "Other",
+  "expenses_field_activity": "Activity",
+  "expenses_activity_none": "None",
+  "expenses_activity_missing": "Activity no longer in the trip",
+  "expenses_linked_activity": "Activity:",
+  "activity_spent": "Spent: {amount}",
+  "activity_expenses_region": "Activity expenses",
+  "activity_expenses_empty": "No expenses linked yet."
 }

@@ -10,10 +10,11 @@ import { currencyDecimals, formatCents, parseAmountToCents } from "@/lib/expense
 import { RECEIPT_ACCEPT, removeReceipt, resolveReceiptUrl, uploadReceipt } from "@/lib/expenses/receipts";
 import { computeSplits } from "@/lib/expenses/splits";
 import { deleteExpense, saveExpense, type ExpenseError, type ExpensesClient } from "@/lib/expenses/sync";
+import type { ActivityOptionGroup } from "@/lib/expenses/activity-link";
 import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type SplitMethod } from "@/lib/expenses/types";
 import { currencyChoices } from "@/lib/trip-currency";
 import type { TripMember } from "@/lib/types";
-import { CATEGORY_ICONS, CATEGORY_KEYS, ERROR_KEYS, METHOD_KEYS, SPLIT_ERROR_KEYS, personNamer, todayIso } from "./expense-ui";
+import { CATEGORY_ICONS, CATEGORY_KEYS, ERROR_KEYS, METHOD_KEYS, SPLIT_ERROR_KEYS, formatDay, personNamer, todayIso } from "./expense-ui";
 
 type ExpenseEditorProps = {
   client: ExpensesClient;
@@ -24,6 +25,10 @@ type ExpenseEditorProps = {
   currentUserId: string;
   /** The expense to show or edit; omitted to create one. */
   expense?: Expense;
+  /** The trip activities an expense can be linked to (optional), by day. */
+  activityGroups?: ActivityOptionGroup[];
+  /** Starting values of a new expense (one added from an activity). */
+  prefill?: { activityId: string; title: string; category: ExpenseCategory };
   /** Creator or trip owner; others see the expense read-only. */
   canEdit: boolean;
   online: boolean;
@@ -54,10 +59,23 @@ function centsToText(cents: number, currency: string, lang: string): string {
 const percentTextToBp = (text: string) => (text.trim() ? parseAmountToCents(text, "EUR") : 0);
 
 /** Sheet to create, edit or (read-only) view an expense, its split and its receipt. */
-export function ExpenseEditor({ client, tripId, currency: tripCurrency, members, currentUserId, expense, canEdit, online, onSaved, onClose }: ExpenseEditorProps) {
+export function ExpenseEditor({
+  client,
+  tripId,
+  currency: tripCurrency,
+  members,
+  currentUserId,
+  expense,
+  activityGroups = [],
+  prefill,
+  canEdit,
+  online,
+  onSaved,
+  onClose,
+}: ExpenseEditorProps) {
   const { t, lang } = useI18n();
   const titleId = useId();
-  const ids = { title: useId(), amount: useId(), currency: useId(), date: useId(), notes: useId() };
+  const ids = { title: useId(), amount: useId(), currency: useId(), date: useId(), activity: useId(), notes: useId() };
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -70,11 +88,12 @@ export function ExpenseEditor({ client, tripId, currency: tripCurrency, members,
   const people = personNamer(members, t("expenses_former_member"));
 
   const [savedId, setSavedId] = useState<string | null>(expense?.id ?? null);
-  const [title, setTitle] = useState(expense?.title ?? "");
+  const [title, setTitle] = useState(expense?.title ?? prefill?.title ?? "");
   const [currency, setCurrency] = useState(expense?.currency ?? tripCurrency);
   const [amountText, setAmountText] = useState(expense ? centsToText(expense.amountCents, expense.currency, lang) : "");
   const [spentOn, setSpentOn] = useState(expense?.spentOn ?? todayIso());
-  const [category, setCategory] = useState<ExpenseCategory>(expense?.category ?? "other");
+  const [category, setCategory] = useState<ExpenseCategory>(expense?.category ?? prefill?.category ?? "other");
+  const [activityId, setActivityId] = useState<string | null>(expense ? expense.activityId : prefill?.activityId ?? null);
   const [paidBy, setPaidBy] = useState(expense?.paidBy ?? (members.some((m) => m.userId === currentUserId) ? currentUserId : members[0]?.userId ?? currentUserId));
   const [method, setMethod] = useState<SplitMethod>(expense?.splitMethod ?? "equal");
   const [participantIds, setParticipantIds] = useState<string[]>(() =>
@@ -167,7 +186,7 @@ export function ExpenseEditor({ client, tripId, currency: tripCurrency, members,
       const saved = await saveExpense(client, {
         ...(savedId ? { id: savedId } : {}),
         tripId,
-        activityId: expense?.activityId ?? null,
+        activityId,
         title,
         amountCents,
         currency,
@@ -288,6 +307,25 @@ export function ExpenseEditor({ client, tripId, currency: tripCurrency, members,
             <label htmlFor={ids.date} className={fieldLabel}>{t("expenses_field_date")}</label>
             <input id={ids.date} type="date" value={spentOn} onChange={(event) => event.target.value && setSpentOn(event.target.value)} disabled={disabled} className={inputClass} />
           </div>
+
+          {(activityGroups.length > 0 || activityId) && (
+            <div className="space-y-2">
+              <label htmlFor={ids.activity} className={fieldLabel}>{t("expenses_field_activity")}</label>
+              <select id={ids.activity} value={activityId ?? ""} onChange={(event) => setActivityId(event.target.value || null)} disabled={disabled} className={inputClass}>
+                <option value="">{t("expenses_activity_none")}</option>
+                {activityId && !activityGroups.some((group) => group.options.some((option) => option.id === activityId)) && (
+                  <option value={activityId}>{t("expenses_activity_missing")}</option>
+                )}
+                {activityGroups.map((group) => (
+                  <optgroup key={group.dayId} label={group.date ? formatDay(group.date, lang) : group.label}>
+                    {group.options.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          )}
 
           <fieldset className="space-y-2">
             <legend className={fieldLabel}>{t("expenses_field_category")}</legend>
