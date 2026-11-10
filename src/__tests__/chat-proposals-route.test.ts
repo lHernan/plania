@@ -247,6 +247,7 @@ describe("expense proposals", () => {
     expect(prompt).toContain('{"id":"vi","name":"marly","isYou":false}');
     expect(prompt).toContain("add_expense");
     expect(prompt).toContain("Never invent amounts");
+    expect(prompt).toContain("One person's share is not the total");
   });
 
   it("lets a viewer propose an expense (any member records expenses) but nothing else", async () => {

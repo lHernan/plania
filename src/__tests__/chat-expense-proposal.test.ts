@@ -101,7 +101,7 @@ describe("normalizeExpenseProposal", () => {
 
   it("falls back to safe defaults for the optional fields and keeps only a known activity", () => {
     const result = normalizeExpenseProposal(
-      { ...hotel, currency: "usd", spentOn: "yesterday", category: "spa", activityId: "ghost", notes: "  Booking 123  " },
+      { ...hotel, currency: "usd", spentOn: "2026-02-30", category: "spa", activityId: "ghost", notes: "  Booking 123  " },
       ctx,
     );
     expect(result).toMatchObject({ title: "Hotel", currency: "EUR", spentOn: "2026-11-10", category: "other", activityId: null, notes: "Booking 123" });

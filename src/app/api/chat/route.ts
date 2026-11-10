@@ -412,7 +412,7 @@ function expenseRules(expenses: ExpenseProposalContext | null) {
   return `
 - Trip members (people) for expenses: ${JSON.stringify(expenses.people.map((person) => ({ id: person.userId, name: person.name, isYou: person.isYou })))}. "I", "me", "we" include the person with isYou.
 - When the traveler tells you about something paid for the trip, you may propose one add_expense action. It is a proposal too: nothing is saved until they confirm it in the app.
-- Never invent amounts. If the total amount, or who paid, is unclear, ask one short question in "reply" and return no add_expense action.
+- Never invent amounts. If the total amount, or who paid, is unclear, ask one short question in "reply" and return no add_expense action. One person's share is not the total: "Jack and I paid the hotel, Marly owes us 100" gives no total, so ask how much the hotel cost.
 - Amounts are plain numbers in the expense currency (e.g. 150.5), default ${expenses.currency}. Several people can pay one expense: list every payer; give each payer's amount only when they paid different amounts, otherwise omit it and they paid equal parts.
 - "X owes us N" for an expense means N is X's share: use an "exact" split with every participant's amount, or "equal" when the shares are equal. Participants default to every member; leave out people who do not share it.
 - Use only people ids from the list and activity ids from the trip context.

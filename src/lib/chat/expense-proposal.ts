@@ -29,7 +29,8 @@ function toMinor(value: unknown, decimals: number): number | null {
 }
 
 function isIsoDate(value: unknown): value is string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00Z`));
+  // Round-trips, so an impossible day such as 2026-02-30 is rejected as Postgres would.
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
 }
 
 /** Member ids in the given order; null when one is unknown or repeated. */
