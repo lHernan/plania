@@ -1114,5 +1114,17 @@
   "share_story_cover_alt": "Cover of {name}",
   "share_link_story_note": "The link also shows the trip story with the memories shared with the whole trip (never those shared with only some people).",
   "ai_quota_exceeded": "You've reached today's limit. Try again tomorrow.",
-  "privacy_link": "Privacy"
+  "privacy_link": "Privacy",
+  "participants_label": "Who it is for",
+  "participants_everyone": "Everyone",
+  "participants_me": "Me",
+  "participants_former": "Former member",
+  "participants_hint_shared": "Shared: it is part of everyone's itinerary.",
+  "participants_hint_assigned": "Only for the people selected.",
+  "participants_save_failed": "Could not save who the activity is for.",
+  "participants_assigned_sr": "Assigned to these people",
+  "itinerary_filter_label": "Whose itinerary",
+  "itinerary_filter_mine": "My itinerary",
+  "itinerary_filter_empty": "Nothing for this person today.",
+  "itinerary_filter_show_all": "Show everyone"
 }

@@ -24,7 +24,9 @@ import { useI18n } from "@/components/I18nProvider";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { OriginBadge } from "@/components/OriginBadge";
 import { BOOKING_TYPE_ICONS } from "@/components/booking-import/labels";
-import type { Activity, ActivityCategory, ActivityFile } from "@/lib/types";
+import { AvatarStack } from "@/components/members/MemberAvatar";
+import { memberShortName } from "@/lib/trip-people";
+import type { Activity, ActivityCategory, ActivityFile, TripMember } from "@/lib/types";
 
 export const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
@@ -55,7 +57,10 @@ export function SortableActivityCard({
   onOpenFile,
   onOpenBooking,
   justCompleted = false,
+  people = [],
 }: {
+  /** Who it is assigned to; empty = shared with the whole trip (no indicator). */
+  people?: TripMember[];
   activity: Activity;
   onComplete: (activityId: string) => void;
   onUncomplete: (activityId: string) => void;
@@ -181,7 +186,15 @@ export function SortableActivityCard({
           >
             {activity.title}
           </h4>
-          
+
+          {people.length > 0 && (
+            <p className="mt-1.5 flex items-center gap-2 text-xs font-semibold text-[var(--color-text-secondary)]">
+              <AvatarStack members={people} />
+              <span className="truncate">{people.map((person) => memberShortName(person)).join(" · ")}</span>
+              <span className="sr-only">{t("participants_assigned_sr")}</span>
+            </p>
+          )}
+
           <div className="flex items-center gap-1.5 mt-2">
             <MapPin size={12} className={completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-muted)] shrink-0"} />
             {activity.location ? (

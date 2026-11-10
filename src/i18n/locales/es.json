@@ -1114,5 +1114,17 @@
   "share_story_cover_alt": "Portada de {name}",
   "share_link_story_note": "El enlace también muestra la historia del viaje con los recuerdos compartidos con todo el viaje (nunca los de solo algunas personas).",
   "ai_quota_exceeded": "Has alcanzado el límite de uso de hoy. Inténtalo de nuevo mañana.",
-  "privacy_link": "Privacidad"
+  "privacy_link": "Privacidad",
+  "participants_label": "Para quién",
+  "participants_everyone": "Todos",
+  "participants_me": "Yo",
+  "participants_former": "Exmiembro",
+  "participants_hint_shared": "Compartida: forma parte del itinerario de todos.",
+  "participants_hint_assigned": "Solo para las personas seleccionadas.",
+  "participants_save_failed": "No se pudo guardar para quién es la actividad.",
+  "participants_assigned_sr": "Asignada a estas personas",
+  "itinerary_filter_label": "Itinerario de",
+  "itinerary_filter_mine": "Mi itinerario",
+  "itinerary_filter_empty": "Nada para esta persona hoy.",
+  "itinerary_filter_show_all": "Ver todos"
 }

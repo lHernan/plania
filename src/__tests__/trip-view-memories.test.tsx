@@ -195,7 +195,8 @@ describe("memories in the itinerary", () => {
     expect(within(timeline()).getByText("Museum")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Añadir recuerdo" })).toBeNull();
     expect(screen.queryByText("Note m1")).toBeNull();
-    expect(loadTripMembers).not.toHaveBeenCalled();
+    // Members load once for the itinerary person filter (trip-expenses S4), not for memories.
+    expect(loadTripMembers).toHaveBeenCalledTimes(1);
     cleanup();
     await show("/trips/t/overview", "2026-10-01", [memory("m1", { activityId: "a1" })]);
     const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
