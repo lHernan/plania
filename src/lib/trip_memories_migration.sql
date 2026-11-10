@@ -223,7 +223,9 @@ REVOKE ALL ON FUNCTION memory_audience_member_ok(UUID, UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION memory_audience_member_ok(UUID, UUID) TO authenticated;
 
 -- The people of a trip (owner first, then every share) with their email. It only answers a
--- current member of that trip; anyone else gets no rows.
+-- current member of that trip; anyone else gets no rows. Dropped first so this file can run
+-- again after activity_participants_migration.sql (which adds columns; re-run that one after).
+DROP FUNCTION IF EXISTS trip_members(UUID);
 CREATE OR REPLACE FUNCTION trip_members(p_trip_id UUID)
 RETURNS TABLE (user_id UUID, email TEXT, is_owner BOOLEAN)
 LANGUAGE sql

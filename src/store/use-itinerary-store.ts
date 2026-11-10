@@ -36,6 +36,7 @@ import {
   type NewMemory,
 } from "@/lib/memories-sync";
 import { forgetMemoryPhotoUrl } from "@/lib/memory-photos";
+import { loadActivityParticipants, withParticipants } from "@/lib/activity-participants";
 import { compressImage } from "@/lib/image-compress";
 import { removeCachedDocument } from "@/lib/offline-documents";
 import { getCurrentDateString, resolveTripSelection } from "@/lib/trip-selection";
@@ -227,6 +228,13 @@ type Store = {
   /** Optimistic update; rolls back and resolves false when the remote write fails. */
   updateActivityState: (dayId: string, activityId: string, state: ActivityState) => Promise<boolean>;
   patchActivity: (dayId: string, activityId: string, patch: Partial<Activity>) => Promise<void>;
+  /**
+   * Who an activity is for (empty = shared with everyone). Optimistic; rolls back and resolves
+   * false when the remote write fails. Queued offline and while the activity is not synced yet.
+   */
+  setActivityParticipants: (dayId: string, activityId: string, userIds: string[]) => Promise<boolean>;
+  /** Reloads who each activity of the open trip is for (another member changed it); keeps the rest. */
+  refreshActivityParticipants: (tripId: string) => Promise<void>;
   removeActivity: (dayId: string, activityId: string) => Promise<void>;
   reorderActivities: (dayId: string, sourceId: string, targetId: string) => Promise<void>;
   reorderActivitiesToOrder: (dayId: string, orderedActivityIds: string[]) => Promise<void>;
@@ -901,6 +909,9 @@ export const useItineraryStore = create<Store>((set, get) => {
       (files ?? []) as ActivityFileDb[]
     );
     const cachedTrip = userId ? (await loadOfflineTripCache(userId))?.tripPlans?.[baseTripPlan.id] : null;
+    // Never throws: without the table (migration not applied) every activity stays shared.
+    const participants = await loadActivityParticipants(supabase as never, baseTripPlan.id);
+    baseTripPlan.days = withParticipants(baseTripPlan.days, participants, cachedTrip?.days);
     const packing = await loadTripPacking({
       client: supabase as never,
       tripId: baseTripPlan.id,
@@ -1082,6 +1093,14 @@ export const useItineraryStore = create<Store>((set, get) => {
     if (entry.target === "activity" && entry.operation === "delete") {
       const activityId = String(resolveMappedId(payload.activityId, idMap));
       const { error } = await supabase.from("activities").delete().eq("id", activityId);
+      if (error) throw error;
+      return;
+    }
+
+    if (entry.target === "activity_participants" && entry.operation === "update") {
+      const activityId = String(resolveMappedId(payload.activityId, idMap));
+      const userIds = Array.isArray(payload.userIds) ? payload.userIds.map(String) : [];
+      const { error } = await supabase.rpc("set_activity_participants", { p_activity_id: activityId, p_user_ids: userIds });
       if (error) throw error;
       return;
     }
@@ -2313,6 +2332,65 @@ export const useItineraryStore = create<Store>((set, get) => {
 
       const { error } = await supabase.from("activities").update(mapActivityToDb(patch)).eq("id", activityId);
       if (error) set({ error: error.message });
+    },
+
+    setActivityParticipants: async (dayId, activityId, userIds) => {
+      const nextIds = [...new Set(userIds)];
+      const previousIds = get()
+        .activeTrip?.days.find((day) => day.id === dayId)
+        ?.activities.find((activity) => activity.id === activityId)?.participantIds ?? [];
+
+      const apply = (participantIds: string[]) =>
+        writeState((current) => ({
+          activeTrip: current.activeTrip
+            ? {
+                ...current.activeTrip,
+                days: current.activeTrip.days.map((day) =>
+                  day.id === dayId
+                    ? {
+                        ...day,
+                        activities: day.activities.map((activity) =>
+                          activity.id === activityId ? { ...activity, participantIds } : activity
+                        ),
+                      }
+                    : day
+                ),
+              }
+            : null,
+        }));
+
+      await apply(nextIds);
+
+      // An activity created offline has no server id yet: the queue resolves it after its create.
+      if (!isOnline() || isOfflineId(activityId)) {
+        await enqueueMutation("update", "activity_participants", { dayId, activityId, userIds: nextIds });
+        return true;
+      }
+
+      const { error } = await supabase.rpc("set_activity_participants", { p_activity_id: activityId, p_user_ids: nextIds });
+      if (error) {
+        console.warn("Failed to update activity participants:", error.message);
+        await apply(previousIds);
+        return false;
+      }
+      return true;
+    },
+
+    refreshActivityParticipants: async (tripId) => {
+      if (get().activeTrip?.id !== tripId) return;
+      const participants = await loadActivityParticipants(supabase as never, tripId);
+      // A failed read keeps what is on screen; another trip opened meanwhile is left alone.
+      if (!participants || get().activeTrip?.id !== tripId) return;
+      await writeState((current) => {
+        if (!current.activeTrip || current.activeTrip.id !== tripId) return {};
+        // Activities created offline are not on the server yet: their queued assignment stays.
+        const offline = new Map<string, string[]>();
+        for (const day of current.activeTrip.days) {
+          for (const activity of day.activities) if (isOfflineId(activity.id)) offline.set(activity.id, activity.participantIds ?? []);
+        }
+        for (const [activityId, userIds] of offline) participants.set(activityId, userIds);
+        return { activeTrip: { ...current.activeTrip, days: withParticipants(current.activeTrip.days, participants) } };
+      });
     },
 
     removeActivity: async (dayId, activityId) => {

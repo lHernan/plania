@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Music,
   Plane,
+  ReceiptText,
   ShoppingBag,
   Utensils,
 } from "lucide-react";
@@ -24,7 +25,9 @@ import { useI18n } from "@/components/I18nProvider";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { OriginBadge } from "@/components/OriginBadge";
 import { BOOKING_TYPE_ICONS } from "@/components/booking-import/labels";
-import type { Activity, ActivityCategory, ActivityFile } from "@/lib/types";
+import { AvatarStack } from "@/components/members/MemberAvatar";
+import { memberShortName } from "@/lib/trip-people";
+import type { Activity, ActivityCategory, ActivityFile, TripMember } from "@/lib/types";
 
 export const CATEGORY_STYLES: Record<ActivityCategory, { icon: any; color: string; bg: string }> = {
   sightseeing: { icon: MapIcon, color: "text-[#246B57]", bg: "bg-[#E4F0E9]" },
@@ -55,7 +58,13 @@ export function SortableActivityCard({
   onOpenFile,
   onOpenBooking,
   justCompleted = false,
+  people = [],
+  spentLabel,
 }: {
+  /** What its linked expenses cost ("120,00 €", one total per currency); no chip without any. */
+  spentLabel?: string;
+  /** Who it is assigned to; empty = shared with the whole trip (no indicator). */
+  people?: TripMember[];
   activity: Activity;
   onComplete: (activityId: string) => void;
   onUncomplete: (activityId: string) => void;
@@ -181,7 +190,15 @@ export function SortableActivityCard({
           >
             {activity.title}
           </h4>
-          
+
+          {people.length > 0 && (
+            <p className="mt-1.5 flex items-center gap-2 text-xs font-semibold text-[var(--color-text-secondary)]">
+              <AvatarStack members={people} />
+              <span className="truncate">{people.map((person) => memberShortName(person)).join(" · ")}</span>
+              <span className="sr-only">{t("participants_assigned_sr")}</span>
+            </p>
+          )}
+
           <div className="flex items-center gap-1.5 mt-2">
             <MapPin size={12} className={completed ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-muted)] shrink-0"} />
             {activity.location ? (
@@ -204,7 +221,7 @@ export function SortableActivityCard({
           </div>
 
           {/* CHIPS: the booking (to the wallet) and its documents (a single one opens straight away) */}
-          {((onOpenBooking && activity.origin === "booking") || (onOpenFile && pass)) && (
+          {((onOpenBooking && activity.origin === "booking") || (onOpenFile && pass) || spentLabel) && (
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {onOpenBooking && activity.origin === "booking" && (() => {
                 const BookingIcon = BOOKING_TYPE_ICONS[activity.booking?.type ?? "other"] ?? FileText;
@@ -249,6 +266,16 @@ export function SortableActivityCard({
                   <FileText size={11} aria-hidden="true" />
                   <span className="tabular-nums">{files.length}</span>
                 </button>
+              )}
+              {spentLabel && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-2.5 py-0.5 text-[10px] font-black tabular-nums text-[var(--color-text-secondary)]"
+                  title={t("activity_spent", { amount: spentLabel })}
+                >
+                  <ReceiptText size={11} aria-hidden="true" />
+                  <span className="sr-only">{t("activity_spent", { amount: "" })}</span>
+                  <span data-testid="activity-spent">{spentLabel}</span>
+                </span>
               )}
             </div>
           )}

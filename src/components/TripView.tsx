@@ -42,6 +42,8 @@ import {
   Navigation,
   Umbrella,
   BookOpen,
+  Users,
+  ReceiptText,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { buildTripMapUrl } from "@/lib/google-maps-links";
@@ -60,6 +62,7 @@ import {
   ShoppingItem,
   ShoppingSuggestion,
   TripDay,
+  TripMember,
 } from "@/lib/types";
 import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { currencyChoices, currencyLabel, currencySymbol, formatTripAmount, getTripCurrency, usePreferredCurrency } from "@/lib/trip-currency";
@@ -99,7 +102,20 @@ import { MemoryList } from "@/components/memories/MemoryList";
 import { TripMemoriesStory } from "@/components/memories/TripMemoriesStory";
 import { TripSummaryPanel } from "@/components/memories/TripSummaryPanel";
 import { memoriesForActivity } from "@/lib/memories-view";
+import { useTripMembers } from "@/components/memories/use-trip-members";
+import { ItineraryPersonFilter } from "@/components/members/ItineraryPersonFilter";
+import { ParticipantPicker } from "@/components/members/ParticipantPicker";
+import { activitiesForPerson } from "@/lib/activity-participants";
+import { loadItineraryPerson, saveItineraryPerson, type ItineraryPerson } from "@/lib/trip-people";
 import { WalletView } from "@/components/WalletView";
+import { ExpensesView } from "@/components/expenses/ExpensesView";
+import { expensesIntentHref } from "@/components/expenses/expense-ui";
+import { useTripExpenses } from "@/hooks/use-trip-expenses";
+import { useTripRealtime } from "@/hooks/use-trip-realtime";
+import { expensesByActivity, spentLabel } from "@/lib/expenses/activity-link";
+import { formatCents } from "@/lib/expenses/money";
+import type { Expense } from "@/lib/expenses/types";
+import { memberShortName } from "@/lib/trip-people";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
@@ -367,13 +383,32 @@ export function ActivityEditModal({
   onSave,
   onDelete,
   onDuplicate,
-  onPreviewFile
+  onPreviewFile,
+  members = [],
+  currentUserId = null,
+  canAssign = false,
+  onSaveParticipants,
+  expenses = [],
+  onAddExpense,
+  onOpenExpense,
 }: {
+  /** Expenses linked to this activity (shown with onAddExpense). */
+  expenses?: Expense[];
+  /** Opens the Expenses section with a new expense for this activity; without it there is no expenses block. */
+  onAddExpense?: () => void;
+  onOpenExpense?: (expense: Expense) => void;
   activity: Activity;
   /** The trip currency the costs are entered in. */
   currency: string;
   onClose: () => void;
   onSave: (updates: Partial<Activity>) => void;
+  /** The trip members an activity can be assigned to; the picker shows with two or more. */
+  members?: TripMember[];
+  currentUserId?: string | null;
+  /** Owner or editor: who may change an assignment (others only see it). */
+  canAssign?: boolean;
+  /** Called on save only when the assignment changed (empty = shared with everyone). */
+  onSaveParticipants?: (userIds: string[]) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onPreviewFile: (file: ActivityFile) => void;
@@ -391,6 +426,10 @@ export function ActivityEditModal({
   const actualCostInputId = `actual-cost-${activity.id}`;
   const [localLocation, setLocalLocation] = useState(activity.location || "");
   const [localNotes, setLocalNotes] = useState(activity.notes || "");
+  const initialParticipants = activity.participantIds ?? [];
+  const [localParticipants, setLocalParticipants] = useState<string[]>(initialParticipants);
+  const participantsChanged =
+    localParticipants.length !== initialParticipants.length || localParticipants.some((id) => !initialParticipants.includes(id));
 
   const categories = Object.keys(CATEGORY_STYLES) as ActivityCategory[];
 
@@ -519,6 +558,70 @@ export function ActivityEditModal({
               </div>
             </div>
 
+            {/* Who it is for */}
+            {members.length > 1 && (
+              <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)]">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-1 flex items-center gap-1">
+                  <Users size={12} aria-hidden="true" /> {t("participants_label")}
+                </p>
+                <p className="text-xs text-[var(--color-text-secondary)] mb-3">
+                  {localParticipants.length === 0 ? t("participants_hint_shared") : t("participants_hint_assigned")}
+                </p>
+                <ParticipantPicker
+                  members={members}
+                  value={localParticipants}
+                  onChange={setLocalParticipants}
+                  currentUserId={currentUserId}
+                  disabled={!canAssign}
+                />
+              </div>
+            )}
+
+            {/* What it cost: the linked expenses */}
+            {onAddExpense && (
+              <section aria-label={t("activity_expenses_region")} className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)]">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] flex items-center gap-1">
+                    <ReceiptText size={12} aria-hidden="true" /> {t("expenses_title")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onAddExpense}
+                    className="min-h-11 inline-flex items-center gap-1 rounded-xl px-3 text-xs font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-colors"
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                    {t("expenses_add")}
+                  </button>
+                </div>
+                {expenses.length === 0 ? (
+                  <p className="text-xs text-[var(--color-text-secondary)]">{t("activity_expenses_empty")}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {expenses.map((expense) => {
+                      const payer = members.find((member) => member.userId === expense.paidBy);
+                      return (
+                        <li key={expense.id}>
+                          <button
+                            type="button"
+                            onClick={() => onOpenExpense?.(expense)}
+                            className="min-h-11 w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left hover:bg-[var(--color-surface)] transition-colors"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-[var(--color-text)]">{expense.title}</span>
+                              <span className="block truncate text-[11px] text-[var(--color-text-secondary)]">
+                                {t("expenses_paid_by", { name: payer ? memberShortName(payer) : t("expenses_former_member") })}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-sm font-black tabular-nums text-[var(--color-text)]">{formatCents(expense.amountCents, expense.currency, lang)}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            )}
+
             {/* Notes */}
             <div className="bg-[var(--color-surface-subtle)] rounded-3xl p-5 border border-[var(--color-border)] border-[var(--color-border)] relative">
               <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-1"><FileText size={12}/> {t("notes")}</label>
@@ -566,6 +669,7 @@ export function ActivityEditModal({
                   location: localLocation,
                   notes: localNotes
                 });
+                if (canAssign && participantsChanged) onSaveParticipants?.(localParticipants);
                 onClose();
              }}
              className="flex-1 rounded-[1.5rem] bg-[var(--color-text)] dark:bg-white text-white dark:text-[var(--color-text)] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform"
@@ -601,6 +705,7 @@ export function TripView() {
     dayScrollY,
     setDayScroll,
     patchActivity,
+    setActivityParticipants,
     loading,
     error,
     removeActivity,
@@ -664,6 +769,29 @@ export function TripView() {
     }
   }, [activeTripIsDraft, user, saveDraft]);
   const isInvitee = Boolean(activeTrip && user && activeTrip.userId !== user.id);
+  // The people of the trip, for assignments and the itinerary filter (one request per trip).
+  const { members: tripMembers } = useTripMembers(activeTrip?.id ?? "", Boolean(activeTrip?.id) && !activeTripIsDraft);
+  // What each activity cost (its linked expenses) and live sync with the other members; drafts have neither.
+  const sharedTrip = Boolean(activeTrip?.id) && !activeTripIsDraft;
+  const { data: tripExpenses } = useTripExpenses(activeTrip?.id ?? "", sharedTrip);
+  useTripRealtime(activeTrip?.id ?? "", sharedTrip);
+  const expensesOfActivity = useMemo(() => expensesByActivity(tripExpenses?.expenses ?? []), [tripExpenses]);
+  const [itineraryPersonChoice, setItineraryPersonChoice] = useState<{ tripId: string; person: ItineraryPerson } | null>(null);
+  const storedPerson = activeTrip
+    ? itineraryPersonChoice?.tripId === activeTrip.id
+      ? itineraryPersonChoice.person
+      : loadItineraryPerson(activeTrip.id)
+    : "everyone";
+  // Only a current member filters; a stale choice (someone who left) shows everyone.
+  const itineraryPerson: ItineraryPerson =
+    tripMembers.length > 1 && tripMembers.some((member) => member.userId === storedPerson) ? storedPerson : "everyone";
+  const chooseItineraryPerson = (person: ItineraryPerson) => {
+    if (!activeTrip) return;
+    saveItineraryPerson(activeTrip.id, person);
+    setItineraryPersonChoice({ tripId: activeTrip.id, person });
+  };
+  const peopleOf = (activity: Activity): TripMember[] =>
+    (activity.participantIds ?? []).map((id) => tripMembers.find((member) => member.userId === id) ?? { userId: id, email: null, isOwner: false });
   /** The trip cover behind the header; its controls then get their own surface. */
   const headerCover = activeTrip?.coverPath ?? null;
   // Planned by number of days: the day dates are placeholders, so days go by number and the
@@ -1093,7 +1221,7 @@ export function TripView() {
 
   const sortedActivities = useMemo(() => {
     if (!activeDay) return [];
-    const list = [...activeDay.activities];
+    const list = activitiesForPerson(activeDay.activities, itineraryPerson === "everyone" ? null : itineraryPerson);
     const pending = list
       .filter((a) => a.state !== "completed")
       .sort((a, b) => a.time.localeCompare(b.time));
@@ -1101,7 +1229,7 @@ export function TripView() {
       .filter((a) => a.state === "completed")
       .sort((a, b) => a.time.localeCompare(b.time));
     return [...pending, ...completed];
-  }, [activeDay]);
+  }, [activeDay, itineraryPerson]);
 
   const handleAddDay = async () => {
     if (!activeTrip) return;
@@ -1321,7 +1449,7 @@ export function TripView() {
   // the overview do not depend on the day, so picking one there opens its activities.
   const pickDay = (dayId: string) => {
     setActiveDay(dayId);
-    if (!activeTrip || (section !== "wallet" && section !== "overview")) return;
+    if (!activeTrip || (section !== "wallet" && section !== "overview" && section !== "expenses")) return;
     const day = activeTrip.days.find((d) => d.id === dayId);
     router.push(tripSectionHref(activeTrip.id, "itinerary", dayUrlParam(activeTrip, day)));
   };
@@ -2029,6 +2157,12 @@ export function TripView() {
             </div>
           )}
 
+          {tripMembers.length > 1 && (
+            <div className="mb-6">
+              <ItineraryPersonFilter members={tripMembers} value={itineraryPerson} onChange={chooseItineraryPerson} currentUserId={user?.id ?? null} />
+            </div>
+          )}
+
           <DndContext id="itinerary-dnd" sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext
               items={sortedActivities.map((a) => a.id)}
@@ -2100,6 +2234,8 @@ export function TripView() {
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
                                  onOpenBooking={() => goToSection("wallet")}
+                                 people={peopleOf(activity)}
+                                 spentLabel={spentLabel(expensesOfActivity.get(activity.id), lang)}
                                />
                              ))}
                          </div>
@@ -2127,6 +2263,8 @@ export function TripView() {
                                  onComment={() => setCommentActivity({ id: activity.id, title: activity.title })}
                                  onOpenFile={(file) => openPass(file, activity.title)}
                                  onOpenBooking={() => goToSection("wallet")}
+                                 people={peopleOf(activity)}
+                                 spentLabel={spentLabel(expensesOfActivity.get(activity.id), lang)}
                                />
                                {activeTrip && showActivityMemories(activity) && (
                                  <div className="pl-4 md:pl-6">
@@ -2147,7 +2285,20 @@ export function TripView() {
                        </div>
                      )}
 
-                     {sortedActivities.length === 0 && (
+                     {sortedActivities.length === 0 && (activeDay?.activities.length ?? 0) > 0 && (
+                      <div className="py-16 text-center">
+                        <p className="text-sm font-bold text-[var(--color-text)]">{t("itinerary_filter_empty")}</p>
+                        <button
+                          type="button"
+                          onClick={() => chooseItineraryPerson("everyone")}
+                          className="mt-4 inline-flex items-center min-h-11 px-5 rounded-xl border border-[var(--color-primary)]/30 text-[var(--color-primary)] text-xs font-bold hover:bg-[var(--color-primary-subtle)] transition-colors"
+                        >
+                          {t("itinerary_filter_show_all")}
+                        </button>
+                      </div>
+                     )}
+
+                     {sortedActivities.length === 0 && (activeDay?.activities.length ?? 0) === 0 && (
                       <div className="py-24 text-center">
                         <div className="size-24 bg-[var(--color-surface)] border-2 border-dashed border-[var(--color-border)] rounded-[3rem] flex items-center justify-center mx-auto mb-8 transition-transform hover:scale-110">
                           <Plane className="text-[var(--color-text-muted)]" size={40} />
@@ -2206,6 +2357,13 @@ export function TripView() {
               />
             ) : null}
           </div>
+        </div>
+      )}
+
+      {/* EXPENSES SECTION */}
+      {section === "expenses" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 md:px-5 md:pt-8">
+          <ExpensesView tripId={activeTrip.id} ownerId={activeTrip.userId} currency={tripCurrency} isDraft={activeTripIsDraft} />
         </div>
       )}
 
@@ -2406,6 +2564,27 @@ export function TripView() {
             currency={tripCurrency}
             onClose={() => setEditingActivityId(null)}
             onSave={(updates) => patchActivity(activeDayId, editingActivity.id, updates)}
+            members={tripMembers}
+            currentUserId={user?.id ?? null}
+            canAssign={activeTripIsDraft ? false : canEditTrip(activeTrip, user?.id)}
+            onSaveParticipants={async (userIds) => {
+              const ok = await setActivityParticipants(activeDayId, editingActivity.id, userIds);
+              if (!ok) showToast(t("participants_save_failed"), "error");
+            }}
+            expenses={expensesOfActivity.get(editingActivity.id)}
+            onAddExpense={
+              activeTrip && sharedTrip
+                ? () => {
+                    setEditingActivityId(null);
+                    router.push(expensesIntentHref(activeTrip.id, { newForActivity: editingActivity.id }));
+                  }
+                : undefined
+            }
+            onOpenExpense={(expense) => {
+              if (!activeTrip) return;
+              setEditingActivityId(null);
+              router.push(expensesIntentHref(activeTrip.id, { expenseId: expense.id }));
+            }}
             onDelete={() => removeActivity(activeDayId, editingActivity.id)}
             onDuplicate={() => duplicateActivity(activeDayId, editingActivity.id)}
             onPreviewFile={(file) => {

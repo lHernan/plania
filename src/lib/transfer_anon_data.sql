@@ -69,6 +69,74 @@ BEGIN
   UPDATE trips               SET user_id = p_new_id WHERE user_id = p_anon_id;
   GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
 
+  -- Activity assignments (activity_participants_migration.sql): after the trips move, because
+  -- its trigger requires the new account to be a member of the trip already. Only on trips the
+  -- new account belongs to (trip_shares rows of the guest do not move): the others are dropped,
+  -- so the trigger can never fail the whole transfer.
+  IF to_regclass('public.activity_participants') IS NOT NULL THEN
+    UPDATE activity_participants a SET user_id = p_new_id
+    WHERE a.user_id = p_anon_id
+      AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = a.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = a.trip_id AND s.shared_with = p_new_id)
+      )
+      AND NOT EXISTS (SELECT 1 FROM activity_participants b WHERE b.activity_id = a.activity_id AND b.user_id = p_new_id);
+    DELETE FROM activity_participants WHERE user_id = p_anon_id;
+  END IF;
+
+  -- Expenses (trip_expenses_migration.sql): after the trips move, and only on trips the new
+  -- account belongs to (trip_shares rows of the guest do not move). Money rows are never
+  -- deleted: rows on other trips keep the guest id. The flag lets the expenses trigger accept
+  -- this one creator change, for this transaction only.
+  IF to_regclass('public.expenses') IS NOT NULL THEN
+    PERFORM set_config('plania.expenses_transfer', 'on', true);
+    UPDATE expenses e SET paid_by = p_new_id
+    WHERE e.paid_by = p_anon_id
+      AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = e.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = e.trip_id AND s.shared_with = p_new_id)
+      );
+    GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
+    UPDATE expenses e SET created_by = p_new_id
+    WHERE e.created_by = p_anon_id
+      AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = e.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = e.trip_id AND s.shared_with = p_new_id)
+      );
+    PERFORM set_config('plania.expenses_transfer', 'off', true);
+  END IF;
+  -- A split the new account already has on the same expense is kept; the guest's stays as is.
+  IF to_regclass('public.expense_splits') IS NOT NULL THEN
+    UPDATE expense_splits x SET user_id = p_new_id
+    WHERE x.user_id = p_anon_id
+      AND EXISTS (SELECT 1 FROM expenses e WHERE e.id = x.expense_id AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = e.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = e.trip_id AND s.shared_with = p_new_id)
+      ))
+      AND NOT EXISTS (SELECT 1 FROM expense_splits b WHERE b.expense_id = x.expense_id AND b.user_id = p_new_id);
+  END IF;
+  -- Never a settlement from someone to themselves (that check would abort the transfer).
+  IF to_regclass('public.expense_settlements') IS NOT NULL THEN
+    UPDATE expense_settlements x SET from_user = p_new_id
+    WHERE x.from_user = p_anon_id AND x.to_user <> p_new_id
+      AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = x.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = x.trip_id AND s.shared_with = p_new_id)
+      );
+    UPDATE expense_settlements x SET to_user = p_new_id
+    WHERE x.to_user = p_anon_id AND x.from_user <> p_new_id
+      AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = x.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = x.trip_id AND s.shared_with = p_new_id)
+      );
+    UPDATE expense_settlements x SET created_by = p_new_id
+    WHERE x.created_by = p_anon_id
+      AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = x.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = x.trip_id AND s.shared_with = p_new_id)
+      );
+  END IF;
+
   RETURN total;
 END;
 $$;

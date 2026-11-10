@@ -19,6 +19,7 @@ export type OfflineMutationTarget =
   | "activity"
   | "activity_state"
   | "activity_reorder"
+  | "activity_participants"
   | "reservation"
   | "activity_file"
   | "file_focus_area"

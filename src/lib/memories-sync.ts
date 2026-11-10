@@ -152,8 +152,16 @@ export async function fetchTripMembers(client: RpcClient, tripId: string): Promi
       const missing = ["PGRST202", "42883"].includes(String(error.code ?? "")) || /trip_members/.test(error.message ?? "");
       return { members: [], error: missing ? "unavailable" : "failed" };
     }
-    const rows = (Array.isArray(data) ? data : []) as { user_id: string; email: string | null; is_owner: boolean }[];
-    const members = rows.map((row) => ({ userId: row.user_id, email: row.email ?? null, isOwner: Boolean(row.is_owner) }));
+    type Row = { user_id: string; email: string | null; is_owner: boolean; display_name?: string | null; avatar_url?: string | null };
+    const rows = (Array.isArray(data) ? data : []) as Row[];
+    // display_name and avatar_url only exist after activity_participants_migration.sql.
+    const members: TripMember[] = rows.map((row) => ({
+      userId: row.user_id,
+      email: row.email ?? null,
+      isOwner: Boolean(row.is_owner),
+      ...(row.display_name ? { displayName: row.display_name } : {}),
+      ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}),
+    }));
     return { members: [...members.filter((m) => m.isOwner), ...members.filter((m) => !m.isOwner)] };
   } catch {
     return { members: [], error: "failed" };
