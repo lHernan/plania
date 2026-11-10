@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { simplifyDebts, summarizeTrip } from "@/lib/expenses/balances";
 import { formatCents } from "@/lib/expenses/money";
 import { computeSplits } from "@/lib/expenses/splits";
-import type { Expense, Settlement, SplitMethod } from "@/lib/expenses/types";
+import type { Expense, ExpensePayer, Settlement, SplitMethod } from "@/lib/expenses/types";
 
 const plain = (text: string) => text.replace(/ | /g, " ");
 
 let seq = 0;
-function expense(paidBy: string, amountCents: number, participantIds: string[], extra: Partial<Expense> = {}): Expense {
+function expense(paidBy: string | ExpensePayer[], amountCents: number, participantIds: string[], extra: Partial<Expense> = {}): Expense {
   const method: SplitMethod = extra.splitMethod ?? "equal";
   const result = computeSplits({ method, amountCents, participantIds });
   if (!result.ok) throw new Error(result.error);
@@ -21,11 +21,11 @@ function expense(paidBy: string, amountCents: number, participantIds: string[], 
     currency: "EUR",
     spentOn: "2026-11-10",
     category: "other",
-    paidBy,
+    payers: typeof paidBy === "string" ? [{ userId: paidBy, paidCents: amountCents }] : paidBy,
     splitMethod: method,
     notes: null,
     receiptPath: null,
-    createdBy: paidBy,
+    createdBy: typeof paidBy === "string" ? paidBy : paidBy[0].userId,
     createdAt: "2026-11-10T10:00:00Z",
     updatedAt: "2026-11-10T10:00:00Z",
     splits: result.splits,
@@ -47,6 +47,21 @@ const MEMBERS = ["hernan", "wife", "p3", "p4", "p5"];
 const lodging = () => expense("hernan", 50000, ["hernan", "wife", "p3"], { category: "lodging" });
 
 describe("summarizeTrip", () => {
+  it("credits every payer with what they paid: Jack and I paid the hotel, Marly owes us 100 €", () => {
+    const hotel = expense([{ userId: "hernan", paidCents: 15000 }, { userId: "jack", paidCents: 15000 }], 30000, ["hernan", "jack", "marly"], { category: "lodging" });
+    const summary = summarizeTrip([hotel], [], ["hernan", "jack", "marly"]);
+    expect(summary.EUR.totalCents).toBe(30000);
+    expect(summary.EUR.people.map((p) => [p.userId, p.paidCents, p.shareCents, p.balanceCents])).toEqual([
+      ["hernan", 15000, 10000, 5000],
+      ["jack", 15000, 10000, 5000],
+      ["marly", 0, 10000, -10000],
+    ]);
+    expect(simplifyDebts(summary.EUR.people, "EUR")).toEqual([
+      { from: "marly", to: "hernan", amountCents: 5000, currency: "EUR" },
+      { from: "marly", to: "jack", amountCents: 5000, currency: "EUR" },
+    ]);
+  });
+
   it("pins the lodging example: Hernán pays 500 € split among 3", () => {
     const summary = summarizeTrip([lodging()], [], MEMBERS);
     expect(summary.EUR.totalCents).toBe(50000);

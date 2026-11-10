@@ -1224,5 +1224,11 @@
   "expenses_linked_activity": "Activity:",
   "activity_spent": "Spent: {amount}",
   "activity_expenses_region": "Activity expenses",
-  "activity_expenses_empty": "No expenses linked yet."
+  "activity_expenses_empty": "No expenses linked yet.",
+  "expenses_paid_by_two": "Paid by {first} and {second}",
+  "expenses_paid_by_many": "Paid by {first} and {count} more",
+  "expenses_payers_equal": "Equally",
+  "expenses_payers_exact": "Amounts",
+  "expenses_paid_amount_of": "Amount {name} paid",
+  "expenses_payers_mode": "How they paid"
 }

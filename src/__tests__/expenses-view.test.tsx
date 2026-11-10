@@ -60,6 +60,7 @@ const MEMBERS: TripMember[] = [
 const ALL = MEMBERS.map((m) => m.userId);
 
 function expenseRow(id: string, overrides: Record<string, unknown>) {
+  const { paid_by = "hernan", ...rest } = overrides as Record<string, unknown> & { paid_by?: string };
   return {
     id,
     trip_id: TRIP,
@@ -69,7 +70,6 @@ function expenseRow(id: string, overrides: Record<string, unknown>) {
     currency: "EUR",
     spent_on: "2026-11-02",
     category: "other",
-    paid_by: "hernan",
     split_method: "equal",
     notes: null,
     receipt_path: null,
@@ -77,7 +77,9 @@ function expenseRow(id: string, overrides: Record<string, unknown>) {
     created_at: "2026-11-02T10:00:00Z",
     updated_at: "2026-11-02T10:00:00Z",
     expense_splits: [],
-    ...overrides,
+    ...rest,
+    // One payer of the whole amount unless the test gives the payers.
+    expense_payers: rest.expense_payers ?? [{ user_id: paid_by, paid_cents: rest.amount_cents ?? 0 }],
   };
 }
 
@@ -192,11 +194,69 @@ describe("ExpensesView", () => {
 
     const [call] = rpcCalls("save_expense");
     const args = call[2] as { p_expense: Record<string, unknown>; p_splits: { user_id: string; share_cents: number }[] };
-    expect(args.p_expense).toMatchObject({ trip_id: TRIP, title: "Taxi", amount_cents: 3100, currency: "EUR", category: "transport", paid_by: "hernan", split_method: "equal" });
+    expect(args.p_expense).toMatchObject({ trip_id: TRIP, title: "Taxi", amount_cents: 3100, currency: "EUR", category: "transport", split_method: "equal" });
+    expect(args.p_expense).not.toHaveProperty("paid_by");
+    expect((call[2] as { p_payers: unknown }).p_payers).toEqual([{ user_id: "hernan", paid_cents: 3100 }]);
     expect(args.p_expense).not.toHaveProperty("id");
     expect(args.p_splits.map((s) => s.user_id)).toEqual(ALL);
     expect(args.p_splits.reduce((sum, s) => sum + s.share_cents, 0)).toBe(3100);
     expect(screen.queryByRole("dialog", { name: "Nuevo gasto" })).toBeNull();
+  });
+
+  it("splits who paid among several payers, equally or by amounts", async () => {
+    await show();
+    fireEvent.click(screen.getAllByRole("button", { name: "Añadir gasto" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Nuevo gasto" });
+    fireEvent.change(within(dialog).getByLabelText("Concepto"), { target: { value: "Hotel" } });
+    fireEvent.change(within(dialog).getByLabelText("Importe"), { target: { value: "300" } });
+    const payers = within(dialog).getByRole("group", { name: "Pagado por" });
+    // The last payer cannot be removed.
+    fireEvent.click(within(payers).getByRole("checkbox", { name: /Hernán/ }));
+    expect((within(payers).getByRole("checkbox", { name: /Hernán/ }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(within(payers).getByRole("checkbox", { name: /Jack/ }));
+    expect(text(payers)).toContain("150,00 €");
+
+    fireEvent.click(within(payers).getByRole("radio", { name: "Importes" }));
+    fireEvent.change(within(payers).getByLabelText("Importe que pagó Hernán"), { target: { value: "200" } });
+    const save = within(dialog).getByRole("button", { name: "Guardar gasto" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    expect(text(within(payers).getByRole("status"))).toContain("Falta 100,00 €");
+    fireEvent.change(within(payers).getByLabelText("Importe que pagó Jack"), { target: { value: "100" } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    await act(async () => {});
+    const args = rpcCalls("save_expense")[0][2] as { p_payers: unknown[]; p_splits: { share_cents: number }[] };
+    expect(args.p_payers).toEqual([
+      { user_id: "hernan", paid_cents: 20000 },
+      { user_id: "jack", paid_cents: 10000 },
+    ]);
+    expect(args.p_splits.reduce((sum, split) => sum + split.share_cents, 0)).toBe(30000);
+  });
+
+  it("names every payer in the list and keeps their amounts when editing", async () => {
+    const hotel = expenseRow("hotel", {
+      title: "Hotel",
+      amount_cents: 30000,
+      category: "lodging",
+      expense_payers: [
+        { user_id: "hernan", paid_cents: 20000 },
+        { user_id: "jack", paid_cents: 10000 },
+      ],
+      expense_splits: ["hernan", "jack", "maria"].map((user_id) => ({ user_id, share_cents: 10000, percent_bp: null })),
+    });
+    await show({ expenses: [hotel] });
+    const row = screen.getByRole("button", { name: /Hotel/ });
+    expect(text(row)).toContain("Pagaron Hernán y Jack");
+    fireEvent.click(row);
+    const dialog = screen.getByRole("dialog", { name: "Editar gasto" });
+    expect((within(dialog).getByLabelText("Importe que pagó Hernán") as HTMLInputElement).value).toBe("200,00");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Guardar gasto" }));
+    await act(async () => {});
+    const args = rpcCalls("save_expense")[0][2] as { p_payers: unknown[] };
+    expect(args.p_payers).toEqual([
+      { user_id: "hernan", paid_cents: 20000 },
+      { user_id: "jack", paid_cents: 10000 },
+    ]);
   });
 
   it("excludes people from a split", async () => {

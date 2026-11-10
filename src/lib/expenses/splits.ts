@@ -1,4 +1,4 @@
-import type { ExpenseSplit, SplitMethod } from "./types";
+import type { ExpensePayer, ExpenseSplit, SplitMethod } from "./types";
 
 export type SplitInput = {
   method: SplitMethod;
@@ -78,4 +78,30 @@ export function computeSplits(input: SplitInput): SplitResult {
       if (ids.length !== 1) return { ok: false, error: "individual_needs_one" };
       return { ok: true, splits: [{ userId: ids[0], shareCents: input.amountCents }] };
   }
+}
+
+/** How the amount is divided among several payers: equal parts, or the amounts each one paid. */
+export type PayerMode = "equal" | "exact";
+
+export type PayersInput = {
+  amountCents: number;
+  /** Who paid, in display order. */
+  payerIds: string[];
+  mode: PayerMode;
+  /** exact: cents per payer (missing = 0). */
+  exactCents?: Record<string, number>;
+};
+
+export type PayersResult = { ok: true; payers: ExpensePayer[] } | { ok: false; error: SplitError };
+
+/** Who paid what; every ok result adds up exactly to the amount, with no payer at 0. */
+export function computePayers(input: PayersInput): PayersResult {
+  const result = computeSplits({
+    method: input.mode,
+    amountCents: input.amountCents,
+    participantIds: input.payerIds,
+    exactCents: input.exactCents,
+  });
+  if (!result.ok) return result;
+  return { ok: true, payers: result.splits.filter((split) => split.shareCents > 0).map((split) => ({ userId: split.userId, paidCents: split.shareCents })) };
 }

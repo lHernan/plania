@@ -90,13 +90,6 @@ BEGIN
   -- this one creator change, for this transaction only.
   IF to_regclass('public.expenses') IS NOT NULL THEN
     PERFORM set_config('plania.expenses_transfer', 'on', true);
-    UPDATE expenses e SET paid_by = p_new_id
-    WHERE e.paid_by = p_anon_id
-      AND (
-        EXISTS (SELECT 1 FROM trips t WHERE t.id = e.trip_id AND t.user_id = p_new_id)
-        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = e.trip_id AND s.shared_with = p_new_id)
-      );
-    GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
     UPDATE expenses e SET created_by = p_new_id
     WHERE e.created_by = p_anon_id
       AND (
@@ -105,7 +98,18 @@ BEGIN
       );
     PERFORM set_config('plania.expenses_transfer', 'off', true);
   END IF;
-  -- A split the new account already has on the same expense is kept; the guest's stays as is.
+  -- Payers (expense_payers_migration.sql) and splits: a row the new account already has on the
+  -- same expense is kept; the guest's stays as is.
+  IF to_regclass('public.expense_payers') IS NOT NULL THEN
+    UPDATE expense_payers x SET user_id = p_new_id
+    WHERE x.user_id = p_anon_id
+      AND EXISTS (SELECT 1 FROM expenses e WHERE e.id = x.expense_id AND (
+        EXISTS (SELECT 1 FROM trips t WHERE t.id = e.trip_id AND t.user_id = p_new_id)
+        OR EXISTS (SELECT 1 FROM trip_shares s WHERE s.trip_id = e.trip_id AND s.shared_with = p_new_id)
+      ))
+      AND NOT EXISTS (SELECT 1 FROM expense_payers b WHERE b.expense_id = x.expense_id AND b.user_id = p_new_id);
+    GET DIAGNOSTICS n = ROW_COUNT; total := total + n;
+  END IF;
   IF to_regclass('public.expense_splits') IS NOT NULL THEN
     UPDATE expense_splits x SET user_id = p_new_id
     WHERE x.user_id = p_anon_id

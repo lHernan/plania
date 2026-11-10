@@ -5,6 +5,8 @@
 -- trip_shares_role_migration.sql (is_trip_editor) and packing_items_migration.sql
 -- (is_trip_member). Then re-run transfer_anon_data.sql so a guest's expenses move to the new
 -- account. Additive and idempotent: safe to run again.
+-- Then run expense_payers_migration.sql (several payers per expense; it replaces paid_by and
+-- save_expense), also every time this file is run again.
 --
 -- What it adds:
 --   - expenses: one cost of a trip in minor units (cents) of one currency, optionally about one

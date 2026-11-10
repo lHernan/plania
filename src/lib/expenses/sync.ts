@@ -1,5 +1,5 @@
 import { TRIP_RECEIPTS_BUCKET } from "./receipts";
-import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type ExpenseSplit, type Settlement, type SplitMethod } from "./types";
+import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type ExpensePayer, type ExpenseSplit, type Settlement, type SplitMethod } from "./types";
 
 /**
  * Supabase persistence of trip expenses (src/lib/trip_expenses_migration.sql). Expenses and
@@ -9,7 +9,7 @@ import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type ExpenseSpl
 
 export const EXPENSES_TABLE = "expenses";
 export const SETTLEMENTS_TABLE = "expense_settlements";
-export const EXPENSES_SELECT = "*, expense_splits(user_id, share_cents, percent_bp)";
+export const EXPENSES_SELECT = "*, expense_payers(user_id, paid_cents), expense_splits(user_id, share_cents, percent_bp)";
 
 /** Why an expense action did not happen. */
 export type ExpenseError = "offline" | "unavailable" | "forbidden" | "invalid" | "failed";
@@ -38,6 +38,8 @@ export type ExpensesClient = {
   };
 };
 
+export type ExpensePayerDb = { user_id: string; paid_cents: number | string };
+
 export type ExpenseSplitDb = { user_id: string; share_cents: number | string; percent_bp: number | null };
 
 export type ExpenseDb = {
@@ -49,13 +51,13 @@ export type ExpenseDb = {
   currency: string;
   spent_on: string;
   category: string;
-  paid_by: string;
   split_method: string;
   notes: string | null;
   receipt_path: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
+  expense_payers?: ExpensePayerDb[] | null;
   expense_splits?: ExpenseSplitDb[] | null;
 };
 
@@ -82,7 +84,7 @@ export type ExpenseInput = {
   currency: string;
   spentOn: string;
   category: ExpenseCategory;
-  paidBy: string;
+  payers: ExpensePayer[];
   splitMethod: SplitMethod;
   notes: string | null;
   splits: ExpenseSplit[];
@@ -131,7 +133,7 @@ export function mapExpenseFromDb(row: ExpenseDb): Expense {
     currency: row.currency,
     spentOn: row.spent_on,
     category,
-    paidBy: row.paid_by,
+    payers: (row.expense_payers ?? []).map((payer) => ({ userId: payer.user_id, paidCents: Number(payer.paid_cents) })),
     splitMethod,
     notes: row.notes ?? null,
     receiptPath: row.receipt_path ?? null,
@@ -189,7 +191,7 @@ export async function loadSettlements(client: ExpensesClient, tripId: string): P
 
 // ─── Writes ──────────────────────────────────────────────────────────────────
 
-/** Creates or edits an expense and replaces its splits in one atomic call. */
+/** Creates or edits an expense and replaces its payers and splits in one atomic call. */
 export async function saveExpense(client: ExpensesClient, input: ExpenseInput): Promise<{ id?: string; error?: ExpenseError }> {
   if (isOffline()) return { error: "offline" };
   const p_expense = {
@@ -201,13 +203,13 @@ export async function saveExpense(client: ExpensesClient, input: ExpenseInput): 
     currency: input.currency,
     spent_on: input.spentOn,
     category: input.category,
-    paid_by: input.paidBy,
     split_method: input.splitMethod,
     notes: input.notes?.trim() || null,
   };
+  const p_payers = input.payers.map((payer) => ({ user_id: payer.userId, paid_cents: payer.paidCents }));
   const p_splits = input.splits.map((split) => ({ user_id: split.userId, share_cents: split.shareCents, percent_bp: split.percentBp ?? null }));
   try {
-    const { data, error } = await client.rpc("save_expense", { p_expense, p_splits });
+    const { data, error } = await client.rpc("save_expense", { p_expense, p_payers, p_splits });
     if (error) return { error: mapExpenseError(error) };
     return typeof data === "string" && data ? { id: data } : { error: "failed" };
   } catch {

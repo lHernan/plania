@@ -14,6 +14,12 @@ export type ExpenseSplit = {
   percentBp?: number;
 };
 
+/** Who paid (part of) an expense and how much, in minor units (cents). */
+export type ExpensePayer = {
+  userId: string;
+  paidCents: number;
+};
+
 export type Expense = {
   id: string;
   tripId: string;
@@ -24,7 +30,8 @@ export type Expense = {
   /** yyyy-MM-dd */
   spentOn: string;
   category: ExpenseCategory;
-  paidBy: string;
+  /** One or more payers; their amounts add up to amountCents. */
+  payers: ExpensePayer[];
   splitMethod: SplitMethod;
   notes: string | null;
   receiptPath: string | null;

@@ -51,7 +51,7 @@ const row = {
   currency: "EUR",
   spent_on: "2026-11-02",
   category: "lodging",
-  paid_by: "hernan",
+  expense_payers: [{ user_id: "hernan", paid_cents: 50000 }],
   split_method: "equal",
   notes: null,
   receipt_path: null,
@@ -78,7 +78,7 @@ describe("expense mapping", () => {
       currency: "EUR",
       spentOn: "2026-11-02",
       category: "lodging",
-      paidBy: "hernan",
+      payers: [{ userId: "hernan", paidCents: 50000 }],
       splitMethod: "equal",
       notes: null,
       receiptPath: null,
@@ -101,7 +101,7 @@ describe("loadExpenses", () => {
     expect(result.error).toBeUndefined();
     expect(result.expenses).toHaveLength(1);
     expect(result.expenses[0].splits.map((s) => s.shareCents)).toEqual([16667, 16667, 16666]);
-    expect(fake.log).toContainEqual(["expenses.select", "*, expense_splits(user_id, share_cents, percent_bp)"]);
+    expect(fake.log).toContainEqual(["expenses.select", "*, expense_payers(user_id, paid_cents), expense_splits(user_id, share_cents, percent_bp)"]);
     expect(fake.log).toContainEqual(["expenses.eq", "trip_id", TRIP]);
   });
 
@@ -179,7 +179,7 @@ describe("saveExpense", () => {
     currency: "EUR",
     spentOn: "2026-11-03",
     category: "food" as const,
-    paidBy: "maria",
+    payers: [{ userId: "maria", paidCents: 6000 }, { userId: "hernan", paidCents: 4000 }],
     splitMethod: "percent" as const,
     notes: "",
     splits: [
@@ -196,7 +196,11 @@ describe("saveExpense", () => {
         "rpc",
         "save_expense",
         {
-          p_expense: { trip_id: TRIP, activity_id: null, title: "Cena", amount_cents: 10000, currency: "EUR", spent_on: "2026-11-03", category: "food", paid_by: "maria", split_method: "percent", notes: null },
+          p_expense: { trip_id: TRIP, activity_id: null, title: "Cena", amount_cents: 10000, currency: "EUR", spent_on: "2026-11-03", category: "food", split_method: "percent", notes: null },
+          p_payers: [
+            { user_id: "maria", paid_cents: 6000 },
+            { user_id: "hernan", paid_cents: 4000 },
+          ],
           p_splits: [
             { user_id: "maria", share_cents: 6000, percent_bp: 6000 },
             { user_id: "hernan", share_cents: 4000, percent_bp: 4000 },

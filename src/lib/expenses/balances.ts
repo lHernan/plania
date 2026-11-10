@@ -40,7 +40,7 @@ export function summarizeTrip(expenses: Expense[], settlements: Settlement[], me
   };
 
   for (const expense of expenses) {
-    person(expense.currency, expense.paidBy).paidCents += expense.amountCents;
+    for (const payer of expense.payers) person(expense.currency, payer.userId).paidCents += payer.paidCents;
     byCurrency.get(expense.currency)!.totalCents += expense.amountCents;
     for (const split of expense.splits) person(expense.currency, split.userId).shareCents += split.shareCents;
   }

@@ -109,13 +109,12 @@ import { activitiesForPerson } from "@/lib/activity-participants";
 import { loadItineraryPerson, saveItineraryPerson, type ItineraryPerson } from "@/lib/trip-people";
 import { WalletView } from "@/components/WalletView";
 import { ExpensesView } from "@/components/expenses/ExpensesView";
-import { expensesIntentHref } from "@/components/expenses/expense-ui";
+import { expensesIntentHref, payersLabel, personNamer } from "@/components/expenses/expense-ui";
 import { useTripExpenses } from "@/hooks/use-trip-expenses";
 import { useTripRealtime } from "@/hooks/use-trip-realtime";
 import { expensesByActivity, spentLabel } from "@/lib/expenses/activity-link";
 import { formatCents } from "@/lib/expenses/money";
 import type { Expense } from "@/lib/expenses/types";
-import { memberShortName } from "@/lib/trip-people";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
@@ -598,7 +597,6 @@ export function ActivityEditModal({
                 ) : (
                   <ul className="space-y-1">
                     {expenses.map((expense) => {
-                      const payer = members.find((member) => member.userId === expense.paidBy);
                       return (
                         <li key={expense.id}>
                           <button
@@ -609,7 +607,7 @@ export function ActivityEditModal({
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-bold text-[var(--color-text)]">{expense.title}</span>
                               <span className="block truncate text-[11px] text-[var(--color-text-secondary)]">
-                                {t("expenses_paid_by", { name: payer ? memberShortName(payer) : t("expenses_former_member") })}
+                                {payersLabel(expense.payers.map((payer) => payer.userId), personNamer(members, t("expenses_former_member")), t)}
                               </span>
                             </span>
                             <span className="shrink-0 text-sm font-black tabular-nums text-[var(--color-text)]">{formatCents(expense.amountCents, expense.currency, lang)}</span>

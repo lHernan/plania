@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSplits, type SplitResult } from "@/lib/expenses/splits";
+import { computePayers, computeSplits, type SplitResult } from "@/lib/expenses/splits";
 
 const shares = (result: SplitResult) => {
   if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
@@ -148,5 +148,33 @@ describe("computeSplits — individual", () => {
 
   it("needs exactly one participant", () => {
     expect(computeSplits({ method: "individual", amountCents: 4200, participantIds: ["a", "b"] })).toEqual({ ok: false, error: "individual_needs_one" });
+  });
+});
+
+describe("computePayers", () => {
+  it("divides the amount equally among the payers, remainder cents first", () => {
+    expect(computePayers({ amountCents: 30001, payerIds: ["hernan", "jack"], mode: "equal" })).toEqual({
+      ok: true,
+      payers: [
+        { userId: "hernan", paidCents: 15001 },
+        { userId: "jack", paidCents: 15000 },
+      ],
+    });
+  });
+
+  it("takes what each one paid when it adds up, dropping payers at 0", () => {
+    expect(computePayers({ amountCents: 30000, payerIds: ["hernan", "jack", "marly"], mode: "exact", exactCents: { hernan: 20000, jack: 10000 } })).toEqual({
+      ok: true,
+      payers: [
+        { userId: "hernan", paidCents: 20000 },
+        { userId: "jack", paidCents: 10000 },
+      ],
+    });
+    expect(computePayers({ amountCents: 30000, payerIds: ["hernan", "jack"], mode: "exact", exactCents: { hernan: 20000 } })).toEqual({ ok: false, error: "sum_mismatch" });
+  });
+
+  it("needs at least one payer and a positive amount", () => {
+    expect(computePayers({ amountCents: 30000, payerIds: [], mode: "equal" })).toEqual({ ok: false, error: "no_participants" });
+    expect(computePayers({ amountCents: 0, payerIds: ["hernan"], mode: "equal" })).toEqual({ ok: false, error: "invalid_amount" });
   });
 });

@@ -8,7 +8,7 @@ import { MemberAvatar } from "@/components/members/MemberAvatar";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { currencyDecimals, formatCents, parseAmountToCents } from "@/lib/expenses/money";
 import { RECEIPT_ACCEPT, removeReceipt, resolveReceiptUrl, uploadReceipt } from "@/lib/expenses/receipts";
-import { computeSplits } from "@/lib/expenses/splits";
+import { computePayers, computeSplits, type PayerMode } from "@/lib/expenses/splits";
 import { deleteExpense, saveExpense, type ExpenseError, type ExpensesClient } from "@/lib/expenses/sync";
 import type { ActivityOptionGroup } from "@/lib/expenses/activity-link";
 import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type SplitMethod } from "@/lib/expenses/types";
@@ -82,7 +82,7 @@ export function ExpenseEditor({
   // Members first, then former members still on this expense (they can stay, never be added).
   const peopleIds = useMemo(() => {
     const memberIds = members.map((member) => member.userId);
-    const former = expense ? [expense.paidBy, ...expense.splits.map((split) => split.userId)].filter((id) => !memberIds.includes(id)) : [];
+    const former = expense ? [...expense.payers.map((payer) => payer.userId), ...expense.splits.map((split) => split.userId)].filter((id) => !memberIds.includes(id)) : [];
     return [...memberIds, ...new Set(former)];
   }, [members, expense]);
   const people = personNamer(members, t("expenses_former_member"));
@@ -94,7 +94,18 @@ export function ExpenseEditor({
   const [spentOn, setSpentOn] = useState(expense?.spentOn ?? todayIso());
   const [category, setCategory] = useState<ExpenseCategory>(expense?.category ?? prefill?.category ?? "other");
   const [activityId, setActivityId] = useState<string | null>(expense ? expense.activityId : prefill?.activityId ?? null);
-  const [paidBy, setPaidBy] = useState(expense?.paidBy ?? (members.some((m) => m.userId === currentUserId) ? currentUserId : members[0]?.userId ?? currentUserId));
+  const [payerIds, setPayerIds] = useState<string[]>(() =>
+    expense
+      ? peopleIds.filter((id) => expense.payers.some((payer) => payer.userId === id))
+      : [members.some((m) => m.userId === currentUserId) ? currentUserId : members[0]?.userId ?? currentUserId],
+  );
+  // Several payers open in amounts mode when editing, so what each one paid stays as stored.
+  const [payerMode, setPayerMode] = useState<PayerMode>(expense && expense.payers.length > 1 ? "exact" : "equal");
+  const [payerText, setPayerText] = useState<Record<string, string>>(() =>
+    expense && expense.payers.length > 1
+      ? Object.fromEntries(expense.payers.map((payer) => [payer.userId, centsToText(payer.paidCents, expense.currency, lang)]))
+      : {},
+  );
   const [method, setMethod] = useState<SplitMethod>(expense?.splitMethod ?? "equal");
   const [participantIds, setParticipantIds] = useState<string[]>(() =>
     expense ? peopleIds.filter((id) => expense.splits.some((split) => split.userId === id)) : members.map((member) => member.userId),
@@ -146,8 +157,16 @@ export function ExpenseEditor({
   const amountCents = parseAmountToCents(amountText, currency);
   const exactCents = Object.fromEntries(participantIds.map((id) => [id, exactText[id]?.trim() ? parseAmountToCents(exactText[id], currency) ?? Number.NaN : 0]));
   const percentBp = Object.fromEntries(participantIds.map((id) => [id, percentTextToBp(percentText[id] ?? "") ?? Number.NaN]));
+  const paidBy = payerIds[0] ?? "";
   const split = amountCents ? computeSplits({ method, amountCents, participantIds, exactCents, percentBp, payerId: paidBy }) : null;
-  const valid = Boolean(title.trim()) && Boolean(amountCents) && Boolean(split?.ok) && Boolean(paidBy);
+  const payerCents = Object.fromEntries(payerIds.map((id) => [id, payerText[id]?.trim() ? parseAmountToCents(payerText[id], currency) ?? Number.NaN : 0]));
+  const paid = amountCents ? computePayers({ amountCents, payerIds, mode: payerIds.length > 1 ? payerMode : "equal", exactCents: payerCents }) : null;
+  // Live "left to assign" for typed payer amounts.
+  const payersLeft =
+    payerIds.length > 1 && payerMode === "exact" && amountCents
+      ? amountCents - Object.values(payerCents).reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0)
+      : null;
+  const valid = Boolean(title.trim()) && Boolean(amountCents) && Boolean(split?.ok) && Boolean(paid?.ok);
 
   // Live "left to assign" for typed shares.
   const remaining = (() => {
@@ -167,6 +186,15 @@ export function ExpenseEditor({
     setMethod(next);
     if (next === "individual") setParticipantIds((current) => [current.includes(paidBy) ? paidBy : current[0] ?? paidBy]);
   };
+  // Someone always pays: the last payer cannot be removed.
+  const togglePayer = (userId: string) => {
+    const next = new Set(payerIds);
+    if (next.has(userId)) {
+      if (next.size === 1) return;
+      next.delete(userId);
+    } else next.add(userId);
+    setPayerIds(peopleIds.filter((id) => next.has(id)));
+  };
   const toggleParticipant = (userId: string) => {
     const next = new Set(participantIds);
     if (next.has(userId)) next.delete(userId);
@@ -178,7 +206,7 @@ export function ExpenseEditor({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!valid || !split?.ok || !amountCents || busy || !canEdit) return;
+    if (!valid || !split?.ok || !paid?.ok || !amountCents || busy || !canEdit) return;
     if (!online) return showError("offline");
     setBusy(true);
     setError(null);
@@ -192,7 +220,7 @@ export function ExpenseEditor({
         currency,
         spentOn,
         category,
-        paidBy,
+        payers: paid.payers,
         splitMethod: method,
         notes,
         splits: split.splits,
@@ -343,17 +371,86 @@ export function ExpenseEditor({
             </div>
           </fieldset>
 
-          <fieldset className="space-y-2">
+          <fieldset className="space-y-2" aria-describedby={payersLeft !== null ? `${titleId}-payers-status` : undefined}>
             <legend className={fieldLabel}>{t("expenses_field_payer")}</legend>
             <div className="flex flex-wrap gap-2">
-              {peopleIds.map((userId) => (
-                <label key={userId} className={chipClass(paidBy === userId)}>
-                  <input type="radio" name={`${titleId}-payer`} value={userId} checked={paidBy === userId} onChange={() => setPaidBy(userId)} disabled={disabled} className="sr-only" />
-                  <MemberAvatar member={people.member(userId)} size="xs" />
-                  {people.name(userId)}
-                </label>
-              ))}
+              {peopleIds.map((userId) => {
+                const selected = payerIds.includes(userId);
+                // A former member can stay as a payer but never be added as one.
+                const locked = !people.isMember(userId) && !selected;
+                return (
+                  <label key={userId} className={chipClass(selected)}>
+                    <input
+                      type="checkbox"
+                      name={`${titleId}-payer`}
+                      value={userId}
+                      checked={selected}
+                      onChange={() => togglePayer(userId)}
+                      disabled={disabled || locked}
+                      className="sr-only"
+                    />
+                    <MemberAvatar member={people.member(userId)} size="xs" />
+                    {people.name(userId)}
+                  </label>
+                );
+              })}
             </div>
+            {payerIds.length > 1 && (
+              <div className="space-y-2 rounded-2xl border border-[var(--color-border)] p-3">
+                <div role="radiogroup" aria-label={t("expenses_payers_mode")} className="grid grid-cols-2 gap-1 rounded-xl bg-[var(--color-surface-subtle)] p-1">
+                  {(["equal", "exact"] as const).map((value) => (
+                    <label
+                      key={value}
+                      className={`min-h-11 inline-flex cursor-pointer items-center justify-center rounded-lg px-2 text-xs font-bold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--color-primary)] ${
+                        payerMode === value ? "bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm" : "text-[var(--color-text-secondary)]"
+                      }`}
+                    >
+                      <input type="radio" name={`${titleId}-payer-mode`} value={value} checked={payerMode === value} onChange={() => setPayerMode(value)} disabled={disabled} className="sr-only" />
+                      {t(value === "equal" ? "expenses_payers_equal" : "expenses_payers_exact")}
+                    </label>
+                  ))}
+                </div>
+                <ul className="space-y-1">
+                  {payerIds.map((userId) => {
+                    const name = people.name(userId);
+                    return (
+                      <li key={userId} className="flex min-h-11 items-center gap-2 text-sm font-medium text-[var(--color-text)]">
+                        <MemberAvatar member={people.member(userId)} size="sm" />
+                        <span className="flex-1">{name}</span>
+                        {payerMode === "exact" ? (
+                          <input
+                            value={payerText[userId] ?? ""}
+                            onChange={(event) => setPayerText((current) => ({ ...current, [userId]: event.target.value }))}
+                            inputMode="decimal"
+                            disabled={disabled}
+                            aria-label={t("expenses_paid_amount_of", { name })}
+                            placeholder="0,00"
+                            className={`${inputClass} w-28 text-right tabular-nums`}
+                          />
+                        ) : (
+                          paid?.ok && (
+                            <span className="text-xs font-semibold tabular-nums text-[var(--color-text-secondary)]">
+                              {formatCents(paid.payers.find((entry) => entry.userId === userId)?.paidCents ?? 0, currency, lang)}
+                            </span>
+                          )
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {payersLeft !== null && (
+                  <p
+                    id={`${titleId}-payers-status`}
+                    role="status"
+                    className={`text-xs font-bold ${payersLeft === 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}
+                  >
+                    {payersLeft === 0
+                      ? t("expenses_remaining_ok")
+                      : t(payersLeft > 0 ? "expenses_remaining_missing" : "expenses_remaining_over", { amount: formatCents(Math.abs(payersLeft), currency, lang) })}
+                  </p>
+                )}
+              </div>
+            )}
           </fieldset>
 
           <fieldset className="space-y-2">
