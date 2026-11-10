@@ -107,6 +107,7 @@ import { ParticipantPicker } from "@/components/members/ParticipantPicker";
 import { activitiesForPerson } from "@/lib/activity-participants";
 import { loadItineraryPerson, saveItineraryPerson, type ItineraryPerson } from "@/lib/trip-people";
 import { WalletView } from "@/components/WalletView";
+import { ExpensesView } from "@/components/expenses/ExpensesView";
 import { TripOverview, type OverviewTab } from "@/components/TripOverview";
 import { OVER_COVER_SURFACE, TripHeaderCover } from "@/components/TripCover";
 import { SetTripDatesDialog } from "@/components/SetTripDatesDialog";
@@ -1382,7 +1383,7 @@ export function TripView() {
   // the overview do not depend on the day, so picking one there opens its activities.
   const pickDay = (dayId: string) => {
     setActiveDay(dayId);
-    if (!activeTrip || (section !== "wallet" && section !== "overview")) return;
+    if (!activeTrip || (section !== "wallet" && section !== "overview" && section !== "expenses")) return;
     const day = activeTrip.days.find((d) => d.id === dayId);
     router.push(tripSectionHref(activeTrip.id, "itinerary", dayUrlParam(activeTrip, day)));
   };
@@ -2288,6 +2289,13 @@ export function TripView() {
               />
             ) : null}
           </div>
+        </div>
+      )}
+
+      {/* EXPENSES SECTION */}
+      {section === "expenses" && activeTrip && (
+        <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 md:px-5 md:pt-8">
+          <ExpensesView tripId={activeTrip.id} ownerId={activeTrip.userId} currency={tripCurrency} isDraft={activeTripIsDraft} />
         </div>
       )}
 

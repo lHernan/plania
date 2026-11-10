@@ -1,5 +1,5 @@
-/** The four sections of a trip; the itinerary lives at the trip's own path. */
-export const TRIP_SECTIONS = ["itinerary", "map", "wallet", "overview"] as const;
+/** The sections of a trip, the itinerary first; it lives at the trip's own path. */
+export const TRIP_SECTIONS = ["itinerary", "expenses", "map", "wallet", "overview"] as const;
 
 export type TripSection = (typeof TRIP_SECTIONS)[number];
 
