@@ -1230,5 +1230,6 @@
   "expenses_payers_equal": "A partes iguales",
   "expenses_payers_exact": "Importes",
   "expenses_paid_amount_of": "Importe que pagó {name}",
-  "expenses_payers_mode": "Cómo pagaron"
+  "expenses_payers_mode": "Cómo pagaron",
+  "chat_proposal_add_expense": "Añadir gasto «{title}» · {amount} · {payers} · entre {people}"
 }

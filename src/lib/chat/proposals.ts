@@ -1,4 +1,6 @@
-import type { Activity, ChatAction, ChatActivityPatch, CriticalReservation, TripPlan } from "@/lib/types";
+import { payersLabel } from "@/lib/expenses/labels";
+import { formatCents } from "@/lib/expenses/money";
+import type { Activity, ChatAction, ChatActivityPatch, ChatExpensePayload, CriticalReservation, TripPlan } from "@/lib/types";
 import { isTripUndated } from "@/lib/trip-undated";
 
 /** What happened to Tachi's proposal in this session; history replies have none. */
@@ -14,6 +16,8 @@ export type ProposalStore = {
   updateActivityState: (dayId: string, activityId: string, state: Activity["state"]) => Promise<boolean>;
   reorderActivitiesToOrder: (dayId: string, orderedActivityIds: string[]) => Promise<void>;
   addReservation: (reservation: Omit<CriticalReservation, "id" | "userId">) => Promise<void>;
+  /** Saves a proposed expense (online only); false when it was not saved. Absent: expenses are skipped. */
+  saveExpense?: (expense: ChatExpensePayload) => Promise<boolean>;
 };
 
 function formatDate(date: string, lang: string) {
@@ -52,8 +56,17 @@ function describePatch(patch: ChatActivityPatch, t: Translate) {
   return changes.join(", ");
 }
 
-/** One proposed change in plain language, e.g. "Agregar «Museo del Prado» · mar 27 oct · 10:00". */
-export function describeChatAction(action: ChatAction, trip: ProposalTrip, t: Translate, lang: string): string {
+/**
+ * One proposed change in plain language, e.g. "Agregar «Museo del Prado» · mar 27 oct · 10:00".
+ * `nameOf` names the people of an expense (trip members).
+ */
+export function describeChatAction(
+  action: ChatAction,
+  trip: ProposalTrip,
+  t: Translate,
+  lang: string,
+  nameOf: (userId: string) => string = () => t("expenses_former_member"),
+): string {
   switch (action.type) {
     case "add_activity":
       return t("chat_proposal_add_activity", {
@@ -79,6 +92,13 @@ export function describeChatAction(action: ChatAction, trip: ProposalTrip, t: Tr
       return isTripUndated(trip) || !action.payload.reservationDate
         ? t("chat_proposal_add_reservation", { title: action.payload.title })
         : t("chat_proposal_add_reservation_dated", { title: action.payload.title, date: formatDate(action.payload.reservationDate, lang) });
+    case "add_expense":
+      return t("chat_proposal_add_expense", {
+        title: action.payload.title,
+        amount: formatCents(action.payload.amountCents, action.payload.currency, lang),
+        payers: payersLabel(action.payload.payers.map((payer) => payer.userId), { name: nameOf }, t),
+        people: action.payload.splits.map((split) => nameOf(split.userId)).join(", "),
+      });
   }
 }
 
@@ -104,6 +124,7 @@ function stillApplies(action: ChatAction, trip: ProposalTrip) {
       return Boolean(current) && current!.length === ordered.length && new Set(ordered).size === ordered.length && ordered.every((id) => current!.includes(id));
     }
     case "add_reservation":
+    case "add_expense":
       return true;
   }
 }
@@ -127,6 +148,13 @@ async function runAction(action: ChatAction, trip: ProposalTrip, store: Proposal
     case "add_reservation":
       await store.addReservation(action.payload);
       return true;
+    case "add_expense": {
+      if (!store.saveExpense) return false;
+      // The linked activity may have been deleted since: the expense is saved without it.
+      const activityId = action.payload.activityId;
+      const linked = activityId && trip.days.some((day) => day.activities.some((activity) => activity.id === activityId)) ? activityId : null;
+      return store.saveExpense({ ...action.payload, activityId: linked });
+    }
   }
 }
 

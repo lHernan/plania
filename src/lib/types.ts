@@ -1,3 +1,5 @@
+import type { ExpenseCategory, ExpensePayer, ExpenseSplit, SplitMethod } from "@/lib/expenses/types";
+
 export type ActivityCategory =
   | "sightseeing"
   | "reservation"
@@ -415,12 +417,28 @@ export type ChatActivityPatch = Partial<Pick<
 
 export type ChatReservationPayload = Omit<CriticalReservation, "id" | "userId">;
 
+/** An expense Tachi proposes, already in cents and checked against the trip members. */
+export type ChatExpensePayload = {
+  title: string;
+  amountCents: number;
+  currency: string;
+  /** yyyy-MM-dd */
+  spentOn: string;
+  category: ExpenseCategory;
+  activityId: string | null;
+  payers: ExpensePayer[];
+  splitMethod: SplitMethod;
+  splits: ExpenseSplit[];
+  notes: string | null;
+};
+
 export type ChatAction =
   | { type: "add_activity"; payload: ChatActivityPayload }
   | { type: "patch_activity"; payload: { dayId: string; activityId: string; patch: ChatActivityPatch } }
   | { type: "update_activity_state"; payload: { dayId: string; activityId: string; state: ActivityState } }
   | { type: "reorder_activities"; payload: { dayId: string; orderedActivityIds: string[] } }
-  | { type: "add_reservation"; payload: ChatReservationPayload };
+  | { type: "add_reservation"; payload: ChatReservationPayload }
+  | { type: "add_expense"; payload: ChatExpensePayload };
 
 export type ChatMessage = {
   id: string;

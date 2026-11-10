@@ -11,6 +11,7 @@ const db = vi.hoisted(() => ({
   user: { id: "owner" } as { id: string; is_anonymous?: boolean } | null,
   tables: {} as Record<string, Row[]>,
   inserted: [] as Row[],
+  members: [] as Row[] | null,
 }));
 
 function query(table: string) {
@@ -43,7 +44,10 @@ vi.mock("@/lib/supabase-server", () => ({
   getAuthClient: () => ({
     auth: { getUser: async () => ({ data: { user: db.user }, error: db.user ? null : { message: "no session" } }) },
     from: (table: string) => query(table),
-    rpc: async () => ({ data: [{ allowed: true, used: 1, remaining: 9 }], error: null }),
+    rpc: async (fn: string) =>
+      fn === "trip_members"
+        ? { data: db.members, error: db.members ? null : { message: "boom" } }
+        : { data: [{ allowed: true, used: 1, remaining: 9 }], error: null },
   }),
   getServiceRoleSupabase: () => ({
     rpc: async () => ({ data: true, error: null }),
@@ -94,6 +98,11 @@ beforeEach(() => {
     critical_reservations: [],
     trip_messages: [],
   };
+  db.members = [
+    { user_id: "owner", email: "hernan@x.io", is_owner: true, display_name: "Hernán L", avatar_url: null },
+    { user_id: "ed", email: "jack@x.io", is_owner: false, display_name: "Jack", avatar_url: null },
+    { user_id: "vi", email: "marly@x.io", is_owner: false, display_name: null, avatar_url: null },
+  ];
 });
 
 function assistantRow() {
@@ -189,5 +198,83 @@ describe("chat proposals by role", () => {
 
     expect(response.status).toBe(403);
     expect(runAiPrompt).not.toHaveBeenCalled();
+  });
+});
+
+// S1, S4 (odd/tasks/tachi-expenses.md): "jacke y yo pagamos el hotel, marly nos debe 100 euros".
+describe("expense proposals", () => {
+  const hotel = {
+    type: "add_expense",
+    payload: {
+      title: "Hotel",
+      amount: 300,
+      category: "lodging",
+      payers: [{ userId: "owner" }, { userId: "ed" }],
+      split: { method: "equal", participants: ["owner", "ed", "vi"] },
+    },
+  };
+  const expectedHotel = {
+    type: "add_expense",
+    payload: {
+      title: "Hotel",
+      amountCents: 30000,
+      currency: "EUR",
+      spentOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      category: "lodging",
+      activityId: null,
+      payers: [
+        { userId: "owner", paidCents: 15000 },
+        { userId: "ed", paidCents: 15000 },
+      ],
+      splitMethod: "equal",
+      splits: [
+        { userId: "owner", shareCents: 10000 },
+        { userId: "ed", shareCents: 10000 },
+        { userId: "vi", shareCents: 10000 },
+      ],
+      notes: null,
+    },
+  };
+
+  it("tells the model who the members are and stores the expense in cents", async () => {
+    runAiPrompt.mockResolvedValue(JSON.stringify({ reply: "Te propongo este gasto", actions: [hotel] }));
+    const body = await (await post({ tripId: "t1", content: "jack y yo pagamos el hotel de 300, marly nos debe 100", lang: "es" })).json();
+
+    expect(body.actions).toEqual([expectedHotel]);
+    expect(assistantRow()?.actions).toEqual([expectedHotel]);
+    const prompt = runAiPrompt.mock.calls[0][0];
+    expect(prompt).toContain('{"id":"owner","name":"Hernán L","isYou":true}');
+    expect(prompt).toContain('{"id":"vi","name":"marly","isYou":false}');
+    expect(prompt).toContain("add_expense");
+    expect(prompt).toContain("Never invent amounts");
+  });
+
+  it("lets a viewer propose an expense (any member records expenses) but nothing else", async () => {
+    db.user = { id: "vi" };
+    runAiPrompt.mockResolvedValue(JSON.stringify({ reply: "Te propongo esto", actions: [validAdd, hotel] }));
+    const body = await (await post({ tripId: "t1", content: "pagamos el hotel" })).json();
+
+    expect(body.actions).toEqual([expectedHotel]);
+    const prompt = runAiPrompt.mock.calls[0][0];
+    expect(prompt).toContain("read-only");
+    expect(prompt).toContain("add_expense");
+    expect(prompt).not.toContain("add_activity");
+  });
+
+  it("drops an expense that does not add up or names a stranger", async () => {
+    const wrongSum = { ...hotel, payload: { ...hotel.payload, payers: [{ userId: "owner", amount: 100 }, { userId: "ed", amount: 100 }] } };
+    const stranger = { ...hotel, payload: { ...hotel.payload, payers: [{ userId: "nobody" }] } };
+    runAiPrompt.mockResolvedValue(JSON.stringify({ reply: "Te propongo esto", actions: [wrongSum, stranger] }));
+    const body = await (await post({ tripId: "t1", content: "pagamos el hotel" })).json();
+    expect(body.actions).toEqual([]);
+  });
+
+  it("proposes no expense when the members cannot be loaded", async () => {
+    db.members = null;
+    runAiPrompt.mockResolvedValue(JSON.stringify({ reply: "Te propongo esto", actions: [hotel] }));
+    const response = await post({ tripId: "t1", content: "pagamos el hotel" });
+    expect(response.status).toBe(200);
+    expect((await response.json()).actions).toEqual([]);
+    expect(runAiPrompt.mock.calls[0][0]).not.toContain("add_expense");
   });
 });

@@ -3,6 +3,8 @@ import { extractJsonObject } from "@/lib/ai/json-response";
 import { runAiPrompt } from "@/lib/ai/provider";
 import { enforceAiQuota } from "@/lib/ai/quota";
 import { buildTripContext, type TripContext } from "@/lib/ai/trip-context";
+import { normalizeExpenseProposal, type ExpenseProposalContext } from "@/lib/chat/expense-proposal";
+import { EXPENSE_CATEGORIES } from "@/lib/expenses/types";
 import { getCurrentTripDateTime, parseTravelContext } from "@/lib/travel-context";
 import { findCityPaymentGuide } from "@/lib/city-payment-guides";
 import { getAuthClient, getServiceRoleSupabase } from "@/lib/supabase-server";
@@ -151,10 +153,15 @@ function findActivity(context: TripContext, activityId: string) {
   return null;
 }
 
-function normalizeAction(value: unknown, context: TripContext): ChatAction | null {
+function normalizeAction(value: unknown, context: TripContext, expenses: ExpenseProposalContext | null): ChatAction | null {
   const record = getRecord(value);
   if (!record || !isString(record.type)) return null;
   const payload = getRecord(record.payload);
+
+  if (record.type === "add_expense") {
+    const expense = expenses ? normalizeExpenseProposal(record.payload, expenses) : null;
+    return expense ? { type: "add_expense", payload: expense } : null;
+  }
 
   if (record.type === "add_activity" && payload && isString(payload.dayId) && isString(payload.title)) {
     const day = context.days.find((item) => item.id === payload.dayId);
@@ -253,11 +260,19 @@ function normalizeAction(value: unknown, context: TripContext): ChatAction | nul
   return null;
 }
 
-export function normalizeAgentResponse(value: unknown, context: TripContext, canWrite: boolean) {
+/**
+ * The reply and the proposals that survive validation. Itinerary and reservation changes need
+ * write access; an expense only needs the members (`expenses`), since any member records them.
+ */
+export function normalizeAgentResponse(value: unknown, context: TripContext, canWrite: boolean, expenses: ExpenseProposalContext | null = null) {
   const record = getRecord(value);
   const reply = cleanText(record?.reply, "I couldn't understand that request.", 2_000);
-  const actions = canWrite && Array.isArray(record?.actions)
-    ? record.actions.map((action) => normalizeAction(action, context)).filter((action): action is ChatAction => Boolean(action)).slice(0, 8)
+  const actions = Array.isArray(record?.actions)
+    ? record.actions
+        .filter((action) => canWrite || getRecord(action)?.type === "add_expense")
+        .map((action) => normalizeAction(action, context, expenses))
+        .filter((action): action is ChatAction => Boolean(action))
+        .slice(0, 8)
     : [];
   return { reply, actions };
 }
@@ -365,6 +380,46 @@ async function loadTripContext(access: Awaited<ReturnType<typeof authorizeTrip>>
   return context;
 }
 
+type MemberRow = { user_id: string; email: string | null; display_name?: string | null };
+
+/** What an expense proposal is checked against: the members (with the caller marked), currency, date and activities. */
+async function loadExpenseContext(access: Awaited<ReturnType<typeof authorizeTrip>>, context: TripContext): Promise<ExpenseProposalContext | null> {
+  const { supabase, caller, trip } = access;
+  try {
+    const { data, error } = await supabase.rpc("trip_members", { p_trip_id: trip.id });
+    const rows = Array.isArray(data) ? (data as MemberRow[]) : [];
+    if (error || rows.length === 0) return null;
+    return {
+      people: rows.map((row) => ({
+        userId: row.user_id,
+        name: row.display_name?.trim() || row.email?.split("@")[0]?.trim() || "?",
+        isYou: row.user_id === caller.id,
+      })),
+      currency: context.trip.travelContext?.currency ?? "EUR",
+      today: context.currentDate,
+      activityIds: context.days.flatMap((day) => day.activities.map((activity) => activity.id)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const EXPENSE_SCHEMA = `{"type":"add_expense","payload":{"title":"string","amount":0,"currency":"ISO 4217 code?","spentOn":"yyyy-MM-dd?","category":"${EXPENSE_CATEGORIES.join("|")}","activityId":"string?","payers":[{"userId":"string","amount":0}],"split":{"method":"equal|exact|percent|individual","participants":["userId"],"amounts":{"userId":0},"percents":{"userId":0}},"notes":"string?"}}`;
+
+/** Expense proposals, open to every member (owner, editor or viewer), like recording one by hand. */
+function expenseRules(expenses: ExpenseProposalContext | null) {
+  if (!expenses) return "";
+  return `
+- Trip members (people) for expenses: ${JSON.stringify(expenses.people.map((person) => ({ id: person.userId, name: person.name, isYou: person.isYou })))}. "I", "me", "we" include the person with isYou.
+- When the traveler tells you about something paid for the trip, you may propose one add_expense action. It is a proposal too: nothing is saved until they confirm it in the app.
+- Never invent amounts. If the total amount, or who paid, is unclear, ask one short question in "reply" and return no add_expense action.
+- Amounts are plain numbers in the expense currency (e.g. 150.5), default ${expenses.currency}. Several people can pay one expense: list every payer; give each payer's amount only when they paid different amounts, otherwise omit it and they paid equal parts.
+- "X owes us N" for an expense means N is X's share: use an "exact" split with every participant's amount, or "equal" when the shares are equal. Participants default to every member; leave out people who do not share it.
+- Use only people ids from the list and activity ids from the trip context.
+- add_expense action shape (fields marked "?" are optional):
+${EXPENSE_SCHEMA}`;
+}
+
 const ACTION_SCHEMA = `{"type":"add_activity","payload":{"dayId":"string","title":"string","time":"HH:mm","durationMin":60,"location":"string?","notes":"string?","expectedCost":0,"category":"${ACTIVITY_CATEGORIES.join("|")}","priority":"${PRIORITIES.join("|")}"}}
 {"type":"patch_activity","payload":{"dayId":"string","activityId":"string","patch":{"title":"string?","time":"HH:mm?","durationMin":60,"location":"string?","notes":"string?","expectedCost":0,"category":"string?","priority":"string?"}}}
 {"type":"update_activity_state","payload":{"dayId":"string","activityId":"string","state":"${ACTIVITY_STATES.join("|")}"}}
@@ -372,9 +427,9 @@ const ACTION_SCHEMA = `{"type":"add_activity","payload":{"dayId":"string","title
 {"type":"add_reservation","payload":{"title":"string","bookingDeadline":"yyyy-MM-dd","reservationDate":"yyyy-MM-dd","bookingLink":"string?","urgency":"${RESERVATION_URGENCIES.join("|")}","status":"${RESERVATION_STATUSES.join("|")}","price":0}}`;
 
 /** What the model may return: proposals for owners and editors, nothing for viewers. */
-function actionRules(canWrite: boolean) {
+function actionRules(canWrite: boolean, expenses: ExpenseProposalContext | null) {
   if (!canWrite) {
-    return `- This assistant is currently read-only. Never return actions that modify the itinerary or reservations.
+    return `- This assistant is currently read-only. Never return actions that modify the itinerary or reservations.${expenseRules(expenses)}
 - Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}`;
   }
   return `- You can propose changes for this traveler. Earlier assistant replies in the conversation that said you cannot change the trip no longer apply: never repeat them.
@@ -382,11 +437,11 @@ function actionRules(canWrite: boolean) {
 - Propose only what the traveler asked for, with at most 3 actions. Return an empty "actions" array for questions.
 - Use only day and activity ids that appear in the trip context; never invent ids. When the trip is undated, days have a dayNumber instead of a date: refer to them by their day id.
 - Allowed actions, one JSON object each (fields marked "?" are optional):
-${ACTION_SCHEMA}
+${ACTION_SCHEMA}${expenseRules(expenses)}
 - Return ONLY valid JSON with this exact shape: {"reply":"string","actions":[]}`;
 }
 
-function systemPrompt(context: TripContext, lang: string | undefined, canWrite: boolean) {
+function systemPrompt(context: TripContext, lang: string | undefined, canWrite: boolean, expenses: ExpenseProposalContext | null) {
   const paymentGuides = Array.from(new Set(context.days.map((day) => day.city)))
     .map((city) => findCityPaymentGuide(city))
     .filter((guide) => guide !== undefined);
@@ -408,7 +463,7 @@ Rules:
 - If information is missing, say so and make a clearly labeled suggestion.
 - For contactless payment, tickets, validation, transfers, cash, or group purchase questions, use only a matching verified payment-guide entry above. If there is no matching city/topic entry, state that Tachao has no verified guide for it and do not answer from general model knowledge.
 ${langRule}
-${actionRules(canWrite)}
+${actionRules(canWrite, expenses)}
 `;
 }
 
@@ -462,6 +517,7 @@ export async function POST(request: Request) {
     if (blocked) return blocked;
 
     const context = await loadTripContext(access);
+    const expenses = await loadExpenseContext(access, context);
     const { error: userMessageError } = await admin.from("trip_messages").insert({
       trip_id: tripId,
       user_id: caller.id,
@@ -479,9 +535,9 @@ export async function POST(request: Request) {
       .slice(-20)
       .map((message) => `${message.role}: ${message.content}`)
       .join("\n");
-    const raw = await runAiPrompt(systemPrompt(context, lang, canWrite), `${historyPrompt}\nuser: ${content}`);
+    const raw = await runAiPrompt(systemPrompt(context, lang, canWrite, expenses), `${historyPrompt}\nuser: ${content}`);
     const parsed = extractJsonObject<{ reply?: unknown; actions?: unknown[] }>(raw);
-    const result = normalizeAgentResponse(parsed, context, canWrite);
+    const result = normalizeAgentResponse(parsed, context, canWrite, expenses);
 
     // Chat rows are server-authored; user sessions can only read the shared history. The stored
     // actions are proposals: the client applies them only after the user confirms.
