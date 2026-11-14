@@ -67,7 +67,7 @@ import {
 import { cacheDocumentForOffline, getCachedDocumentAvailability, type DocumentOfflineStatus } from "@/lib/offline-documents";
 import { currencyChoices, currencyLabel, currencySymbol, formatTripAmount, getTripCurrency, usePreferredCurrency } from "@/lib/trip-currency";
 import { timeForMove } from "@/lib/schedule/fit";
-import { useItineraryStore } from "@/store/use-itinerary-store";
+import { TRIP_UNAVAILABLE_ERROR, useItineraryStore } from "@/store/use-itinerary-store";
 import { useOfflineStore } from "@/store/use-offline-store";
 import { TripSwitcher } from "@/components/TripSwitcher";
 import { DocumentViewer } from "@/components/DocumentViewer";
@@ -1580,7 +1580,7 @@ export function TripView() {
             <Info className="text-[var(--color-danger)]" size={32} />
           </div>
           <h2 className="text-xl font-black text-[var(--color-text)] mb-2">{t("connection_issue")}</h2>
-          <p className="text-[var(--color-text-secondary)] text-sm mb-8">{error}</p>
+          <p className="text-[var(--color-text-secondary)] text-sm mb-8">{error === TRIP_UNAVAILABLE_ERROR ? t("trip_unavailable") : error}</p>
           <button
             onClick={() => window.location.reload()}
             className="w-full bg-[var(--color-text)] text-[var(--color-surface)] rounded-2xl py-4 font-bold"

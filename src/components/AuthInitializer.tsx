@@ -7,7 +7,7 @@ import { completePendingOAuthTransfer, peekPendingOAuthDraft } from "@/lib/auth/
 import { claimPendingInvitations } from "@/lib/share/claim-client";
 import { parseTripPath, tripPath } from "@/lib/trip-routes";
 import { useAuthStore } from "@/store/use-auth-store";
-import { useItineraryStore } from "@/store/use-itinerary-store";
+import { TRIP_UNAVAILABLE_ERROR, useItineraryStore } from "@/store/use-itinerary-store";
 
 function isOffline() {
   return typeof navigator !== "undefined" && !navigator.onLine;
@@ -26,6 +26,7 @@ export function AuthInitializer() {
   const hasTrips = useItineraryStore((s) => s.trips.length > 0);
   const hasFetched = useItineraryStore((s) => s.hasFetched);
   const loading = useItineraryStore((s) => s.loading);
+  const tripError = useItineraryStore((s) => s.error);
   const fetchAllTrips = useItineraryStore((s) => s.fetchAllTrips);
   const fetchActiveTrip = useItineraryStore((s) => s.fetchActiveTrip);
   const clearData = useItineraryStore((s) => s.clearData);
@@ -117,6 +118,8 @@ export function AuthInitializer() {
     // connectivity and the cache may still be hydrating the active trip.
     if (isOffline()) return;
     const onTripPage = pathname.startsWith("/trips/");
+    // A trip that failed to load keeps its page, which offers a retry, instead of leaving it.
+    if (onTripPage && tripError === TRIP_UNAVAILABLE_ERROR) return;
     if (isRegistered) {
       // With no trips at all, a registered user gets the empty trip list (create, templates)
       // instead of the landing. While trips exist the selected one is still on its way.
@@ -125,7 +128,7 @@ export function AuthInitializer() {
       return;
     }
     if (pathname === "/trips" || onTripPage) router.push("/");
-  }, [activeTrip, hasFetched, hasTrips, initialized, isRegistered, loading, pathname, router]);
+  }, [activeTrip, hasFetched, hasTrips, initialized, isRegistered, loading, pathname, router, tripError]);
 
   useEffect(() => {
     const handleFocus = async () => {

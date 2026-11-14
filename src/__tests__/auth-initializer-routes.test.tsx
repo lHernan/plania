@@ -28,7 +28,7 @@ beforeEach(() => {
   fetchActiveTrip.mockClear();
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
   useItineraryStore.setState({
-    trips: [], activeTrip: null, activeTripIsDraft: false, hasFetched: false, loading: false,
+    trips: [], activeTrip: null, activeTripIsDraft: false, hasFetched: false, loading: false, error: null,
     fetchActiveTrip, fetchAllTrips: vi.fn(async () => {}), clearData: vi.fn(), syncPendingMutations: vi.fn(async () => {}),
   });
   // Anonymous: skips the invitation claim, which needs a session.
@@ -154,6 +154,15 @@ describe("AuthInitializer routes", () => {
       act(() => useItineraryStore.setState({ trips: [summary], activeTrip: null, hasFetched: true, loading: false }));
       await waitFor(() => expect(fetchActiveTrip).toHaveBeenCalled());
       expect(nav.push).not.toHaveBeenCalledWith("/trips");
+    });
+
+    it("stays on a trip that failed to load instead of going to the landing", async () => {
+      nav.pathname = "/trips/t-3";
+      render(<AuthInitializer />);
+      const summary = { id: "t-3", name: "t-3", dayCount: 1, activityCount: 0 };
+      act(() => useItineraryStore.setState({ trips: [summary], activeTrip: null, error: "trip_unavailable", hasFetched: true, loading: false }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(nav.push).not.toHaveBeenCalled();
     });
 
     it("stays put when offline with no trips", async () => {

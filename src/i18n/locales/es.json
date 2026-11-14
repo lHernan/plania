@@ -4,6 +4,7 @@
   "loading_adventure": "Cargando Aventura...",
   "connection_issue": "Error de Conexion",
   "retry_connection": "Reintentar Conexion",
+  "trip_unavailable": "No pudimos cargar este viaje ahora. Tu viaje está a salvo: revisa tu conexión e inténtalo de nuevo.",
   "trip_status": "Estado del Viaje",
   "scheduled_adventure": "Aventura Programada",
   "memory_lane": "Camino de los Recuerdos",

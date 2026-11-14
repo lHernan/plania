@@ -5,10 +5,17 @@ const db = vi.hoisted(() => ({
   trips: [] as Record<string, unknown>[],
   shares: [] as { trip_id: string; shared_with: string }[],
   tripQueries: [] as [string, unknown][][],
+  /** A stale session: RLS answers with no rows instead of an error. */
+  signedOut: false,
+  /** Whether refreshing the session brings the rows back. */
+  refreshRestores: true,
+  refreshes: 0,
+  failing: false,
 }));
 
 vi.mock("@/lib/supabase", () => {
   const rows = (table: string, filters: [string, string, unknown][]) => {
+    if (db.signedOut) return [];
     if (table === "trips") {
       db.tripQueries.push(filters.map(([, c, v]) => [c, v]));
       return db.trips.filter((t) => filters.every(([op, c, v]) => (op === "in" ? (v as unknown[]).includes(t[c]) : t[c] === v)));
@@ -23,14 +30,24 @@ vi.mock("@/lib/supabase", () => {
       eq: (c: string, v: unknown) => (filters.push(["eq", c, v]), q),
       in: (c: string, v: unknown[]) => (filters.push(["in", c, v]), q),
       order: () => q,
-      then: (resolve: (r: unknown) => void) => resolve({ data: rows(table, filters), error: null }),
+      then: (resolve: (r: unknown) => void) => resolve(db.failing && table === "trips"
+        ? { data: null, error: { message: "fetch failed" } }
+        : { data: rows(table, filters), error: null }),
     };
     return q;
   };
   return {
     supabase: {
       from: query,
-      auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), getSession: async () => ({ data: { session: null } }) },
+      auth: {
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+        getSession: async () => ({ data: { session: null } }),
+        refreshSession: async () => {
+          db.refreshes += 1;
+          if (db.refreshRestores) db.signedOut = false;
+          return { data: {}, error: null };
+        },
+      },
     },
   };
 });
@@ -42,7 +59,7 @@ vi.mock("@/lib/offline-state", async (importOriginal) => ({
 }));
 
 const { loadOfflineTripCache } = await import("@/lib/offline-state");
-const { useItineraryStore } = await import("@/store/use-itinerary-store");
+const { useItineraryStore, TRIP_UNAVAILABLE_ERROR } = await import("@/store/use-itinerary-store");
 const { useAuthStore } = await import("@/store/use-auth-store");
 
 const trip = (id: string, owner: string, name: string) => ({ id, user_id: owner, name, start_date: "2026-11-01", end_date: "2026-11-05", created_at: "2026-10-01" });
@@ -51,8 +68,12 @@ beforeEach(() => {
   db.trips = [trip("t-own", "u-owner", "Viaje propio"), trip("t-shared", "u-owner", "La Palma")];
   db.shares = [{ trip_id: "t-shared", shared_with: "u-inv" }];
   db.tripQueries = [];
+  db.signedOut = false;
+  db.refreshRestores = true;
+  db.refreshes = 0;
+  db.failing = false;
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
-  useItineraryStore.setState({ activeTrip: null, activeTripIsDraft: false });
+  useItineraryStore.setState({ trips: [], activeTrip: null, activeTripIsDraft: false, error: null });
 });
 
 describe("loading the active trip", () => {
@@ -107,6 +128,46 @@ describe("loading the active trip", () => {
     useAuthStore.setState({ user: { id: "u-nobody" } as never });
     await useItineraryStore.getState().fetchActiveTrip();
     expect(useItineraryStore.getState().activeTrip).toBeNull();
+  });
+});
+
+describe("a listed trip that does not load", () => {
+  const listed = (id: string) => useItineraryStore.setState({ trips: [{ id, name: id, dayCount: 0, activityCount: 0 }] as never });
+
+  it("refreshes the session and asks for the trip again", async () => {
+    db.signedOut = true;
+    useAuthStore.setState({ user: { id: "u-owner" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-own");
+    expect(useItineraryStore.getState().activeTrip).toMatchObject({ id: "t-own" });
+    expect(db.refreshes).toBe(1);
+  });
+
+  it("opens the cached copy instead of another trip", async () => {
+    db.signedOut = true;
+    db.refreshRestores = false;
+    listed("t-b");
+    vi.mocked(loadOfflineTripCache).mockResolvedValue(cachedTrips());
+    useAuthStore.setState({ user: { id: "u-owner" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-b");
+    vi.mocked(loadOfflineTripCache).mockResolvedValue(null);
+    expect(useItineraryStore.getState()).toMatchObject({ activeTrip: { id: "t-b" }, error: null, hasFetched: true, loading: false });
+    expect(db.refreshes).toBe(1);
+  });
+
+  it("reports the trip as unavailable when it is not cached", async () => {
+    db.signedOut = true;
+    db.refreshRestores = false;
+    listed("t-own");
+    useAuthStore.setState({ user: { id: "u-owner" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-own");
+    expect(useItineraryStore.getState()).toMatchObject({ activeTrip: null, error: TRIP_UNAVAILABLE_ERROR, hasFetched: true, loading: false });
+  });
+
+  it("reports the requested trip as unavailable when the request fails and nothing is cached", async () => {
+    db.failing = true;
+    useAuthStore.setState({ user: { id: "u-owner" } as never });
+    await useItineraryStore.getState().fetchActiveTrip("t-own");
+    expect(useItineraryStore.getState()).toMatchObject({ activeTrip: null, error: TRIP_UNAVAILABLE_ERROR, hasFetched: true, loading: false });
   });
 });
 

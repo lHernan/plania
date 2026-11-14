@@ -4,6 +4,7 @@
   "loading_adventure": "Loading Adventure...",
   "connection_issue": "Connection Issue",
   "retry_connection": "Retry Connection",
+  "trip_unavailable": "We couldn't load this trip right now. Your trip is safe: check your connection and try again.",
   "trip_status": "Trip Status",
   "scheduled_adventure": "Scheduled Adventure",
   "memory_lane": "Memory Lane",
