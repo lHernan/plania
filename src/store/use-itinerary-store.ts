@@ -47,6 +47,7 @@ import {
   getRetryDelayMs,
   isOfflineId,
   listOfflineMutations,
+  countPendingOfflineMutations,
   loadOfflineTripCache,
   saveOfflineTripCache,
   clearOfflineTripCache,
@@ -595,8 +596,22 @@ function buildSeedDays(tripId: string, userId: string, startDate: string, endDat
   }));
 }
 
+/** `error` when a requested trip could not be loaded and is not cached on this device. */
+export const TRIP_UNAVAILABLE_ERROR = "trip_unavailable";
+
+/** How often the copies of every listed trip on this device are refreshed. */
+const ALL_TRIPS_CACHE_INTERVAL_MS = 15 * 60_000;
+
 export const useItineraryStore = create<Store>((set, get) => {
-  const persistCacheFromState = async () => {
+  // Each cache write reads, changes and saves the whole cache: one at a time, so none undoes another.
+  let cacheWrites: Promise<unknown> = Promise.resolve();
+  const queueCacheWrite = <T,>(write: () => Promise<T>): Promise<T> => {
+    const run = cacheWrites.then(write, write);
+    cacheWrites = run.catch(() => {});
+    return run;
+  };
+
+  const persistCacheFromState = () => queueCacheWrite(async () => {
     const userId = getCurrentUserId() ?? get().activeTrip?.userId ?? null;
     if (!userId) return;
 
@@ -613,7 +628,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       latestTripId: activeTrip?.id ?? existingCache?.latestTripId ?? null,
       cachedAt: Date.now(),
     });
-  };
+  });
 
   const writeState = async (updater: Partial<Store> | ((state: Store) => Partial<Store>)) => {
     set(updater as never);
@@ -707,7 +722,7 @@ export const useItineraryStore = create<Store>((set, get) => {
   const patchMemory = (tripId: string, memoryId: string, update: (memory: Memory) => Memory) =>
     writeMemories(tripId, (memories) => memories.map((memory) => (memory.id === memoryId ? update(memory) : memory)));
 
-  const removeTripFromCache = async (tripId: string) => {
+  const removeTripFromCache = (tripId: string) => queueCacheWrite(async () => {
     const userId = getCurrentUserId() ?? get().activeTrip?.userId ?? null;
     if (!userId) return;
 
@@ -722,7 +737,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       latestTripId: cache.latestTripId === tripId ? null : cache.latestTripId,
       cachedAt: Date.now(),
     });
-  };
+  });
 
   const enqueueMutation = async (
     operation: OfflineMutationQueueEntry["operation"],
@@ -846,60 +861,19 @@ export const useItineraryStore = create<Store>((set, get) => {
     });
   };
 
-    const fetchFreshTrip = async (tripId?: string) => {
-      const userId = getCurrentUserId();
-    let tripQuery = supabase.from("trips").select("*");
-    if (tripId) {
-      tripQuery = tripQuery.eq("id", tripId);
-    } else if (userId) {
-      tripQuery = tripQuery.eq("user_id", userId);
-    }
-
-    const { data: ownTrips, error } = await tripQuery;
-    if (error) throw error;
-    let trips = ownTrips;
-    if (!tripId && userId && (!trips || trips.length === 0)) {
-      // An account with no trips of its own opens the ones shared with it. Only trip_shares
-      // counts: RLS would also let it read trips that merely have an open share link.
-      const { data: shares, error: sharesError } = await supabase.from("trip_shares").select("trip_id").eq("shared_with", userId);
-      if (sharesError) throw sharesError;
-      const sharedIds = (shares ?? []).map((share) => String((share as { trip_id: string }).trip_id));
-      if (sharedIds.length > 0) {
-        const { data: sharedTrips, error: sharedError } = await supabase.from("trips").select("*").in("id", sharedIds);
-        if (sharedError) throw sharedError;
-        trips = sharedTrips;
-      }
-    }
-
-      if (!trips || trips.length === 0) {
-      // A trip asked for by id (a URL) that is gone or not shared opens the one the selection would pick.
-      if (tripId) return fetchFreshTrip();
-      set({ activeTrip: null, activeDayId: "", loading: false, hasFetched: true });
-      return;
-    }
-
-    const availableTrips = (trips ?? []) as TripDb[];
-    const selectedTripId = tripId ?? resolveTripSelection({
-      current_date: getCurrentDateString(),
-      trips: availableTrips
-        .filter((trip) => Boolean(trip.start_date && trip.end_date))
-        .map((trip) => ({
-          id: String(trip.id),
-          name: String(trip.name),
-          start_date: String(trip.start_date),
-          end_date: String(trip.end_date),
-          is_favorite: Boolean(trip.is_favorite),
-          created_at: trip.created_at ?? "",
-        })),
-    }).selected_trip_id;
-
-    const trip = availableTrips.find((item) => item.id === selectedTripId) ?? availableTrips[0];
-    const [{ data: days }, { data: activities }, { data: reservations }, { data: files }] = await Promise.all([
+  /** One trip with everything it shows (days, activities, packing, shopping, memories), ready to open or to cache. */
+  const loadTripPlan = async (trip: TripDb, userId: string | null) => {
+    const results = await Promise.all([
       supabase.from("trip_days").select("*").eq("trip_id", trip.id).order("date", { ascending: true }),
       supabase.from("activities").select("*").eq("trip_id", trip.id).order("sort_order", { ascending: true }),
       supabase.from("critical_reservations").select("*").eq("trip_id", trip.id),
       supabase.from("activity_files").select("*").eq("trip_id", trip.id),
     ]);
+    // supabase-js returns a failed request as an error, not a throw: without this a dropped
+    // connection would read as an empty trip and replace the saved copy.
+    const failed = results.find((result) => result.error);
+    if (failed) throw failed.error;
+    const [{ data: days }, { data: activities }, { data: reservations }, { data: files }] = results;
 
     const baseTripPlan = buildTripPlan(
       trip,
@@ -926,7 +900,6 @@ export const useItineraryStore = create<Store>((set, get) => {
       // Only the owner uploads the items that lived on this device before the sync existed.
       canUpload: Boolean(userId) && trip.user_id === userId,
     });
-    shoppingTableMissing = !shopping.remote;
     // Never throws: a missing table or a failed query must not stop the trip from opening.
     const memories = await loadTripMemories({ client: supabase as never, tripId: baseTripPlan.id, cached: cachedTrip?.memories });
     const tripPlan: TripPlan = normalizeTripPlan({
@@ -936,6 +909,122 @@ export const useItineraryStore = create<Store>((set, get) => {
       packing,
       memories: memories.memories,
     });
+    return { tripPlan, shoppingRemote: shopping.remote };
+  };
+
+  let allTripsCachedAt = 0;
+
+  /**
+   * Saves every listed trip on this device, not only the open one, so any of them opens without a
+   * connection or a working session. Skipped while edits wait to sync: a server copy would hide
+   * them in the cache until they are sent.
+   */
+  const cacheAllTrips = async (tripRows: TripDb[]) => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId || !isOnline() || Date.now() - allTripsCachedAt < ALL_TRIPS_CACHE_INTERVAL_MS) return;
+      if ((await countPendingOfflineMutations()) > 0) return;
+      allTripsCachedAt = Date.now();
+
+      // One trip at a time keeps the load on the database and the device low.
+      for (const row of tripRows) {
+        if (getCurrentUserId() !== userId || !isOnline()) return;
+        // The open trip is saved by every change made to it.
+        if (row.id === get().activeTrip?.id) continue;
+        try {
+          const { tripPlan } = await loadTripPlan(row, userId);
+          await queueCacheWrite(async () => {
+            // Signed out or deleted meanwhile: nothing to keep. Opened meanwhile: its own saves are newer.
+            if (getCurrentUserId() !== userId || !get().trips.some((summary) => summary.id === tripPlan.id)) return;
+            if (tripPlan.id === get().activeTrip?.id) return;
+            const cache = await loadOfflineTripCache(userId);
+            await saveOfflineTripCache(userId, {
+              trips: cache?.trips ?? get().trips,
+              tripPlans: { ...(cache?.tripPlans ?? {}), [tripPlan.id]: tripPlan },
+              latestTripId: cache?.latestTripId ?? null,
+              cachedAt: Date.now(),
+            });
+          });
+        } catch (error) {
+          console.error("Plania: caching trip failed", row.id, error);
+        }
+      }
+    } catch (error) {
+      console.error("Plania: caching trips failed", error);
+    }
+  };
+
+    /**
+     * `sessionRefreshed`: the session was already refreshed for this trip. `requestedTripId`: the
+     * trip a URL asked for, when this call is the selection standing in for it.
+     */
+    const fetchFreshTrip = async (tripId?: string, options: { sessionRefreshed?: boolean; requestedTripId?: string } = {}): Promise<void> => {
+      const userId = getCurrentUserId();
+    let tripQuery = supabase.from("trips").select("*");
+    if (tripId) {
+      tripQuery = tripQuery.eq("id", tripId);
+    } else if (userId) {
+      tripQuery = tripQuery.eq("user_id", userId);
+    }
+
+    const { data: ownTrips, error } = await tripQuery;
+    if (error) throw error;
+    let trips = ownTrips;
+    if (!tripId && userId && (!trips || trips.length === 0)) {
+      // An account with no trips of its own opens the ones shared with it. Only trip_shares
+      // counts: RLS would also let it read trips that merely have an open share link.
+      const { data: shares, error: sharesError } = await supabase.from("trip_shares").select("trip_id").eq("shared_with", userId);
+      if (sharesError) throw sharesError;
+      const sharedIds = (shares ?? []).map((share) => String((share as { trip_id: string }).trip_id));
+      if (sharedIds.length > 0) {
+        const { data: sharedTrips, error: sharedError } = await supabase.from("trips").select("*").in("id", sharedIds);
+        if (sharedError) throw sharedError;
+        trips = sharedTrips;
+      }
+    }
+
+      if (!trips || trips.length === 0) {
+      if (tripId) {
+        // RLS answers a request made with a stale session with no rows, not an error, so an
+        // empty answer is not yet proof the trip is gone: refresh the session and ask once more.
+        if (!options.sessionRefreshed && userId) {
+          const { error: refreshError } = await supabase.auth.refreshSession();
+          if (!refreshError) return fetchFreshTrip(tripId, { sessionRefreshed: true });
+        }
+        // A trip this device has seen opens from its cached copy rather than being swapped for another.
+        if (userId && (await loadOfflineTripCache(userId))?.tripPlans?.[tripId]) return hydrateFromCache(tripId);
+        // A trip asked for by id (a URL) that is gone or not shared opens the one the selection would pick.
+        return fetchFreshTrip(undefined, { requestedTripId: tripId });
+      }
+      // Nothing loaded at all for a trip URL: say so instead of leaving the page empty.
+      set({
+        activeTrip: null,
+        activeDayId: "",
+        loading: false,
+        hasFetched: true,
+        ...(options.requestedTripId ? { error: TRIP_UNAVAILABLE_ERROR } : {}),
+      });
+      return;
+    }
+
+    const availableTrips = (trips ?? []) as TripDb[];
+    const selectedTripId = tripId ?? resolveTripSelection({
+      current_date: getCurrentDateString(),
+      trips: availableTrips
+        .filter((trip) => Boolean(trip.start_date && trip.end_date))
+        .map((trip) => ({
+          id: String(trip.id),
+          name: String(trip.name),
+          start_date: String(trip.start_date),
+          end_date: String(trip.end_date),
+          is_favorite: Boolean(trip.is_favorite),
+          created_at: trip.created_at ?? "",
+        })),
+    }).selected_trip_id;
+
+    const trip = availableTrips.find((item) => item.id === selectedTripId) ?? availableTrips[0];
+    const { tripPlan, shoppingRemote } = await loadTripPlan(trip, userId);
+    shoppingTableMissing = !shoppingRemote;
 
     set((state) => {
       const nextTrips = sortTripSummariesForUi(
@@ -1387,6 +1476,7 @@ export const useItineraryStore = create<Store>((set, get) => {
 
         set({ trips, error: null, hasFetched: true, loading: false });
         await persistCacheFromState();
+        void cacheAllTrips((data ?? []) as TripDb[]);
       } catch (error) {
         console.error("Plania: fetchAllTrips error", error);
         await hydrateFromCache();
@@ -1414,6 +1504,7 @@ export const useItineraryStore = create<Store>((set, get) => {
       } catch (error) {
         console.error("Plania: fetchActiveTrip error", error);
         await hydrateFromCache(resolvedTripId);
+        if (resolvedTripId && !get().activeTrip) set({ error: TRIP_UNAVAILABLE_ERROR });
       }
     },
 
